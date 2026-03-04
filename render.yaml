@@ -1,0 +1,21 @@
+# Render Blueprint - API + Worker. Set secret env vars in Dashboard.
+services:
+  - type: web
+    name: postsnap-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_WORKER_IN_PROCESS
+        value: "false"
+  - type: worker
+    name: postsnap-worker
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:worker
+    numInstances: 2

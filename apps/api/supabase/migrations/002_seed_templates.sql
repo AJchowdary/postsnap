@@ -1,0 +1,28 @@
+-- Seed templates (id, business_type, title, description, default_overlay_text)
+INSERT INTO templates (id, business_type, title, description, default_overlay_text) VALUES
+  ('auto', 'restaurant', 'Auto', 'Auto picks the best style for this photo.', NULL),
+  ('today-special', 'restaurant', 'Today''s Special', 'Daily special or chef pick', 'Today''s Special'),
+  ('new-item', 'restaurant', 'New Item', 'New menu item', 'New'),
+  ('behind-scenes', 'restaurant', 'Behind the Scenes', 'Kitchen or team at work', 'Behind the Scenes'),
+  ('promo', 'restaurant', 'Promo', 'Promotion or offer', 'Promo'),
+  ('auto', 'salon', 'Auto', 'Auto picks the best style.', NULL),
+  ('before-after', 'salon', 'Before & After', 'Transformation', 'Before & After'),
+  ('new-look', 'salon', 'New Look', 'Fresh style', 'New Look'),
+  ('behind-scenes', 'salon', 'Behind the Scenes', 'Salon life', 'Behind the Scenes'),
+  ('promo', 'salon', 'Promo', 'Promotion', 'Promo'),
+  ('auto', 'retail', 'Auto', 'Auto picks the best style.', NULL),
+  ('new-arrival', 'retail', 'New Arrival', 'New stock', 'New Arrival'),
+  ('sale', 'retail', 'Sale', 'Discount or sale', 'Sale'),
+  ('behind-scenes', 'retail', 'Behind the Scenes', 'Store life', 'Behind the Scenes'),
+  ('promo', 'retail', 'Promo', 'Promotion', 'Promo'),
+  ('auto', 'gym', 'Auto', 'Auto picks the best style.', NULL),
+  ('transformation', 'gym', 'Transformation', 'Member transformation', 'Transformation'),
+  ('new-class', 'gym', 'New Class', 'New class or schedule', 'New Class'),
+  ('behind-scenes', 'gym', 'Behind the Scenes', 'Gym life', 'Behind the Scenes'),
+  ('promo', 'gym', 'Promo', 'Promotion', 'Promo'),
+  ('auto', 'cafe', 'Auto', 'Auto picks the best style.', NULL),
+  ('today-special', 'cafe', 'Today''s Special', 'Daily special', 'Today''s Special'),
+  ('new-item', 'cafe', 'New Item', 'New drink or food', 'New'),
+  ('behind-scenes', 'cafe', 'Behind the Scenes', 'Cafe atmosphere', 'Behind the Scenes'),
+  ('promo', 'cafe', 'Promo', 'Promotion', 'Promo')
+ON CONFLICT (id, business_type) DO NOTHING;

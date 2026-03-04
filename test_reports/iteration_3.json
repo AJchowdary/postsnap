@@ -1,0 +1,86 @@
+{
+  "summary": "Frontend testing of PostSnap dark theme redesign (FinGuru-style). All core auth flows tested: welcome → register → onboarding → tabs (create), welcome → login → tabs/onboarding, back button, session restore, and unauthenticated redirect. Found and fixed 1 critical bug: Toast notifications not visible on auth/welcome screens. All 11 feature checks from the review request passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Apple social icon on Welcome screen",
+        "issue": "Apple icon uses 🍎 (food emoji) instead of Apple brand logo symbol. Looks like a food apple rather than the Apple brand. Minor visual polish issue.",
+        "testID": "none",
+        "priority": "LOW"
+      },
+      {
+        "component": "Welcome screen on small viewports (375x667)",
+        "issue": "On very small screens (iPhone SE, 375x667), the PostSnap gradient name at the top is visible but the hero image feels cramped. At 390x844 (iPhone 14) all elements are well spaced and visible. Not blocking but small viewports may feel tight.",
+        "testID": "none",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Toast on auth screen",
+        "issue": "FIXED: Toast component was only rendered in (tabs)/_layout.tsx. Error messages from auth.tsx (invalid credentials, empty form) were silently dropped - no user feedback. Fixed by adding GlobalToast component to root _layout.tsx.",
+        "affected_testIDs": ["auth-submit", "toast-message"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Welcome",
+        "issues": [
+          "Dark background #0d0d12 renders correctly ✓",
+          "PostSnap gradient name (pink→orange) visible ✓",
+          "Hero image relevant to social media app ✓",
+          "Sign Up gradient button, Log In outlined button both correct ✓",
+          "Background blobs (purple top, pink bottom) visible ✓",
+          "Social icons row (Apple, Google, Facebook) visible ✓"
+        ]
+      },
+      {
+        "screen": "Auth (login/register)",
+        "issues": [
+          "Dark background with blobs ✓",
+          "Back button navigates to welcome ✓",
+          "Login: 'Welcome Back to PostSnap', Forgot password? link, gradient Log In button ✓",
+          "Register: 'Set up your PostSnap', email/password fields, gradient Create Account button ✓",
+          "Footer link switches between login/register modes ✓",
+          "Toast now visible for validation errors after fix ✓"
+        ]
+      },
+      {
+        "screen": "Tab bar",
+        "issues": [
+          "Dark #13131c background ✓",
+          "Create tab shows pink/orange gradient active icon ✓",
+          "4 tabs: Create, History, Home, Settings ✓"
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/frontend/app/_layout.tsx (modified - GlobalToast fix)"
+  ],
+  "action_items": [
+    "FIXED: Added GlobalToast to root _layout.tsx so Toast notifications are visible on auth/welcome/onboarding screens",
+    "LOW: Replace Apple 🍎 emoji in welcome.tsx SocialBtn with proper Apple SF Symbol or an SVG icon for brand accuracy",
+    "LOW: Consider testing welcome screen layout on very small viewports (375x667) to ensure PostSnap header isn't cramped"
+  ],
+  "critical_code_review_comments": [
+    "FIXED: Toast component was only in (tabs)/_layout.tsx — any showToast() call from auth.tsx, welcome.tsx, or onboarding.tsx was silently swallowed. Added GlobalToast to root layout to make toasts globally available."
+  ],
+  "updated_files": [
+    "/app/frontend/app/_layout.tsx"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "95%"
+  },
+  "seed_data_creation": "Created multiple test users during testing (logintest_*@postsnap.test, session_*@postsnap.test, returning_*@postsnap.test) - registered but can be cleaned up",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Auth flow: /welcome → /auth?mode=register → /onboarding → /(tabs)/create. Session restore: / reads token, if valid → /(tabs)/create, if not → /welcome. Toast now works on all screens via GlobalToast in root _layout.tsx. Tab bar testID attributes still missing (reported in iteration_2). Mocked APIs: /api/generate/caption (MockAI), /api/posts/:id/publish (MetaProvider stub).",
+  "rca_of_issue": "Toast Bug RCA: Toast component (<Toast toast={toast} onHide={hideToast} />) was only mounted inside (tabs)/_layout.tsx. The Zustand store's showToast() updates global state correctly, but since no Toast component was mounted outside the tabs layout, calls from auth.tsx triggered empty re-renders with no visible output. Fix: added GlobalToast() functional component (subscribes to useAppStore) as a sibling of <Stack> in root _layout.tsx, so it's always mounted regardless of current route."
+}
