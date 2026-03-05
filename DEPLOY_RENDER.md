@@ -20,11 +20,7 @@ Backend (Node/Express API) and worker run as **separate Render services**. No se
    - **Health Check Path:** `/api/health`
    - **Instance type:** Free or paid per your needs.
 
-4. **Environment variables** (see “Required env vars” below). Add at least:
-   - `NODE_ENV=production`
-   - `PORT` (Render sets this automatically; your app reads `process.env.PORT`; default 10000)
-   - Supabase, CORS, Meta, `TOKEN_ENCRYPTION_KEY`, `PUBLIC_APP_URL`
-   - **`RUN_WORKER_IN_PROCESS=false`** so this service does not run the job loop (workers run separately).
+4. **Environment variables** (see “Required env vars” below). Include Supabase, CORS, Meta, `TOKEN_ENCRYPTION_KEY`, `PUBLIC_APP_URL`. By default the API **does not** run the worker or scheduler in-process (no need to set `RUN_WORKER_IN_PROCESS`; it defaults to false).
 
 5. **Deploy.** After deploy, note the service URL (e.g. `https://postsnap-api.onrender.com`).
 
@@ -97,7 +93,7 @@ Set these in Render → Service → Environment. Never commit real values.
 - Build: `npm ci && npm run build`  
 - Start: `npm run start`  
 - Health check path: `/api/health`  
-- Env: `RUN_WORKER_IN_PROCESS=false` + all required vars above  
+- Env: All required vars (worker/scheduler off by default; do not run on API)  
 
 **Worker (Background Worker)**  
 - Root directory: `apps/api`  

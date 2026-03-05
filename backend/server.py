@@ -1,8 +1,10 @@
 """
-PostSnap Python Proxy
+PostSnap Python Proxy — DEV SHIM ONLY. DO NOT DEPLOY TO PRODUCTION.
+
 Forwards all /api/* requests to the Node.js API running on port 4001.
-This keeps the existing supervisor/nginx configuration intact while
-allowing the main backend to run as a Node.js/Express service.
+Use only for local/dev setups that expect a Python entrypoint.
+Production: deploy the Node/Express API (apps/api) directly with strict CORS;
+do not use this proxy (it uses wildcard CORS and is not for production).
 """
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware

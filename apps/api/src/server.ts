@@ -36,7 +36,7 @@ export function createApp() {
   app.get('/api/health', (_req, res) =>
     res.json({
       status: 'ok',
-      service: 'quickpost-node-api',
+      service: 'api',
       version: process.env.RENDER_GIT_COMMIT || process.env.VERSION || '1.0.0',
       time: new Date().toISOString(),
     })

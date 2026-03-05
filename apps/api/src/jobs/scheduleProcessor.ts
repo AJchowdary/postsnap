@@ -79,8 +79,8 @@ export async function processScheduledPosts() {
 }
 
 export function startScheduler() {
-  if (!config.schedulingEnabled) {
-    logger.info('Schedule processor disabled (SCHEDULING_ENABLED not set)');
+  if (!config.runSchedulerInProcess || !config.schedulingEnabled) {
+    logger.info('Schedule processor disabled (RUN_SCHEDULER_IN_PROCESS or SCHEDULING_ENABLED not set).');
     return;
   }
   logger.info('Schedule processor started (30s interval)');

@@ -2,7 +2,7 @@
 
 Deploy the API and worker as **separate services** so the worker can scale independently and failures are isolated.
 
-**Order:** DB/migrations first → API → Worker → Frontend.
+**Go-live order:** Supabase migrations → API (Web Service) → Worker (Background Worker, 2 instances) → Frontend.
 
 ---
 
@@ -37,7 +37,8 @@ Set these in your host (e.g. Railway, Render, Fly.io, or your own server). **Nev
 | `GOOGLE_SERVICE_ACCOUNT_KEY_PATH` | If Android IAP | Path to JSON key for Play API |
 | `STORAGE_BUCKET` | Optional | Supabase bucket name (default `post-images`) |
 | `PUBLISH_ENABLED` | Optional | Set to `false` to disable publishing (kill switch); default `true` |
-| `RUN_WORKER_IN_PROCESS` | Optional | Set to `false` on API service when running separate workers (Render); default `true` |
+| `RUN_WORKER_IN_PROCESS` | Optional | Set to `true` only if running worker inside API (e.g. single-box dev); **default `false`**. On Render API service leave false; run separate worker(s). |
+| `RUN_SCHEDULER_IN_PROCESS` | Optional | Set to `true` only if running scheduler inside API; **default `false`**. Do not run scheduler on production API. |
 | `SENTRY_DSN` | Optional | Sentry DSN for error monitoring (API + worker) |
 
 At startup, the API runs **production env validation** and exits with a clear error if any of the above required vars are missing.
@@ -53,19 +54,21 @@ At startup, the API runs **production env validation** and exits with a clear er
 
 1. **Service 1 — API:**  
    - Start command: `node dist/index.js` (or `npm start`).  
-   - Expose `PORT` (e.g. 4000) over HTTPS (use a reverse proxy / load balancer for TLS).
+   - Set **`RUN_WORKER_IN_PROCESS=false`** (default). Do **not** set `RUN_SCHEDULER_IN_PROCESS`; scheduler is disabled on API.  
+   - Expose `PORT` over HTTPS (reverse proxy / load balancer).  
+   - Health check: `GET /api/health` → 200.
 
 2. **Service 2 — Workers:**  
-   - Start command: `node dist/jobs/workerProcess.js` (or `npm run worker` from `apps/api`).  
-   - Run **at least 2 worker instances** so one can process while the other claims the next job. No HTTP port needed.
+   - Start command: `node dist/jobs/workerProcess.js` (or `npm run start:worker` from `apps/api`).  
+   - Run **at least 2 worker instances**. No HTTP port needed.
 
-The API process (`index.ts`) also starts one in-process worker; for production scale, run dedicated worker processes and optionally disable the in-process worker in the API (or run API without workers and only run workerProcess).
+By default the API does **not** run the worker or scheduler in-process; run a separate worker service (e.g. on Render).
 
 ---
 
 ## 3. Health checks
 
-- **API:** `GET /api/health` → 200 with `{ "status": "ok" }`. Use this for load balancer or orchestrator health checks.
+- **API:** `GET /api/health` → 200 with `{ "status": "ok", "service": "api", "version": "...", "time": "..." }`. No auth. Use for Render health check path `/api/health`.
 - **Worker:** No HTTP. Rely on process liveness; if the process exits, restart it.
 
 ---

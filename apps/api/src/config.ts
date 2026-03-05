@@ -54,6 +54,10 @@ export const config = {
   regenLimitPaidPerDay: 10,
   /** v1: scheduling disabled; no scheduled_at column. Set SCHEDULING_ENABLED=true to enable. */
   schedulingEnabled: process.env.SCHEDULING_ENABLED === 'true',
+  /** When true, API process runs the job worker loop (default false for Render; run separate worker service). */
+  runWorkerInProcess: process.env.RUN_WORKER_IN_PROCESS === 'true',
+  /** When true and schedulingEnabled, API process runs the schedule processor (default false; do not run in prod API). */
+  runSchedulerInProcess: process.env.RUN_SCHEDULER_IN_PROCESS === 'true',
   // Meta OAuth (Step 4). In production, required for social connect.
   metaAppId: optional('META_APP_ID', ''),
   metaAppSecret: optional('META_APP_SECRET', ''),

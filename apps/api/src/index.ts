@@ -22,11 +22,15 @@ async function main() {
       logger.info(`DB: Supabase | AI provider: ${config.aiProvider}`);
     });
 
-    if (process.env.RUN_WORKER_IN_PROCESS !== 'false') {
+    if (config.runWorkerInProcess) {
       startWorker();
-      startScheduler();
+      if (config.runSchedulerInProcess && config.schedulingEnabled) {
+        startScheduler();
+      } else {
+        logger.info('Scheduler disabled (RUN_SCHEDULER_IN_PROCESS or SCHEDULING_ENABLED not set).');
+      }
     } else {
-      logger.info('In-process worker disabled (RUN_WORKER_IN_PROCESS=false); run separate worker(s).');
+      logger.info('In-process worker disabled (default); run separate worker(s) (e.g. npm run start:worker).');
     }
   } catch (err) {
     captureException(err);

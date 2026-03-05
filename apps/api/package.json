@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@sentry/node": "^8.0.0",
-    "@sentry/node": "^8.0.0",
     "@supabase/supabase-js": "^2.47.10",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
