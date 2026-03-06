@@ -2,9 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { getSupabase } from '../db/supabaseClient';
 import { UnauthorizedError } from '../utils/errors';
 
-export interface AuthRequest extends Request {
-  userId?: string;
-}
+/** Request with optional userId set by authenticate middleware. Extends Express Request (headers, body, params, query). */
+export type AuthRequest = Request & { userId?: string };
 
 async function verifySupabaseToken(token: string): Promise<string> {
   const { data: { user }, error } = await getSupabase().auth.getUser(token);

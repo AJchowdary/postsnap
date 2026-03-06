@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { setupExpressErrorHandler } from '@sentry/node';
@@ -33,7 +33,7 @@ export function createApp() {
   );
   app.use(express.json({ limit: '2mb' }));
 
-  app.get('/api/health', (_req, res) =>
+  app.get('/api/health', (_req: Request, res: Response) =>
     res.json({
       status: 'ok',
       service: 'api',
@@ -41,14 +41,14 @@ export function createApp() {
       time: new Date().toISOString(),
     })
   );
-  app.get('/api/', (_req, res) =>
+  app.get('/api/', (_req: Request, res: Response) =>
     res.json({ message: 'Quickpost Node API v1.0', status: 'running' })
   );
 
   app.use('/api/v1', routes);
   app.use('/api', routes);
 
-  app.use((_req, res) => res.status(404).json({ error: true, message: 'Not found' }));
+  app.use((_req: Request, res: Response) => res.status(404).json({ error: true, message: 'Not found' }));
   if (process.env.SENTRY_DSN) {
     setupExpressErrorHandler(app);
   }

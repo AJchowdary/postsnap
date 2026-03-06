@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { ConnectSocialSchema } from '../schemas/account';
@@ -86,7 +86,7 @@ router.get('/meta/callback', asyncHandler(async (req: AuthRequest, res: Response
 }));
 
 /** Local OAuth success page (no auth). Shown when PUBLIC_APP_URL is localhost or unset. */
-router.get('/oauth/success', (_req, res: Response) => {
+router.get('/oauth/success', (_req: Request, res: Response) => {
   const platform = (typeof _req.query.platform === 'string' ? _req.query.platform : '') || 'facebook/instagram';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>OAuth success</title></head><body style="font-family:sans-serif;max-width:480px;margin:2rem auto;padding:1rem;">
 <h1>Connected</h1>
@@ -99,7 +99,7 @@ router.get('/oauth/success', (_req, res: Response) => {
 });
 
 /** Local OAuth error page (no auth). Shown when PUBLIC_APP_URL is localhost or unset. */
-router.get('/oauth/error', (_req, res: Response) => {
+router.get('/oauth/error', (_req: Request, res: Response) => {
   const reason = (typeof _req.query.reason === 'string' ? _req.query.reason : '') || 'unknown';
   const code = (typeof _req.query.code === 'string' ? _req.query.code : '') || '';
   const nextSteps = getNextStepsForReason(reason, code);
