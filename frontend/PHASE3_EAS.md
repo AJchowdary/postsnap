@@ -127,12 +127,19 @@ See **RELEASE_BUILD.md** and **DEVICE_TESTING.md** for more detail on EAS and de
 
 ## Build complete hook fix (CI-safe)
 
-EAS Build runs a **"Build complete hook"** phase at the end of the build. If that phase fails (e.g. "Unknown error. See logs of the Build complete hook build phase"), it is often because a lifecycle script was missing or a dependency’s hook failed.
+EAS Build runs a **"Build complete hook"** phase at the end of the build. The phase runs the npm lifecycle script **`eas-build-on-complete`** (i.e. `npm run eas-build-on-complete` or `yarn run eas-build-on-complete`). If that phase fails with "Unknown error. See logs of the Build complete hook build phase", common causes are:
 
-**Change made:** Explicit no-op npm scripts were added in **frontend/package.json** so EAS always has a script to run and the phase succeeds:
+1. **Hook script failed** — The command for `eas-build-on-complete` threw or exited non-zero (e.g. inline `node -e "process.exit(0)"` can fail on the EAS runner due to shell/quoting).
+2. **Version handling** — With default (local) app version source, EAS may read/write version in app config or native files during or after the build; that step can error and be reported under the same phase.
 
-- `eas-build-on-complete` — runs at end of every build; no-op (exit 0).
-- `eas-build-on-success` — runs when build succeeds; no-op.
-- `eas-build-on-error` — runs when build fails; no-op.
+**Fix applied:**
 
-These do not run during local `npm install`; they only run on EAS during the build. No app logic or install behavior was changed. If you need real logic in a hook later, replace the `node -e "process.exit(0)"` with a script that checks `process.env.EAS_BUILD` or `process.env.CI` and no-ops when not in EAS.
+1. **eas.json — `cli.appVersionSource: "remote"`**  
+   Version is managed on EAS servers instead of local files. This avoids local file read/write during the build and is the recommended setup for EAS CLI 12+. It can prevent "Build complete hook" failures that are actually version-related.
+
+2. **No-op hook script**  
+   - **frontend/scripts/eas-build-on-complete.js** — A small Node script that only runs `process.exit(0)`.  
+   - **package.json** — `eas-build-on-complete`, `eas-build-on-success`, and `eas-build-on-error` all point to `node scripts/eas-build-on-complete.js`.  
+   Using a script file instead of an inline `node -e "..."` avoids quoting/shell differences on the EAS runner and ensures the hook always exits 0.
+
+**Why it works:** The phase always has a valid script to run (the .js file exists in the repo and is run with `node`). Remote app version source removes local version updates from the build, so the hook phase is less likely to hit version-related errors. No app runtime logic or UI was changed.

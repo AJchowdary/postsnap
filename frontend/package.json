@@ -15,9 +15,9 @@
     "build:android:prod": "eas build --platform android --profile production",
     "build:ios:prod": "eas build --platform ios --profile production",
     "start:dev-client": "expo start --dev-client",
-    "eas-build-on-complete": "node -e \"process.exit(0)\"",
-    "eas-build-on-success": "node -e \"process.exit(0)\"",
-    "eas-build-on-error": "node -e \"process.exit(0)\""
+    "eas-build-on-complete": "node scripts/eas-build-on-complete.js",
+    "eas-build-on-success": "node scripts/eas-build-on-complete.js",
+    "eas-build-on-error": "node scripts/eas-build-on-complete.js"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",

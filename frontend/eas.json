@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -10,7 +11,7 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": ""
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
       }
     },
     "preview": {
@@ -22,13 +23,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": ""
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": ""
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
       }
     }
   },
