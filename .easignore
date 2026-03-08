@@ -1,0 +1,10 @@
+# Ignore everything by default (monorepo-safe)
+*
+
+# Include the Expo mobile app
+!frontend/**
+
+# Include shared workspace files if your Expo app depends on them
+!package.json
+!package-lock.json
+!packages/**
