@@ -1,5 +1,5 @@
 /**
- * OpenAIProvider – gpt-5-mini (configurable) for captions; gpt-image-1 / gpt-image-1-mini for image editing.
+ * OpenAIProvider – gpt-4o-mini (configurable) for captions; gpt-image-1 / gpt-image-1-mini for image editing.
  * Image edit uses SDK images.edit with proper input (bytes/URL), optional mask, timeout, and retry classification.
  */
 import { IAIProvider, CaptionParams, CaptionResult, ImageParams } from './IAIProvider';

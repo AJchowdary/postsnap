@@ -7,6 +7,7 @@ import { initSentry, captureException } from '../utils/sentry';
 import { getDb } from '../db';
 import { startWorker } from './generateQueue';
 import { config } from '../config';
+import { logger } from '../utils/logger';
 
 initSentry({
   environment: config.nodeEnv,
@@ -14,13 +15,13 @@ initSentry({
 });
 
 async function main() {
-  console.log('[worker] starting...');
+  logger.info('[worker] starting...');
   await getDb();
   startWorker();
 }
 
 main().catch((err) => {
   captureException(err);
-  console.error('[worker] fatal:', err);
+  logger.error('[worker] fatal', { error: (err as Error).message });
   process.exit(1);
 });

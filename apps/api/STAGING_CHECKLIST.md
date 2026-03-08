@@ -51,11 +51,11 @@ node -r ts-node/register src/scripts/cleanupSeed.ts
 
 ## Confirmation items
 
-### [ ] 1. Caption model is gpt-5-mini
+### [ ] 1. Caption model is gpt-4o-mini
 
-- **Where:** `config.ts` → `openaiCaptionModel` default `'gpt-5-mini'`; overridable via `OPENAI_CAPTION_MODEL`.
+- **Where:** `config.ts` → `openaiCaptionModel` default `'gpt-4o-mini'`; overridable via `OPENAI_CAPTION_MODEL`.
 - **Code:** `apps/api/src/config.ts`, `apps/api/src/providers/ai/openAIProvider.ts` (uses `config.openaiCaptionModel` in `generateCaption`).
-- **Verify:** Set `OPENAI_CAPTION_MODEL=gpt-5-mini` in staging `.env` (or leave unset for default). No code change needed.
+- **Verify:** Set `OPENAI_CAPTION_MODEL=gpt-4o-mini` in staging `.env` (or leave unset for default). No code change needed.
 
 ### [ ] 2. Default image model is gpt-image-1-mini; premium is gpt-image-1
 
@@ -105,7 +105,7 @@ node -r ts-node/register src/scripts/cleanupSeed.ts
 
 | Item              | Config / location                          | Status |
 |-------------------|--------------------------------------------|--------|
-| Caption model     | `OPENAI_CAPTION_MODEL` → gpt-5-mini        | [ ]    |
+| Caption model     | `OPENAI_CAPTION_MODEL` → gpt-4o-mini       | [ ]    |
 | Image default     | `OPENAI_IMAGE_MODEL_DEFAULT` → gpt-image-1-mini | [ ]    |
 | Image premium     | `OPENAI_IMAGE_MODEL_PREMIUM` → gpt-image-1 | [ ]    |
 | Caption JSON      | `parseCaptionJson` + `response_format: json_object` | [ ]    |

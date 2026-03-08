@@ -1,7 +1,10 @@
 """
 PostSnap backend API tests - v2
 Covers: auth, account, posts, generate, social, subscription
-Uses JWT auth for protected routes
+Uses JWT auth for protected routes.
+
+Auth: POST /api/auth/register (201) and POST /api/auth/login (200) return
+{ "user": { "id", "email" }, "token" }. GET /api/auth/me returns { "userId" }.
 """
 import pytest
 import requests

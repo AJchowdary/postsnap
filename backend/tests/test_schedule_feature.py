@@ -6,6 +6,9 @@ Tests for:
 - GET /api/posts?status=scheduled filters correctly
 - Upsert existing draft to scheduled status
 - scheduledAt persists after update
+
+# TODO: UPDATE - API v1 has no scheduled_at column (scheduling disabled by default).
+# These tests may 400 or ignore scheduledAt until SCHEDULING_ENABLED and migration are in place.
 """
 import pytest
 import requests

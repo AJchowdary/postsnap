@@ -26,7 +26,7 @@ export const config = {
   supabaseUrl: required('SUPABASE_URL'),
   supabaseServiceKey: required('SUPABASE_SERVICE_ROLE_KEY'),
   openaiApiKey: optional('OPENAI_API_KEY', ''),
-  openaiCaptionModel: optional('OPENAI_CAPTION_MODEL', 'gpt-5-mini'),
+  openaiCaptionModel: optional('OPENAI_CAPTION_MODEL', 'gpt-4o-mini'),
   openaiImageModelDefault: optional('OPENAI_IMAGE_MODEL_DEFAULT', 'gpt-image-1-mini'),
   openaiImageModelPremium: optional('OPENAI_IMAGE_MODEL_PREMIUM', 'gpt-image-1'),
   openaiImageEditTimeoutMs: parseInt(optional('OPENAI_IMAGE_EDIT_TIMEOUT_MS', '120000'), 10),

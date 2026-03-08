@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.yourapp.quickpost",
+      "bundleIdentifier": "com.quickpost.app",
       "buildNumber": "1",
       "supportsTablet": false,
       "infoPlist": {
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "package": "com.yourapp.quickpost",
+      "package": "com.quickpost.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -51,7 +51,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#4f46e5"
@@ -65,7 +65,8 @@
       "router": {},
       "eas": {
         "projectId": "ad79d454-b29d-45c8-bd6a-9d3be47cbab7"
-      }
+      },
+      "TODO_BEFORE_PRODUCTION": "If you change from com.quickpost.app, update both ios.bundleIdentifier and android.package and create identifiers in Apple Developer and Play Console. See RELEASE_BUILD.md."
     }
   }
 }

@@ -49,7 +49,7 @@ The same process runs the HTTP server and the in-process job worker (DB-backed q
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server only) |
 | `OPENAI_API_KEY` | OpenAI API key |
-| `OPENAI_CAPTION_MODEL` | Caption model (default: `gpt-5-mini`) |
+| `OPENAI_CAPTION_MODEL` | Caption model (default: `gpt-4o-mini`) |
 | `STORAGE_BUCKET` | Storage bucket name (default: `post-images`) |
 | `CORS_ALLOWLIST` | Comma-separated allowed origins |
 | `PORT` | Server port (default: 4000) |
