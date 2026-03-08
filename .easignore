@@ -1,10 +1,14 @@
-# Ignore everything by default (monorepo-safe)
+# Ignore everything by default
 *
 
-# Include the Expo mobile app
+# Unignore the directory itself, then its contents
+!frontend/
 !frontend/**
 
-# Include shared workspace files if your Expo app depends on them
+# If your app depends on workspace packages, unignore these too
+!packages/
+!packages/**
+
+# If needed for workspace tooling
 !package.json
 !package-lock.json
-!packages/**
