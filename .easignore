@@ -1,14 +1,8 @@
-# Ignore everything by default
-*
-
-# Unignore the directory itself, then its contents
-!frontend/
-!frontend/**
-
-# If your app depends on workspace packages, unignore these too
-!packages/
-!packages/**
-
-# If needed for workspace tooling
-!package.json
-!package-lock.json
+**/node_modules/
+node_modules/
+apps/
+backend/
+memory/
+test_reports/
+.git/
+**/*.log
