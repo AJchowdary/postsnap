@@ -91,3 +91,6 @@ android-sdk/ -e
 *.env.*
 
 .metro-cache/
+
+.metro-cache/
+.expo/
