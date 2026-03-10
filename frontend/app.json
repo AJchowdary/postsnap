@@ -65,8 +65,7 @@
       "router": {},
       "eas": {
         "projectId": "ad79d454-b29d-45c8-bd6a-9d3be47cbab7"
-      },
-      "TODO_BEFORE_PRODUCTION": "If you change from com.quickpost.app, update both ios.bundleIdentifier and android.package and create identifiers in Apple Developer and Play Console. See RELEASE_BUILD.md."
+      }
     }
   }
 }

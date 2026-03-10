@@ -11,6 +11,7 @@ export default function Index() {
   const setAuth = useAppStore((s) => s.setAuth);
   const setBusinessProfile = useAppStore((s) => s.setBusinessProfile);
   const setIsOnboarded = useAppStore((s) => s.setIsOnboarded);
+  const showToast = useAppStore((s) => s.showToast);
   const [checking, setChecking] = useState(true);
   const [route, setRoute] = useState<string | null>(null);
 
@@ -42,6 +43,7 @@ export default function Index() {
           setRoute('/onboarding');
         }
       } catch {
+        showToast('Could not reach server. Please check your connection.', 'error');
         setRoute('/welcome');
       } finally {
         setChecking(false);

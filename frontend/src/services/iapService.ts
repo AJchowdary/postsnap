@@ -10,9 +10,9 @@ import {
 } from './api';
 
 const IOS_PRODUCT_ID =
-  process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID || 'com.postsnap.pro.monthly';
+  process.env.EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID || 'com.quickpost.app.premium.monthly';
 const ANDROID_PRODUCT_ID =
-  process.env.EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID || 'postsnap_pro_monthly';
+  process.env.EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID || 'com.quickpost.app.premium.monthly';
 
 export type IAPResult = { success: true } | { success: false; message: string };
 
@@ -27,7 +27,8 @@ export async function purchaseSubscription(
       'react-native-iap'
     );
     const productId = Platform.OS === 'ios' ? IOS_PRODUCT_ID : ANDROID_PRODUCT_ID;
-    const purchase = await requestSubscription({ sku: productId });
+    const rawPurchase = await requestSubscription({ sku: productId });
+    const purchase = Array.isArray(rawPurchase) ? rawPurchase[0] : rawPurchase;
     if (!purchase) return { success: false, message: 'Purchase was cancelled' };
 
     const transactionId = purchase.transactionId ?? (purchase as any).transactionId;
@@ -52,8 +53,10 @@ export async function purchaseSubscription(
     await verifySubscriptionPurchase(body);
     await onVerifyAndRefresh();
     try {
-      await finishTransaction({ purchase, isConsumable: false });
-    } catch (_) {}
+      await finishTransaction({ purchase: purchase as any, isConsumable: false });
+    } catch (e) {
+      console.warn('finishTransaction error (non-critical):', e);
+    }
     return { success: true };
   } catch (e: any) {
     if (e?.code === 'E_USER_CANCELLED' || e?.message?.includes('cancel')) {
