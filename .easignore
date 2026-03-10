@@ -1,10 +1,9 @@
-*
-!frontend/
-!frontend/**
-!packages/
-!packages/**
-!package.json
+node_modules/
 frontend/node_modules/
+packages/**/node_modules/
 frontend/.metro-cache/
 frontend/.expo/
-packages/**/node_modules/
+apps/
+backend/
+memory/
+test_reports/
