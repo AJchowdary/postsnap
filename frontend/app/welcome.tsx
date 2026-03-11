@@ -3,206 +3,337 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
+  ScrollView,
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, BorderRadius, GradientColors } from '../src/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-const HERO = 'https://static.prod-images.emergentagent.com/jobs/8b3d0938-fc5f-4047-907f-b35f85b7b19e/images/e13497104f07df3e0abe626ed3d71b63d01f0a33e0ec7ad51af21475a9a47fe6.png';
+const FEATURES = [
+  {
+    icon: 'time-outline' as const,
+    title: 'Save Hours Daily',
+    description: 'Post in 2 minutes instead of hours',
+  },
+  {
+    icon: 'flash-outline' as const,
+    title: 'Auto-Post Everywhere',
+    description: 'Instagram, Facebook, Twitter, LinkedIn',
+  },
+  {
+    icon: 'trending-up-outline' as const,
+    title: 'Grow Your Business',
+    description: 'Stay consistent, boost engagement',
+  },
+];
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.root}>
-      {/* Background glow blobs */}
-      <View style={[styles.blob, styles.blobTop]} />
-      <View style={[styles.blob, styles.blobBottom]} />
-
+    <LinearGradient
+      colors={['#eff6ff', '#f5f3ff', '#eef2ff']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.root}
+    >
       <SafeAreaView style={styles.safe}>
-        {/* Top: App name */}
-        <View style={styles.header}>
-          <Text style={styles.welcomeTo}>Welcome to</Text>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Platform badge */}
+          <View style={styles.badge}>
+            <Ionicons name="phone-portrait-outline" size={14} color="#2563eb" />
+            <Text style={styles.badgeText}>Available on iOS & Android</Text>
+          </View>
+
+          {/* Hero headline */}
+          <Text style={styles.headline}>Social Media{'\n'}in 2 Minutes</Text>
+          <Text style={styles.subtitle}>
+            One photo. One line. Auto-posted everywhere.
+            {'\n'}Perfect for busy business owners.
+          </Text>
+
+          {/* CTA Buttons */}
+          <View style={styles.ctaGroup}>
+            <TouchableOpacity
+              onPress={() => router.push('/auth?mode=register')}
+              activeOpacity={0.85}
+              style={styles.primaryBtnWrap}
+              testID="welcome-signup-btn"
+            >
+              <LinearGradient
+                colors={['#2563eb', '#4f46e5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.primaryBtn}
+              >
+                <Text style={styles.primaryBtnText}>Get Started</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/auth?mode=login')}
+              activeOpacity={0.75}
+              style={styles.secondaryBtn}
+              testID="welcome-login-btn"
+            >
+              <Text style={styles.secondaryBtnText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.trialNote}>
+            14-day free trial • No credit card needed
+          </Text>
+
+          {/* Feature cards */}
+          <View style={styles.featuresSection}>
+            {FEATURES.map((f) => (
+              <View key={f.title} style={styles.featureCard}>
+                <LinearGradient
+                  colors={['#dbeafe', '#e0e7ff']}
+                  style={styles.featureIconWrap}
+                >
+                  <Ionicons name={f.icon} size={26} color="#2563eb" />
+                </LinearGradient>
+                <Text style={styles.featureTitle}>{f.title}</Text>
+                <Text style={styles.featureDesc}>{f.description}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Bottom CTA banner */}
           <LinearGradient
-            colors={GradientColors.primary}
+            colors={['#2563eb', '#4f46e5']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.nameGradient}
+            style={styles.ctaBanner}
           >
-            <Text style={styles.appName}>Quickpost</Text>
-          </LinearGradient>
-          <Text style={styles.tagline}>Social content for local businesses</Text>
-        </View>
-
-        {/* Hero image */}
-        <View style={styles.heroContainer}>
-          <Image
-            source={{ uri: HERO }}
-            style={styles.heroImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Bottom action area */}
-        <View style={styles.bottom}>
-          {/* Sign Up — gradient */}
-          <TouchableOpacity
-            onPress={() => router.push('/auth?mode=register')}
-            activeOpacity={0.85}
-            style={styles.signUpWrap}
-            testID="welcome-signup-btn"
-          >
-            <LinearGradient
-              colors={GradientColors.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.signUpBtn}
+            <Text style={styles.ctaBannerTitle}>Ready to Save Time?</Text>
+            <Text style={styles.ctaBannerSub}>
+              Start your 14-day free trial today
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/auth?mode=register')}
+              activeOpacity={0.85}
+              style={styles.ctaBannerBtn}
             >
-              <Text style={styles.signUpText}>Sign Up</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <Text style={styles.ctaBannerBtnText}>Get Started Free</Text>
+              <Ionicons name="arrow-forward" size={18} color="#2563eb" />
+            </TouchableOpacity>
+          </LinearGradient>
 
-          {/* Log In — outlined */}
-          <TouchableOpacity
-            onPress={() => router.push('/auth?mode=login')}
-            activeOpacity={0.75}
-            style={styles.loginBtn}
-            testID="welcome-login-btn"
-          >
-            <Text style={styles.loginText}>Log In to Quickpost</Text>
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+          {/* Footer */}
+          <View style={styles.footer}>
+            <View style={styles.footerLogo}>
+              <LinearGradient
+                colors={['#2563eb', '#4f46e5']}
+                style={styles.footerLogoDot}
+              />
+              <Text style={styles.footerBrand}>Quickpost</Text>
+            </View>
+            <Text style={styles.footerTagline}>
+              Social media made simple for busy business owners.
+            </Text>
           </View>
-
-          {/* Social */}
-          <Text style={styles.continueWith}>Continue with</Text>
-          <View style={styles.socialRow}>
-            <SocialBtn icon="🍎" />
-            <SocialBtn icon="G" isGoogle />
-            <SocialBtn icon="f" isFacebook />
-          </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
-    </View>
-  );
-}
-
-function SocialBtn({ icon, isGoogle, isFacebook }: { icon: string; isGoogle?: boolean; isFacebook?: boolean }) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      style={[styles.socialBtn, isFacebook && { backgroundColor: '#1877f2' }]}
-    >
-      <Text style={[styles.socialIcon, isGoogle && { color: '#ea4335' }, isFacebook && { color: '#fff' }]}>
-        {icon}
-      </Text>
-    </TouchableOpacity>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
-
-  // Background glow blobs
-  blob: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    opacity: 0.18,
-  },
-  blobTop: {
-    backgroundColor: '#8b5cf6',
-    top: -80,
-    right: -60,
-  },
-  blobBottom: {
-    backgroundColor: '#f43f5e',
-    bottom: 80,
-    left: -80,
-    opacity: 0.13,
-  },
-
+  root: { flex: 1 },
   safe: { flex: 1 },
-
-  // Header
-  header: { alignItems: 'center', paddingTop: Spacing.xl, paddingHorizontal: Spacing.xl },
-  welcomeTo: { fontSize: 16, color: Colors.textSecondary, marginBottom: 4 },
-  nameGradient: { borderRadius: 8, paddingHorizontal: 4 },
-  appName: { fontSize: 40, fontWeight: '900', color: Colors.white, letterSpacing: -1 },
-  tagline: { fontSize: 14, color: Colors.textSecondary, marginTop: 8, textAlign: 'center' },
-
-  // Hero
-  heroContainer: {
-    flex: 1,
+  scroll: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
-  },
-  heroImage: {
-    width: width * 0.7,
-    height: width * 0.85,
-    maxHeight: height * 0.38,
   },
 
-  // Bottom CTAs
-  bottom: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xxl,
-    gap: Spacing.md,
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginBottom: 28,
   },
-  signUpWrap: {
-    borderRadius: BorderRadius.full,
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+
+  headline: {
+    fontSize: width > 400 ? 46 : 38,
+    fontWeight: '800',
+    color: '#1e1b4b',
+    textAlign: 'center',
+    letterSpacing: -1,
+    lineHeight: width > 400 ? 52 : 44,
+    marginBottom: 16,
+  },
+  subtitle: {
+    fontSize: 17,
+    color: '#4b5563',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 32,
+    maxWidth: 340,
+  },
+
+  ctaGroup: {
+    width: '100%',
+    maxWidth: 340,
+    gap: 12,
+    marginBottom: 16,
+  },
+  primaryBtnWrap: {
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#f43f5e',
+    shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  signUpBtn: {
-    paddingVertical: 17,
-    alignItems: 'center',
-    borderRadius: BorderRadius.full,
-  },
-  signUpText: { fontSize: 17, fontWeight: '700', color: Colors.white, letterSpacing: 0.2 },
-  loginBtn: {
-    paddingVertical: 17,
-    alignItems: 'center',
-    borderRadius: BorderRadius.full,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.22)',
-  },
-  loginText: { fontSize: 17, fontWeight: '600', color: 'rgba(255,255,255,0.85)', letterSpacing: 0.2 },
-
-  // Divider
-  divider: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginVertical: Spacing.xs },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.12)' },
-  dividerText: { fontSize: 13, color: Colors.textTertiary, fontWeight: '500' },
-
-  // Social
-  continueWith: { textAlign: 'center', fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.lg },
-  socialBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+  primaryBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    paddingVertical: 18,
+    borderRadius: 14,
+    gap: 8,
   },
-  socialIcon: { fontSize: 20, color: Colors.white, fontWeight: '700' },
+  primaryBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  secondaryBtn: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#c7d2fe',
+    backgroundColor: '#fff',
+  },
+  secondaryBtnText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#4f46e5',
+  },
+
+  trialNote: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+
+  featuresSection: {
+    width: '100%',
+    gap: 16,
+    marginBottom: 32,
+  },
+  featureCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  featureIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  featureDesc: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+
+  ctaBanner: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  ctaBannerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  ctaBannerSub: {
+    fontSize: 16,
+    color: '#bfdbfe',
+    marginBottom: 20,
+  },
+  ctaBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  ctaBannerBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+
+  footer: {
+    alignItems: 'center',
+    paddingTop: 8,
+  },
+  footerLogo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  footerLogoDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+  },
+  footerBrand: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1e1b4b',
+  },
+  footerTagline: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
 });
