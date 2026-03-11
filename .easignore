@@ -7,3 +7,8 @@ apps/
 backend/
 memory/
 test_reports/
+.emergent
+**/.emergent
+**/.env
+frontend/.env
+apps/api/.env
