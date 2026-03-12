@@ -36,8 +36,9 @@
         "autoIncrement": true
       },
       "android": {
-        "autoIncrement": true
-      },
+  "autoIncrement": true,
+  "gradleCommand": ":app:bundlePlayRelease"
+},
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com",
         "EXPO_PUBLIC_PRIVACY_URL": "https://quickpost.app/privacy",
