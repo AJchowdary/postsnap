@@ -28,10 +28,7 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -45,7 +42,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Quickpost needs photo access to create social posts",
-          "cameraPermission": "Quickpost needs camera access to take photos for posts"
+          "cameraPermission": "Quickpost needs camera access to take photos for posts",
+          "microphonePermission": false
         }
       ],
       [
@@ -69,3 +67,4 @@
     }
   }
 }
+
