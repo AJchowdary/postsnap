@@ -1,6 +1,6 @@
 /**
- * DB-backed job queue for AI generation and publish. No Redis required.
- * Worker polls pending jobs and processes with retries, hash cache, and regen limits.
+ * DB-backed job queue for AI generation and publish.
+ * Worker polls pending jobs (Postgres `claim_next_job`); optional Redis `job:lock:*` when `REDIS_URL` is set.
  */
 import { getDb } from '../db';
 import { getAIProvider } from '../providers/ai';
@@ -15,6 +15,7 @@ import {
 import { getOverlayText } from '../providers/ai/prompts';
 import { createSignedReadUrl, createSignedReadUrlWithTTL, uploadProcessedImage } from '../services/storageService';
 import { getSupabase } from '../db/supabaseClient';
+import { redisClient } from '../lib/redis';
 import { config } from '../config';
 import { getMetaConnectionOrThrow } from '../services/metaOAuthService';
 import { postToFacebookPage, postToInstagram, isTransientPublishError } from '../providers/posting/metaPostingProvider';
@@ -50,6 +51,17 @@ interface JobRecord {
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [5000, 30000, 120000];
+
+/** Distributed lock TTL so a dead worker’s key expires (Postgres `claim_next_job` is still authoritative). */
+const JOB_LOCK_TTL_SEC = 30 * 60;
+
+async function releaseJobToPending(jobId: string): Promise<void> {
+  const db = await getDb();
+  await db.updateOne('jobs', jobId, {
+    status: 'pending',
+    updated_at: new Date().toISOString(),
+  });
+}
 
 export async function enqueueGeneration(job: GenerationJob): Promise<string> {
   const db = await getDb();
@@ -462,7 +474,35 @@ async function processJob(job: JobRecord): Promise<void> {
 
 export async function runWorkerLoop(): Promise<void> {
   const job = await claimNextPendingJob();
-  if (job) await processJob(job);
+  if (!job) return;
+
+  if (redisClient) {
+    const lockKey = `job:lock:${job.id}`;
+    try {
+      const acquired = await redisClient.set(lockKey, '1', 'EX', JOB_LOCK_TTL_SEC, 'NX');
+      if (acquired !== 'OK') {
+        logger.warn('Job lock not acquired; releasing job to pending', { jobId: job.id });
+        await releaseJobToPending(job.id);
+        return;
+      }
+    } catch (err: any) {
+      logger.warn('Redis job lock error; releasing job to pending', { jobId: job.id, error: err?.message });
+      try {
+        await releaseJobToPending(job.id);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    try {
+      await processJob(job);
+    } finally {
+      await redisClient.del(lockKey).catch(() => {});
+    }
+    return;
+  }
+
+  await processJob(job);
 }
 
 export function startWorker(): void {

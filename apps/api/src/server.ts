@@ -8,6 +8,8 @@ import { requestContext } from './middleware/requestContext';
 import { getCorsAllowlist, config } from './config';
 import { generalApiLimiter } from './middleware/rateLimit';
 import { sendSuccess, sendFail } from './utils/apiResponse';
+import { redisClient } from './lib/redis';
+import { getSupabase } from './db/supabaseClient';
 
 const corsAllowlist = getCorsAllowlist();
 if (config.nodeEnv === 'production' && corsAllowlist.length === 0) {
@@ -50,14 +52,35 @@ export function createApp() {
   );
   app.use(express.json({ limit: '12mb' }));
 
-  app.get('/api/health', (_req: Request, res: Response) =>
+  app.get('/api/health', async (_req: Request, res: Response) => {
+    let redis: 'connected' | 'unavailable' = 'unavailable';
+    let database: 'connected' | 'unavailable' = 'unavailable';
+    try {
+      if (redisClient) {
+        try {
+          const pong = await redisClient.ping();
+          redis = pong === 'PONG' ? 'connected' : 'unavailable';
+        } catch {
+          redis = 'unavailable';
+        }
+      }
+    } catch {
+      redis = 'unavailable';
+    }
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase.from('jobs').select('id').limit(1);
+      database = error ? 'unavailable' : 'connected';
+    } catch {
+      database = 'unavailable';
+    }
     sendSuccess(res, {
       status: 'ok',
-      service: 'api',
-      version: process.env.RENDER_GIT_COMMIT || process.env.VERSION || '1.0.0',
-      time: new Date().toISOString(),
-    })
-  );
+      redis,
+      database,
+      timestamp: new Date().toISOString(),
+    });
+  });
   app.get('/api/', (_req: Request, res: Response) =>
     sendSuccess(res, { message: 'Quickpost Node API v1.0', status: 'running' })
   );

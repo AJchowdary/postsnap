@@ -1,23 +1,30 @@
 import { Request, Response, NextFunction } from 'express';
 import rateLimit, { type Store, MemoryStore, ipKeyGenerator } from 'express-rate-limit';
+import { RedisStore, type RedisReply } from 'rate-limit-redis';
 import { AuthRequest } from './auth';
 import { config } from '../config';
 import { RateLimitError } from '../utils/errors';
+import { redisClient } from '../lib/redis';
+import { logger } from '../utils/logger';
 
-/**
- * Rate limit store. Default: in-memory (single-instance). For multi-instance use Redis + RATE_LIMIT_STORE=redis.
- */
-function getRateLimitStore(): Store {
-  if (config.rateLimitStore === 'memory') {
+function createRateLimitStore(prefix: string): Store {
+  if (!redisClient) {
     return new MemoryStore();
   }
-  if (config.rateLimitStore === 'redis') {
-    return new MemoryStore();
-  }
-  if (config.rateLimitStore === 'supabase') {
-    return new MemoryStore();
-  }
-  return new MemoryStore();
+  const r = redisClient;
+  return new RedisStore({
+    sendCommand: (...args: string[]) => {
+      const [cmd, ...rest] = args;
+      return r.call(cmd, ...rest) as Promise<RedisReply>;
+    },
+    prefix: `rl:${prefix}:`,
+  });
+}
+
+if (redisClient) {
+  logger.info('Rate limiter using Redis store');
+} else {
+  logger.info('Rate limiter using memory store');
 }
 
 function rateLimitNext(message: string) {
@@ -32,7 +39,7 @@ export const authRateLimiter = rateLimit({
   max: config.rateLimitAuthMax,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  store: getRateLimitStore(),
+  store: createRateLimitStore('auth'),
   keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
   message: 'Too many auth attempts. Try again later.',
   handler: rateLimitNext('Too many auth attempts. Try again later.'),
@@ -45,7 +52,7 @@ export const generalApiLimiter = rateLimit({
   max: config.rateLimitGeneralMax,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  store: getRateLimitStore(),
+  store: createRateLimitStore('general'),
   keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
   message: 'Too many requests. Slow down.',
   handler: rateLimitNext('Too many requests. Slow down.'),
@@ -58,7 +65,7 @@ export const aiRateLimiter = rateLimit({
   max: config.rateLimitAiMax,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  store: getRateLimitStore(),
+  store: createRateLimitStore('ai'),
   keyGenerator: (req) => {
     const uid = (req as AuthRequest).userId;
     if (!uid) return ipKeyGenerator(req.ip ?? '');
@@ -75,7 +82,7 @@ export const socialPublishRateLimiter = rateLimit({
   max: config.rateLimitPublishDayMax,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  store: getRateLimitStore(),
+  store: createRateLimitStore('publish'),
   keyGenerator: (req) => {
     const uid = (req as AuthRequest).userId;
     if (!uid) return ipKeyGenerator(req.ip ?? '');
@@ -91,7 +98,7 @@ export const subscriptionRateLimiter = rateLimit({
   max: config.rateLimitSubscriptionMax,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  store: getRateLimitStore(),
+  store: createRateLimitStore('subscription'),
   keyGenerator: (req) => (req as AuthRequest).userId ?? ipKeyGenerator(req.ip ?? ''),
   message: 'Too many subscription requests.',
   handler: rateLimitNext('Too many subscription requests.'),

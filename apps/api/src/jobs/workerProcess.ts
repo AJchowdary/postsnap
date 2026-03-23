@@ -1,7 +1,8 @@
 /**
  * Canonical entrypoint for the DB-backed generation worker.
  * Run with: npm run start:worker (prod) or npm run worker (dev).
- * Safe to run multiple instances (2+); claim_next_job is atomic.
+ * Safe to run multiple instances (2+): Postgres `claim_next_job` is atomic; optional Redis `job:lock:*`
+ * adds a second layer when `REDIS_URL` is set (e.g. multiple Render workers).
  */
 import { initSentry, captureException } from '../utils/sentry';
 import { getDb } from '../db';
