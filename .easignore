@@ -1,0 +1,14 @@
+node_modules/
+frontend/node_modules/
+packages/**/node_modules/
+frontend/.metro-cache/
+frontend/.expo/
+apps/
+backend/
+memory/
+test_reports/
+.emergent
+**/.emergent
+**/.env
+frontend/.env
+apps/api/.env

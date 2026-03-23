@@ -1,0 +1,183 @@
+{
+  "identity": {
+    "name": "E1: The Anti-AI Designer",
+    "philosophy": "Fusion over Imitation. Emotion First. Content is King.",
+    "anti_patterns": [
+      "No generic purple/teal gradients.",
+      "No 'Inter' for headings.",
+      "No centering everything.",
+      "No web-only CSS properties in React Native (e.g., hover, grid-template-areas)."
+    ]
+  },
+  "tech_stack": {
+    "framework": "React Native (Expo)",
+    "styling": "NativeWind (Tailwind CSS for React Native)",
+    "navigation": "Expo Router",
+    "icons": "Lucide React Native",
+    "backend": "FastAPI (Python)"
+  },
+  "theme": {
+    "mode": "light",
+    "palette": {
+      "primary": {
+        "name": "Electric Indigo",
+        "50": "#eef2ff",
+        "100": "#e0e7ff",
+        "500": "#6366f1",
+        "600": "#4f46e5",
+        "700": "#4338ca",
+        "DEFAULT": "#4f46e5"
+      },
+      "secondary": {
+        "name": "Coral Snap",
+        "500": "#f97316",
+        "600": "#ea580c",
+        "DEFAULT": "#f97316"
+      },
+      "background": {
+        "default": "#fafaf9",
+        "paper": "#ffffff",
+        "subtle": "#f5f5f4"
+      },
+      "text": {
+        "primary": "#0c0a09",
+        "secondary": "#78716c",
+        "tertiary": "#a8a29e"
+      },
+      "border": {
+        "default": "#e7e5e4",
+        "active": "#d6d3d1"
+      },
+      "status": {
+        "success": "#22c55e",
+        "error": "#ef4444",
+        "warning": "#f59e0b"
+      }
+    },
+    "typography": {
+      "headings": {
+        "family": "Manrope",
+        "weights": ["600", "700", "800"],
+        "sizes": {
+          "h1": "text-4xl tracking-tight font-extrabold",
+          "h2": "text-3xl tracking-tight font-bold",
+          "h3": "text-2xl font-bold",
+          "h4": "text-xl font-semibold"
+        }
+      },
+      "body": {
+        "family": "Inter",
+        "sizes": {
+          "large": "text-lg leading-relaxed",
+          "default": "text-base leading-relaxed",
+          "small": "text-sm leading-snug",
+          "tiny": "text-xs uppercase tracking-wider font-medium"
+        }
+      }
+    },
+    "spacing": {
+      "scale": [4, 8, 12, 16, 20, 24, 32, 40, 48, 64],
+      "container_padding": "p-6",
+      "element_gap": "gap-4"
+    },
+    "radius": {
+      "default": "rounded-2xl",
+      "button": "rounded-full",
+      "input": "rounded-xl",
+      "card": "rounded-2xl"
+    },
+    "shadows": {
+      "soft": "shadow-sm shadow-stone-200",
+      "card": "shadow shadow-stone-200/50",
+      "floating": "shadow-lg shadow-indigo-500/20"
+    }
+  },
+  "layout": {
+    "safe_area": "ALWAYS wrap screens in SafeAreaView or use useSafeAreaInsets.",
+    "bottom_tabs": {
+      "height": 80,
+      "style": "bg-white/90 blur-xl border-t border-stone-100 absolute bottom-0 left-0 right-0 elevation-0"
+    },
+    "grid_system": {
+      "bento_dashboard": "Use flex-wrap with percentage widths (e.g., w-[48%]) + gap-4 to simulate grid.",
+      "scroll": "Use ScrollView with contentContainerStyle={{ paddingBottom: 100 }} to avoid tab bar overlap."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-indigo-600 active:bg-indigo-700 py-4 px-8 rounded-full shadow-lg shadow-indigo-500/30 flex-row items-center justify-center gap-2",
+      "secondary": "bg-white border border-stone-200 active:bg-stone-50 py-4 px-8 rounded-full shadow-sm flex-row items-center justify-center gap-2",
+      "ghost": "bg-transparent active:bg-stone-100 py-2 px-4 rounded-lg",
+      "text_style": "text-white font-bold text-base tracking-wide"
+    },
+    "cards": {
+      "default": "bg-white rounded-2xl border border-stone-100 p-5 shadow-sm active:scale-98 transition-transform",
+      "interactive": "active:opacity-80 active:scale-[0.98] transition-all duration-200"
+    },
+    "inputs": {
+      "default": "bg-stone-50 border border-stone-200 rounded-xl px-4 py-4 text-stone-900 font-medium placeholder:text-stone-400 focus:border-indigo-500 focus:bg-white transition-colors",
+      "label": "text-sm font-semibold text-stone-700 mb-2 ml-1"
+    },
+    "chips": {
+      "container": "flex-row flex-wrap gap-2",
+      "item": "bg-stone-100 px-4 py-2 rounded-full border border-stone-200",
+      "item_active": "bg-indigo-50 border-indigo-200"
+    },
+    "modals": {
+      "overlay": "bg-black/40 backdrop-blur-sm",
+      "content": "bg-white rounded-t-3xl p-6 shadow-2xl"
+    },
+    "paywall": {
+      "style": "bg-stone-900",
+      "text": "text-white",
+      "accent": "text-indigo-400"
+    }
+  },
+  "assets": {
+    "categories": {
+      "restaurant": {
+        "url": "https://images.unsplash.com/photo-1765021096871-80e396247f46",
+        "desc": "Modern restaurant interior with bar and dining tables"
+      },
+      "salon": {
+        "url": "https://images.pexels.com/photos/13068357/pexels-photo-13068357.jpeg",
+        "desc": "Sleek beauty salon interior"
+      },
+      "retail": {
+        "url": "https://images.unsplash.com/photo-1765009433753-c7462637d21f",
+        "desc": "Modern clothing store interior"
+      },
+      "gym": {
+        "url": "https://images.unsplash.com/photo-1758957646695-ec8bce3df462",
+        "desc": "Modern gym with treadmills"
+      },
+      "cafe": {
+        "url": "https://images.unsplash.com/photo-1769053202058-74062e1f1530",
+        "desc": "Modern cafe interior with tables"
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: This is a React Native Expo project. DO NOT use HTML elements (div, span, h1). Use View, Text, ScrollView, TouchableOpacity, Image.",
+    "STYLING: Use NativeWind classes (className='...').",
+    "ICONS: Use 'lucide-react-native'. Import { IconName } from 'lucide-react-native'.",
+    "NAVIGATION: Use 'expo-router'. File based routing in /app/frontend/app/.",
+    "SafeArea: Always respect safe area insets. Use 'react-native-safe-area-context'.",
+    "Testing: Add testID='...' to all interactive elements.",
+    "Animation: Use 'react-native-reanimated' for complex animations or LayoutAnimation for simple layout changes.",
+    "Gestures: Use 'react-native-gesture-handler'.",
+    "Avoid 'grid-cols-*' classes as React Native doesn't support CSS Grid fully. Use Flexbox.",
+    "For the 'Bento' grid on Home, use two columns with flex-wrap: wrap.",
+    "Ensure 'PostSnap' branding uses the 'Electric Indigo' (#4F46E5) primary color.",
+    "The Create Flow is a 2-step process. Step 1: Input text/image. Step 2: Preview & Platform toggle.",
+    "Paywall Modal must be accessible from Settings and triggerable on restricted features.",
+    "Implement 'Gemini Flash' stub/mock for AI Caption Generation if API key is missing, but structure the service for it.",
+    "Implement 'Nano Banana' stub/mock for AI Image Processing if API key is missing."
+  ],
+  "universal_guidelines": {
+    "design_principle": "Soft Utility",
+    "interaction": "Every tap must provide feedback (opacity change or scale).",
+    "spacing_rule": "Use double spacing (p-6, p-8) for 'breathing room' on mobile.",
+    "typography_rule": "Never use pure black text. Use slate-900."
+  }
+}

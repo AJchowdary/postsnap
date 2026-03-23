@@ -1,0 +1,85 @@
+{
+  "summary": "Full-stack testing of PostSnap: lighter dark theme, schedule post feature, and History tab Scheduled filter. 40/40 backend tests passed. All frontend flows verified including SchedulePicker modal, post scheduling, and History tab filtering. One critical infrastructure bug found and fixed: Metro bundler served stale cached bundle (from Sep 26) until server was restarted.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Create tab - Schedule for Later button",
+        "issue": "Button was not rendering due to Metro serving stale cached bundle (CI=true disables hot reload). Fixed by restarting Metro server. Underlying cause: supervisor config at /etc/supervisor/conf.d/supervisord_expo.conf has CI=\"true\" which prevents Metro from detecting file changes. Button correctly appears after restart.",
+        "selector": "[data-testid='schedule-post-btn']",
+        "priority": "HIGH (infrastructure, not code bug)"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Welcome screen",
+        "issues": [
+          "Background is lighter dark navy (#1c1e30 = rgb(28,30,48)) as requested - confirmed ✓",
+          "NOT pure black - lighter theme applied correctly ✓",
+          "PostSnap gradient branding, hero image, Sign Up/Log In buttons all correctly styled ✓"
+        ]
+      },
+      {
+        "screen": "Create tab Step 2",
+        "issues": [
+          "Post Now and Schedule for Later buttons both present after Metro restart ✓",
+          "Schedule for Later button styled with primary pink border and light pink background ✓"
+        ]
+      },
+      {
+        "screen": "History tab",
+        "issues": [
+          "All 4 filters visible: All, Drafts, Scheduled, Published ✓",
+          "Scheduled filter active state shows pink highlight ✓",
+          "Scheduled posts show scheduledAt date (e.g., Feb 27, 11:15 PM) not 'Just now' ✓"
+        ]
+      },
+      {
+        "screen": "SchedulePicker modal",
+        "issues": [
+          "Bottom sheet modal with handle, title 'Schedule Post', subtitle ✓",
+          "Date row with prev/next day chevrons and date display ✓",
+          "Time row with hour up/down, minute up/down (15 min increments), AM/PM toggle ✓",
+          "Cancel and Schedule (confirm) buttons ✓"
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_schedule_feature.py",
+    "/app/test_reports/pytest/schedule_feature_results.xml",
+    "/app/backend/tests/test_postsnap_v2.py"
+  ],
+  "action_items": [
+    "CRITICAL: Metro bundler runs with CI=true in supervisor config (/etc/supervisor/conf.d/supervisord_expo.conf). This disables hot reload and causes stale bundle to be served when code changes. Fix: either remove CI=true from supervisor config, or ensure Metro is restarted after every code deployment. Current workaround: restart expo via supervisorctl.",
+    "The 'Animated: useNativeDriver is not supported' console warning appears on mobile web - not blocking but worth noting (expected in RN web environment).",
+    "LOW: Apple 🍎 food emoji on welcome screen should use proper Apple brand symbol (from iteration_3, still present)"
+  ],
+  "critical_code_review_comments": [
+    "INFRASTRUCTURE: Supervisor config has CI=true for Expo Metro - this disables file watching. New code changes (schedule button in create.tsx) won't be served until Metro is manually restarted. If deploying frequently, consider removing CI=true or clearing METRO_CACHE_ROOT before restart.",
+    "SchedulePicker.tsx: The AM/PM toggle correctly uses getHours() >= 12 ? subtract 12 : add 12. However, when adjustHours() crosses midnight (23+1=0), the 12-hour display shows 12 but ampm='AM'. The toggle logic is correct.",
+    "history.tsx formatScheduled() correctly shows scheduledAt date for scheduled posts, while non-scheduled posts show formatDate(createdAt). This is correctly implemented.",
+    "Backend scheduleProcessor.ts polls every 30s - works as expected for scheduled post automation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_schedule_feature.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (40/40 tests passed)",
+    "frontend": "95% (all features pass after Metro restart; infrastructure issue requires attention)"
+  },
+  "seed_data_creation": "Created test user TEST_sched_*@testpostsnap.com via backend tests. Multiple draft/scheduled posts created via UI testing under schedtest@test.com account.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All schedule feature tests pass. Key issue: Metro CI=true in supervisor config at /etc/supervisor/conf.d/supervisord_expo.conf - need to restart expo after code changes for latest bundle to be served. Test credentials: schedtest@test.com / test1234. Backend: 40/40 tests pass. Frontend flows verified: login → onboarding → create (Step 1 + Step 2 with schedule) → schedule picker modal (all controls work) → history tab (scheduled filter shows posts with scheduledAt date). SchedulePicker testIDs: schedule-prev-day, schedule-next-day, schedule-hour-up, schedule-hour-down, schedule-min-up, schedule-min-down, schedule-ampm-toggle, schedule-ampm-display, schedule-date-display, schedule-hour-display, schedule-minute-display, schedule-confirm-btn, schedule-cancel-btn.",
+  "rca_of_issue": {
+    "issue": "Schedule for Later button not visible in DOM",
+    "root_cause": "Metro bundler runs in CI mode (CI=true set in /etc/supervisor/conf.d/supervisord_expo.conf). CI mode disables file watching/hot reload. The Metro cache was from Sep 26 (before schedule feature was implemented). When new code was added to create.tsx (schedule button), Metro did NOT detect the file change because hot reload was disabled. Therefore it continued serving the old compiled bundle from the Sep 26 cache, which had no schedule button.",
+    "reproduction": "1. Visit app before Metro restart. 2. Login and go to Create tab. 3. Generate a post. 4. Check DOM - schedule-post-btn testid not present. 5. Restart Metro: sudo supervisorctl restart expo. 6. Visit app again - schedule button now visible.",
+    "mitigation": "Restarted Metro via sudo supervisorctl restart expo. Forced fresh recompilation of all modules. Schedule button now renders correctly. Long-term fix: Remove CI=true from supervisor config or implement a deployment hook that restarts Metro after code changes."
+  }
+}

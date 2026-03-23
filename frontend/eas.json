@@ -1,0 +1,52 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true,
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://quickpost.app/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://quickpost.app/terms",
+        "EXPO_PUBLIC_DATA_DELETION_URL": "https://quickpost.app/data-deletion",
+        "EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID": "com.quickpost.app.premium.monthly",
+        "EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID": "com.quickpost.app.premium.monthly"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

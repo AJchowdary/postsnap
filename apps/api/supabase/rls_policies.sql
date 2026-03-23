@@ -1,0 +1,12 @@
+-- Quickpost / Supabase: Row Level Security templates
+-- Apply in Supabase SQL Editor after reviewing table names and JWT claims.
+-- Service role (backend) bypasses RLS; anon key must never be used for privileged operations on the server.
+--
+-- Example pattern (adjust to your schema):
+-- ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Users read own posts" ON posts FOR SELECT
+--   USING (auth.uid() = user_id);
+-- CREATE POLICY "Users write own posts" ON posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users update own posts" ON posts FOR UPDATE USING (auth.uid() = user_id);
+--
+-- Verify policies: Dashboard → Authentication → Policies, and test with anon vs user JWT.
