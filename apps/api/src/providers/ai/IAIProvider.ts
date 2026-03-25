@@ -6,6 +6,12 @@ export interface CaptionParams {
   brandStyle: string;
   /** e.g. Instagram, Facebook, or combined — used in caption prompt */
   platform?: string;
+  /** User-facing business label */
+  displayType?: string;
+  /** Tone bucket (same idea as businessType when not customized) */
+  aiCategory?: string;
+  /** Extra nuance for the model */
+  customDescription?: string;
 }
 
 export type CaptionResult = {

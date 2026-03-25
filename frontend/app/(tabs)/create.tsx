@@ -77,6 +77,15 @@ export default function CreateScreen() {
   const [selectedImageTplId, setSelectedImageTplId] = useState<string | null>(null);
   const [exploreStyleSlug, setExploreStyleSlug] = useState<string | null>(null);
 
+  const genBiz = {
+    businessName: businessProfile.name,
+    businessType: businessProfile.type,
+    brandStyle: businessProfile.brandStyle,
+    displayType: businessProfile.displayType,
+    aiCategory: businessProfile.type,
+    customDescription: businessProfile.customDescription || '',
+  };
+
   const templates = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
   const templateForApi = useMemo(() => {
     if (selectedImageTplId) return selectedImageTplId;
@@ -166,18 +175,14 @@ export default function CreateScreen() {
         generateCaption({
           description,
           template: templateForApi,
-          businessName: businessProfile.name,
-          businessType: businessProfile.type,
-          brandStyle: businessProfile.brandStyle,
+          ...genBiz,
         }),
         photoToUse
           ? generatePostImage({
               photo: photoToUse,
               template: templateForApi,
-              businessName: businessProfile.name,
-              businessType: businessProfile.type,
-              brandStyle: businessProfile.brandStyle,
               description,
+              ...genBiz,
             })
           : Promise.resolve(null),
       ]);
@@ -264,9 +269,7 @@ export default function CreateScreen() {
       const cap = await generateCaption({
         description,
         template: templateForApi,
-        businessName: businessProfile.name,
-        businessType: businessProfile.type,
-        brandStyle: businessProfile.brandStyle,
+        ...genBiz,
       });
       setCaption(cap);
       if (draftId) updatePost(draftId, { caption: cap });
@@ -690,9 +693,7 @@ export default function CreateScreen() {
                           const cap = await generateCaption({
                             description: `SHORT VERSION: ${description}`,
                             template: templateForApi,
-                            businessName: businessProfile.name,
-                            businessType: businessProfile.type,
-                            brandStyle: businessProfile.brandStyle,
+                            ...genBiz,
                           });
                           setCaption(cap);
                         } finally { setIsGenerating(false); }
@@ -710,8 +711,7 @@ export default function CreateScreen() {
                           const cap = await generateCaption({
                             description: `FUN & PLAYFUL VERSION: ${description}`,
                             template: templateForApi,
-                            businessName: businessProfile.name,
-                            businessType: businessProfile.type,
+                            ...genBiz,
                             brandStyle: 'bold',
                           });
                           setCaption(cap);

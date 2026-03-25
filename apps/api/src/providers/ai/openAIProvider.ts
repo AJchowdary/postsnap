@@ -3,7 +3,7 @@
  * Image edit uses SDK images.edit with proper input (bytes/URL), optional mask, timeout, and retry classification.
  */
 import { IAIProvider, CaptionParams, CaptionResult, ImageParams } from './IAIProvider';
-import { CAPTION_SYSTEM_PROMPT, CAPTION_USER_PROMPT, IMAGE_EDIT_SYSTEM_PROMPT, IMAGE_EDIT_USER_PROMPT } from './prompts';
+import { CAPTION_SYSTEM_PROMPT, buildCaptionUserPrompt, IMAGE_EDIT_SYSTEM_PROMPT, IMAGE_EDIT_USER_PROMPT } from './prompts';
 import { parseCaptionJson } from './parseCaptionResponse';
 import { createImageEdit, buildImageInput } from './openaiImageEdit';
 import { MockAIProvider } from './mockAIProvider';
@@ -25,9 +25,11 @@ export class OpenAIProvider implements IAIProvider {
     try {
       const { default: OpenAI } = await import('openai');
       const client = new OpenAI({ apiKey: config.openaiApiKey, timeout: 30_000 });
-      const userContent = CAPTION_USER_PROMPT({
+      const userContent = buildCaptionUserPrompt({
         businessName: sanitizeForPrompt(params.businessName, 100),
-        businessType: sanitizeForPrompt(params.businessType, 50),
+        displayType: sanitizeForPrompt(params.displayType ?? params.businessType, 80),
+        aiCategory: sanitizeForPrompt(params.aiCategory ?? params.businessType, 32),
+        customDescription: sanitizeForPrompt(params.customDescription ?? '', 400),
         templateStyle: sanitizeForPrompt(params.template, 80),
         userDescription: sanitizeForPrompt(params.description, 500),
         platform: sanitizeForPrompt(params.platform ?? 'Instagram & Facebook', 80),

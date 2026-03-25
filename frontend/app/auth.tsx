@@ -18,6 +18,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { BorderRadius, Colors, GradientColors } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
 import { authRegister, authLogin, bootstrapAccount } from '../src/services/api';
+import { defaultDisplayForBusinessType } from '../src/constants/businessTypeCatalog';
+import type { BusinessType } from '../src/types';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -54,9 +56,12 @@ export default function AuthScreen() {
 
       const account = await bootstrapAccount();
       if (account?.name) {
+        const t = (account.type || 'restaurant') as BusinessType;
         setBusinessProfile({
           name: account.name,
-          type: account.type || 'restaurant',
+          type: t,
+          displayType: account.displayType || defaultDisplayForBusinessType(t),
+          customDescription: account.customDescription ?? '',
           city: account.city,
           brandStyle: account.brandStyle || 'clean',
           useLogoOverlay: account.useLogoOverlay || false,

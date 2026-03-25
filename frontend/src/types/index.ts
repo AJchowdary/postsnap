@@ -6,7 +6,12 @@ export type SubscriptionStatus = 'trial' | 'subscribed' | 'expired';
 
 export interface BusinessProfile {
   name: string;
+  /** Internal AI tone bucket (templates, tone guide). */
   type: BusinessType;
+  /** Shown in UI and passed to the model as the specific business label. */
+  displayType: string;
+  /** Extra nuance for AI (e.g. custom search, niche). */
+  customDescription: string;
   city?: string;
   logo?: string;
   brandColor?: string;

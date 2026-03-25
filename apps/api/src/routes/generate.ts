@@ -25,6 +25,9 @@ router.post(
       businessType: req.body.businessType,
       brandStyle: req.body.brandStyle,
       platform: req.body.platform,
+      displayType: req.body.displayType,
+      aiCategory: req.body.aiCategory,
+      customDescription: req.body.customDescription,
     });
     const caption = result.instagram?.caption ?? result.facebook?.caption ?? '';
     return sendSuccess(res, { caption });

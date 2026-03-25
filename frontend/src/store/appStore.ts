@@ -56,6 +56,8 @@ interface AppState extends AuthState {
 const DEFAULT_PROFILE: BusinessProfile = {
   name: '',
   type: 'restaurant',
+  displayType: 'Restaurant',
+  customDescription: '',
   brandStyle: 'clean',
   useLogoOverlay: false,
 };

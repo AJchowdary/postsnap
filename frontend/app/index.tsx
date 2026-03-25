@@ -10,6 +10,8 @@ import {
   mapConnectionsToSocialAccounts,
 } from '../src/services/api';
 import { Colors } from '../src/constants/theme';
+import { defaultDisplayForBusinessType } from '../src/constants/businessTypeCatalog';
+import type { BusinessType } from '../src/types';
 
 export default function Index() {
   const setAuth = useAppStore((s) => s.setAuth);
@@ -42,9 +44,12 @@ export default function Index() {
         }
 
         if (account?.name) {
+          const t = (account.type || 'restaurant') as BusinessType;
           setBusinessProfile({
             name: account.name,
-            type: account.type || 'restaurant',
+            type: t,
+            displayType: account.displayType || defaultDisplayForBusinessType(t),
+            customDescription: account.customDescription ?? '',
             city: account.city,
             brandStyle: account.brandStyle || 'clean',
             useLogoOverlay: account.useLogoOverlay || false,

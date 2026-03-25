@@ -9,17 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, BorderRadius, Shadows, GradientColors } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
-import { BusinessType } from '../src/types';
 import PrimaryButton from '../src/components/PrimaryButton';
 import { updateBusinessProfile } from '../src/services/api';
-
-const BUSINESS_TYPES: { id: BusinessType; label: string; emoji: string; desc: string }[] = [
-  { id: 'restaurant', label: 'Restaurant', emoji: '🍽️', desc: 'Dine-in, takeaway, food delivery' },
-  { id: 'salon', label: 'Salon/Tattoo', emoji: '💅', desc: 'Hair, beauty, tattoo & piercing' },
-  { id: 'retail', label: 'Retail', emoji: '🛍️', desc: 'Shop, boutique, online store' },
-  { id: 'gym', label: 'Gym/Fitness', emoji: '💪', desc: 'Gym, studio, personal training' },
-  { id: 'cafe', label: 'Café', emoji: '☕', desc: 'Coffee shop, bakery, café' },
-];
+import { BusinessTypeSelector, BusinessTypeSelection } from '../src/components/BusinessTypeSelector';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -27,7 +19,11 @@ export default function OnboardingScreen() {
   const setIsOnboarded = useAppStore((s) => s.setIsOnboarded);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedType, setSelectedType] = useState<BusinessType>('restaurant');
+  const [bizSelection, setBizSelection] = useState<BusinessTypeSelection>({
+    type: 'restaurant',
+    displayType: 'Restaurant',
+    customDescription: '',
+  });
   const [businessName, setBusinessName] = useState('');
   const [city, setCity] = useState('');
   const [saving, setSaving] = useState(false);
@@ -38,7 +34,9 @@ export default function OnboardingScreen() {
     try {
       await updateBusinessProfile({
         name: businessName.trim(),
-        type: selectedType,
+        type: bizSelection.type,
+        displayType: bizSelection.displayType,
+        customDescription: bizSelection.customDescription,
         city: city.trim() || undefined,
         brandStyle: 'clean',
         useLogoOverlay: false,
@@ -50,7 +48,9 @@ export default function OnboardingScreen() {
     }
     setBusinessProfile({
       name: businessName.trim(),
-      type: selectedType,
+      type: bizSelection.type,
+      displayType: bizSelection.displayType,
+      customDescription: bizSelection.customDescription,
       city: city.trim() || undefined,
     });
     setIsOnboarded(true);
@@ -130,28 +130,11 @@ export default function OnboardingScreen() {
               <>
                 <View style={styles.sectionGap} />
                 <Text style={styles.sectionLabel}>Business type</Text>
-                <View style={styles.typeList}>
-                  {BUSINESS_TYPES.map((bt) => (
-                    <TouchableOpacity
-                      key={bt.id}
-                      testID={`onboarding-type-${bt.id}`}
-                      onPress={() => setSelectedType(bt.id)}
-                      activeOpacity={0.8}
-                      style={[styles.typeCard, selectedType === bt.id && styles.typeCardActive]}
-                    >
-                      <Text style={styles.typeEmoji}>{bt.emoji}</Text>
-                      <View style={styles.typeInfo}>
-                        <Text style={[styles.typeLabel, selectedType === bt.id && styles.typeLabelActive]}>
-                          {bt.label}
-                        </Text>
-                        <Text style={styles.typeDesc}>{bt.desc}</Text>
-                      </View>
-                      {selectedType === bt.id && (
-                        <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <BusinessTypeSelector
+                  variant="inline"
+                  value={bizSelection}
+                  onChange={setBizSelection}
+                />
 
                 <View style={styles.footer}>
                   <PrimaryButton
@@ -392,20 +375,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 10,
   },
-
-  typeList: { gap: Spacing.sm },
-  typeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    backgroundColor: Colors.paper,
-    borderRadius: BorderRadius.lg,
-    ...Shadows.sm,
-  },
-  typeCardActive: { backgroundColor: Colors.primaryLight },
-  typeEmoji: { fontSize: 26 },
-  typeInfo: { flex: 1 },
-  typeLabel: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  typeLabelActive: { color: Colors.primary },
-  typeDesc: { fontSize: 12, color: Colors.textTertiary, marginTop: 1 },
 
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, marginBottom: 6 },
   backText: { fontSize: 14, color: Colors.primary, fontWeight: '800' },

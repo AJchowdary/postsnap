@@ -1,60 +1,8 @@
 /**
- * Caption prompts for OpenAI provider.
- * Model returns JSON: { "captions": [ { "type": "hook"|"story"|"cta", "text": "..." } ] }
+ * Image-edit prompts. Caption prompts live in `services/openaiService.ts`.
  */
 
-export const CAPTION_SYSTEM_PROMPT = `You are a social media content expert. Follow the user instructions exactly. Output ONLY valid JSON with no markdown fences or extra text.`;
-
-export const CAPTION_USER_PROMPT = (params: {
-  businessName: string;
-  businessType: string;
-  templateStyle: string;
-  userDescription: string;
-  platform: string;
-}) => `You are a social media content expert for small local businesses. Create authentic, engaging captions.
-
-Business: ${params.businessName} (${params.businessType})
-Post description: ${params.userDescription}
-Visual style: ${params.templateStyle}
-Platform: ${params.platform}
-
-Generate 3 caption options:
-
-CAPTION 1 — Hook & Punch (max 60 words)
-Start with an attention-grabbing first line.
-Be direct, confident, conversational.
-End with ONE relevant emoji.
-Include 5 hashtags.
-
-CAPTION 2 — Story & Connect (80-120 words)
-Tell a mini story or share a behind-the-scenes moment.
-Make it feel personal and authentic.
-Sound like the owner wrote it, not a marketing team.
-Include 6-8 hashtags.
-
-CAPTION 3 — CTA Focus (max 80 words)
-Build desire then drive action.
-Use "you" language to speak directly to customer.
-Clear call to action at the end.
-Include 5-6 hashtags.
-
-Tone guide by business type:
-- restaurant: warm, community, "come hungry leave happy" energy
-- salon: confident, empowering, transformation focused
-- retail: exciting, FOMO-inducing, trend-aware
-- gym: motivational, results-driven, no excuses energy
-- cafe: cozy, artisanal, slow-living lifestyle
-
-NEVER use: synergy, leverage, cutting-edge, innovative, seamlessly, game-changer
-
-Format response as JSON:
-{
-  "captions": [
-    {"type": "hook", "text": "..."},
-    {"type": "story", "text": "..."},
-    {"type": "cta", "text": "..."}
-  ]
-}`;
+export { CAPTION_SYSTEM_PROMPT, buildCaptionUserPrompt } from '../../services/openaiService';
 
 export const IMAGE_EDIT_SYSTEM_PROMPT = `You are an image enhancement assistant. Apply light, realistic enhancements. Do not distort the subject. Add branding elements within safe margins (8% from edges). Never cover the main subject. Output must be 1:1 square (1080x1080). No watermarks.`;
 

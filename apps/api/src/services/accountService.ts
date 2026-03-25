@@ -2,6 +2,17 @@ import { getDb } from '../db';
 import { NotFoundError } from '../utils/errors';
 import { BusinessProfileInput } from '../schemas/account';
 
+function defaultDisplayType(type: string): string {
+  const m: Record<string, string> = {
+    restaurant: 'Restaurant',
+    salon: 'Salon & Beauty',
+    retail: 'Retail Store',
+    gym: 'Gym & Fitness',
+    cafe: 'Cafe & Coffee Shop',
+  };
+  return m[type] || 'Restaurant';
+}
+
 interface AccountRecord {
   id: string;
   ownerUserId: string;
@@ -18,6 +29,8 @@ interface BusinessProfileRecord {
   brandColor?: string | null;
   brandStyle: string;
   overlayDefaultOn: boolean;
+  displayType?: string | null;
+  customDescription?: string | null;
   updatedAt: string;
 }
 
@@ -53,6 +66,8 @@ export async function bootstrapAccount(ownerUserId: string) {
       brand_color: null,
       brand_style: 'clean',
       overlay_default_on: false,
+      displayType: defaultDisplayType('restaurant'),
+      customDescription: '',
       updated_at: now.toISOString(),
     });
     await db.insertOne('subscriptions', {
@@ -75,6 +90,7 @@ function formatAccount(
   account: AccountRecord,
   profile: BusinessProfileRecord | null
 ): Record<string, any> {
+  const bt = account.businessType;
   return {
     id: account.id,
     userId: account.ownerUserId ?? account.userId,
@@ -83,6 +99,8 @@ function formatAccount(
     createdAt: account.createdAt,
     name: profile?.name ?? '',
     type: account.businessType,
+    displayType: profile?.displayType?.trim() || defaultDisplayType(bt),
+    customDescription: profile?.customDescription ?? '',
     city: profile?.city ?? null,
     logo: profile?.logoUrl ?? null,
     brandColor: profile?.brandColor ?? null,
@@ -115,6 +133,9 @@ export async function upsertBusinessProfile(
     account_id: account.id,
   });
   const now = new Date().toISOString();
+  const displayType = (input.displayType?.trim() || defaultDisplayType(input.type)) as string;
+  const customDescription = input.customDescription?.trim() ?? '';
+  await db.updateOne('accounts', account.id, { businessType: input.type });
   const data = {
     account_id: account.id,
     name: input.name,
@@ -123,11 +144,13 @@ export async function upsertBusinessProfile(
     brand_color: input.brandColor ?? null,
     brand_style: input.brandStyle,
     overlay_default_on: input.useLogoOverlay,
+    displayType,
+    customDescription,
     updated_at: now,
   };
   if (existing) {
     await db.updateOne('business_profiles', account.id, data);
-    return formatAccount(account, { ...existing, ...data });
+    return formatAccount({ ...account, businessType: input.type }, { ...existing, ...data });
   }
   await db.insertOne('business_profiles', data);
   const profile: BusinessProfileRecord = {
@@ -138,7 +161,9 @@ export async function upsertBusinessProfile(
     brandColor: input.brandColor ?? null,
     brandStyle: input.brandStyle,
     overlayDefaultOn: input.useLogoOverlay,
+    displayType,
+    customDescription,
     updatedAt: now,
   };
-  return formatAccount(account, profile);
+  return formatAccount({ ...account, businessType: input.type }, profile);
 }

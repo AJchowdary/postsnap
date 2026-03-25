@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
   Switch, Alert, Linking, Platform, ActivityIndicator,
@@ -9,9 +9,10 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
-import { BusinessType, BrandStyle, Platform as SocialPlatform } from '../../src/types';
+import { BrandStyle, Platform as SocialPlatform } from '../../src/types';
 import StatusChip from '../../src/components/StatusChip';
 import PrimaryButton from '../../src/components/PrimaryButton';
+import { BusinessTypeSelector, BusinessTypeSelection } from '../../src/components/BusinessTypeSelector';
 import {
   disconnectSocialAccount,
   updateBusinessProfile,
@@ -21,14 +22,6 @@ import {
   getMetaOAuthRedirectUrlForBrowser,
 } from '../../src/services/api';
 import { purchaseSubscription, restorePurchases, refreshSubscriptionFromBackend } from '../../src/services/iapService';
-
-const BUSINESS_TYPES: { id: BusinessType; label: string; emoji: string }[] = [
-  { id: 'restaurant', label: 'Restaurant', emoji: '🍽️' },
-  { id: 'salon', label: 'Salon/Tattoo', emoji: '💅' },
-  { id: 'retail', label: 'Retail', emoji: '🛍️' },
-  { id: 'gym', label: 'Gym', emoji: '💪' },
-  { id: 'cafe', label: 'Café', emoji: '☕' },
-];
 
 const BRAND_STYLES: { id: BrandStyle; label: string; desc: string }[] = [
   { id: 'clean', label: 'Clean', desc: 'Bright, minimal, clear' },
@@ -77,10 +70,28 @@ export default function SettingsScreen() {
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [bizName, setBizName] = useState(businessProfile.name);
   const [bizCity, setBizCity] = useState(businessProfile.city || '');
-  const [bizType, setBizType] = useState<BusinessType>(businessProfile.type);
+  const [bizSelection, setBizSelection] = useState<BusinessTypeSelection>({
+    type: businessProfile.type,
+    displayType: businessProfile.displayType,
+    customDescription: businessProfile.customDescription,
+  });
   const [brandStyle, setBrandStyle] = useState<BrandStyle>(businessProfile.brandStyle);
   const [useLogoOverlay, setUseLogoOverlay] = useState(businessProfile.useLogoOverlay);
   const [oauthBusyPlatform, setOauthBusyPlatform] = useState<SocialPlatform | null>(null);
+  const [typeModalVisible, setTypeModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (!editingBusiness) return;
+    setBizName(businessProfile.name);
+    setBizCity(businessProfile.city || '');
+    setBizSelection({
+      type: businessProfile.type,
+      displayType: businessProfile.displayType,
+      customDescription: businessProfile.customDescription,
+    });
+    setBrandStyle(businessProfile.brandStyle);
+    setUseLogoOverlay(businessProfile.useLogoOverlay);
+  }, [editingBusiness, businessProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -107,7 +118,15 @@ export default function SettingsScreen() {
 
   const saveBusiness = async () => {
     if (!bizName.trim()) { showToast('Business name is required', 'error'); return; }
-    const profile = { name: bizName.trim(), city: bizCity.trim() || undefined, type: bizType, brandStyle, useLogoOverlay };
+    const profile = {
+      name: bizName.trim(),
+      city: bizCity.trim() || undefined,
+      type: bizSelection.type,
+      displayType: bizSelection.displayType,
+      customDescription: bizSelection.customDescription,
+      brandStyle,
+      useLogoOverlay,
+    };
     setBusinessProfile(profile);
     setEditingBusiness(false);
     try {
@@ -241,7 +260,7 @@ export default function SettingsScreen() {
                 icon="storefront-outline"
                 iconBg={Colors.primary}
                 label={businessProfile.name}
-                sublabel={`${businessProfile.type} ${businessProfile.city ? `· ${businessProfile.city}` : ''}`}
+                sublabel={`${businessProfile.displayType}${businessProfile.city ? ` · ${businessProfile.city}` : ''}`}
                 onPress={() => setEditingBusiness(true)}
                 testID="settings-business-row"
               />
@@ -294,21 +313,29 @@ export default function SettingsScreen() {
                 placeholderTextColor={Colors.textTertiary}
               />
 
-              <Text style={styles.inputLabel}>Business Type</Text>
-              <View style={styles.typeGrid}>
-                {BUSINESS_TYPES.map((bt) => (
-                  <TouchableOpacity
-                    key={bt.id}
-                    testID={`biz-type-${bt.id}`}
-                    onPress={() => setBizType(bt.id)}
-                    activeOpacity={0.8}
-                    style={[styles.typeChip, bizType === bt.id && styles.typeChipActive]}
-                  >
-                    <Text style={styles.typeEmoji}>{bt.emoji}</Text>
-                    <Text style={[styles.typeLabel, bizType === bt.id && styles.typeLabelActive]}>{bt.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <Text style={styles.inputLabel}>Business type</Text>
+              <TouchableOpacity
+                testID="settings-business-type-trigger"
+                onPress={() => setTypeModalVisible(true)}
+                activeOpacity={0.85}
+                style={styles.typeTrigger}
+              >
+                <Text style={styles.typeTriggerText} numberOfLines={2}>{bizSelection.displayType}</Text>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+              </TouchableOpacity>
+              {!!bizSelection.customDescription && (
+                <Text style={styles.typeHint} numberOfLines={2}>{bizSelection.customDescription}</Text>
+              )}
+              <BusinessTypeSelector
+                variant="modal"
+                visible={typeModalVisible}
+                onClose={() => setTypeModalVisible(false)}
+                value={bizSelection}
+                onChange={(v) => {
+                  setBizSelection(v);
+                  setTypeModalVisible(false);
+                }}
+              />
 
               <Text style={styles.inputLabel}>Brand Style</Text>
               <View style={styles.brandStyleRow}>
@@ -517,12 +544,20 @@ const styles = StyleSheet.create({
   editFormTitle: { ...Typography.h4, marginBottom: 16 },
   inputLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 12 },
   input: { backgroundColor: Colors.subtle, borderWidth: 1.5, borderColor: Colors.border, borderRadius: BorderRadius.lg, paddingHorizontal: 12, paddingVertical: 12, fontSize: 14, color: Colors.textPrimary },
-  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.subtle },
-  typeChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  typeEmoji: { fontSize: 14 },
-  typeLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  typeLabelActive: { color: Colors.primary },
+  typeTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.subtle,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  typeTriggerText: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  typeHint: { fontSize: 11, color: Colors.textTertiary, marginTop: 4, lineHeight: 15 },
   brandStyleRow: { flexDirection: 'row', gap: 8 },
   brandStyleChip: { flex: 1, padding: 10, borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.subtle },
   brandStyleChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },

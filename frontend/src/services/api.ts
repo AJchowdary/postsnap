@@ -207,6 +207,8 @@ export const getMyAccount = async (): Promise<any> => {
 export const updateBusinessProfile = async (profile: {
   name: string;
   type: string;
+  displayType: string;
+  customDescription: string;
   city?: string;
   brandStyle: string;
   useLogoOverlay: boolean;
@@ -224,6 +226,9 @@ export interface GenerateCaptionParams {
   businessName: string;
   businessType: string;
   brandStyle: string;
+  displayType: string;
+  aiCategory: string;
+  customDescription: string;
 }
 
 export interface GenerateImageParams {
@@ -233,6 +238,9 @@ export interface GenerateImageParams {
   businessType: string;
   brandStyle: string;
   description: string;
+  displayType: string;
+  aiCategory: string;
+  customDescription: string;
 }
 
 export const generateCaption = async (params: GenerateCaptionParams): Promise<string> => {

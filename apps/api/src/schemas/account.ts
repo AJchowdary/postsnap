@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const BusinessProfileSchema = z.object({
   name: z.string().min(1, 'Business name is required'),
   type: z.enum(['restaurant', 'salon', 'retail', 'gym', 'cafe']),
+  displayType: z.string().max(120).optional(),
+  customDescription: z.string().max(500).optional(),
   city: z.string().optional(),
   logo: z.string().optional().nullable(),
   brandColor: z.string().optional(),

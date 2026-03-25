@@ -51,6 +51,9 @@ export const GenerateCaptionSchema = z.object({
   brandStyle: z.string().max(32).default('clean'),
   /** Optional — e.g. Instagram, Facebook */
   platform: z.string().max(80).optional(),
+  displayType: z.string().max(120).optional(),
+  aiCategory: z.string().max(32).optional(),
+  customDescription: z.string().max(500).optional(),
 });
 
 export const GenerateImageSchema = z.object({
@@ -63,6 +66,9 @@ export const GenerateImageSchema = z.object({
   businessName: z.string().max(120).default('My Business'),
   businessType: z.string().max(64).default('restaurant'),
   brandStyle: z.string().max(32).default('clean'),
+  displayType: z.string().max(120).optional(),
+  aiCategory: z.string().max(32).optional(),
+  customDescription: z.string().max(500).optional(),
 });
 
 export type CreatePostInput = z.infer<typeof CreatePostBodySchema>;
