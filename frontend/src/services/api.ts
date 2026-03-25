@@ -255,15 +255,29 @@ export const generateCaption = async (params: GenerateCaptionParams): Promise<st
   }
 };
 
+export type GenerateImageResult = {
+  processed_image: string | null;
+  withOverlay: string | null;
+  clean: string | null;
+};
+
 export const generatePostImage = async (
   params: GenerateImageParams
-): Promise<string | null> => {
+): Promise<GenerateImageResult | null> => {
   try {
-    const data = await apiCall<{ processed_image: string | null }>('/generate/image', {
+    const data = await apiCall<{
+      processed_image: string | null;
+      processed_image_with_overlay: string | null;
+      processed_image_clean: string | null;
+    }>('/generate/image', {
       method: 'POST',
       body: JSON.stringify(params),
     });
-    return data.processed_image;
+    return {
+      processed_image: data.processed_image,
+      withOverlay: data.processed_image_with_overlay,
+      clean: data.processed_image_clean,
+    };
   } catch {
     return null;
   }

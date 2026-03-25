@@ -69,6 +69,7 @@ export const GenerateImageSchema = z.object({
   displayType: z.string().max(120).optional(),
   aiCategory: z.string().max(32).optional(),
   customDescription: z.string().max(500).optional(),
+  brandColor: z.string().max(32).optional().nullable(),
 });
 
 export type CreatePostInput = z.infer<typeof CreatePostBodySchema>;

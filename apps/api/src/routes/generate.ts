@@ -47,8 +47,24 @@ router.post(
       businessType: req.body.businessType,
       brandStyle: req.body.brandStyle,
       description: req.body.description ?? '',
+      displayType: req.body.displayType,
+      aiCategory: req.body.aiCategory,
+      customDescription: req.body.customDescription,
+      brandColor: req.body.brandColor ?? null,
     });
-    return sendSuccess(res, { processed_image: processed });
+    if (!processed) {
+      return sendSuccess(res, {
+        processed_image: null,
+        processed_image_with_overlay: null,
+        processed_image_clean: null,
+      });
+    }
+    const primary = processed.withOverlay ?? processed.clean;
+    return sendSuccess(res, {
+      processed_image: primary,
+      processed_image_with_overlay: processed.withOverlay,
+      processed_image_clean: processed.clean,
+    });
   })
 );
 

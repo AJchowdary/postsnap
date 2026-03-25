@@ -412,7 +412,7 @@ async function processJob(job: JobRecord): Promise<void> {
     if (post.originalImagePath) {
       try {
         const imageUrl = await createSignedReadUrl(post.originalImagePath);
-        const processedDataUrlOrUrl = await ai.processImage({
+        const processedResult = await ai.processImage({
           imagePath: imageUrl,
           templateId: post.templateId ?? 'auto',
           businessName,
@@ -424,6 +424,8 @@ async function processJob(job: JobRecord): Promise<void> {
           logoUrl: overlayDefaultOn ? logoUrl ?? undefined : undefined,
           premiumQuality: payload.premiumQuality ?? false,
         });
+        const processedDataUrlOrUrl =
+          processedResult?.withOverlay ?? processedResult?.clean ?? null;
         if (processedDataUrlOrUrl) {
           processedImagePath = await uploadProcessedImage(
             payload.accountId,

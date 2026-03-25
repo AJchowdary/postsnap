@@ -245,9 +245,12 @@ class TestGenerate:
             "description": "Test dish"
         })
         assert r.status_code == 200, f"Image gen failed: {r.text}"
-        data = r.json()
+        raw = r.json()
+        data = raw.get("data", raw)
         assert "processed_image" in data
-        print(f"✓ Image generation OK: processed_image = {data['processed_image']}")
+        assert "processed_image_with_overlay" in data
+        assert "processed_image_clean" in data
+        print(f"✓ Image generation OK: processed_image = {data.get('processed_image')}")
 
 
 # ============================

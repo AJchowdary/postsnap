@@ -36,6 +36,13 @@ const TREND_STYLES: { id: string; label: string; uri: string }[] = [
   { id: 'bold', label: 'Bold', uri: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=180&h=180&fit=crop' },
 ];
 
+/** Raw base64 or full data URL from API */
+function imageDataUri(s: string | null | undefined): string | undefined {
+  if (!s) return undefined;
+  if (s.startsWith('data:') || s.startsWith('http')) return s;
+  return `data:image/jpeg;base64,${s}`;
+}
+
 const IMAGE_TEMPLATES: { id: string; label: string; uri: string }[] = [
   { id: 'story-grid', label: 'Grid', uri: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=220&h=280&fit=crop' },
   { id: 'quote-overlay', label: 'Quote', uri: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=220&h=280&fit=crop' },
@@ -65,6 +72,9 @@ export default function CreateScreen() {
   const [description, setDescription] = useState('');
   const [caption, setCaption] = useState('');
   const [processedImage, setProcessedImage] = useState<string | null>(null);
+  const [processedImageWithOverlay, setProcessedImageWithOverlay] = useState<string | null>(null);
+  const [processedImageClean, setProcessedImageClean] = useState<string | null>(null);
+  const [processedImageChoice, setProcessedImageChoice] = useState<'with' | 'clean'>('with');
   const [platforms, setPlatforms] = useState<Record<string, boolean>>({
     instagram: !!socialAccounts.instagram?.connected,
     facebook: !!socialAccounts.facebook?.connected,
@@ -109,7 +119,12 @@ export default function CreateScreen() {
       setCaption(currentEdit.caption);
       setStep(2);
     }
-    if (currentEdit.processedImage) setProcessedImage(currentEdit.processedImage);
+    if (currentEdit.processedImage) {
+      setProcessedImage(currentEdit.processedImage);
+      setProcessedImageWithOverlay(currentEdit.processedImage);
+      setProcessedImageClean(currentEdit.processedImage);
+      setProcessedImageChoice('with');
+    }
   }, [currentEdit]);
 
   useEffect(() => {
@@ -171,7 +186,7 @@ export default function CreateScreen() {
     setIsGenerating(true);
     try {
       const photoToUse = isBeforeAfter ? (beforePhoto || photo) : photo;
-      const [cap, img] = await Promise.all([
+      const [cap, imgResult] = await Promise.all([
         generateCaption({
           description,
           template: templateForApi,
@@ -187,7 +202,20 @@ export default function CreateScreen() {
           : Promise.resolve(null),
       ]);
       setCaption(cap);
-      if (img) setProcessedImage(img);
+      let savedProcessed: string | undefined;
+      if (imgResult) {
+        setProcessedImageWithOverlay(imgResult.withOverlay);
+        setProcessedImageClean(imgResult.clean);
+        const pick = imgResult.withOverlay ?? imgResult.clean ?? null;
+        setProcessedImage(pick);
+        setProcessedImageChoice(imgResult.withOverlay ? 'with' : 'clean');
+        savedProcessed = pick ?? undefined;
+      } else {
+        setProcessedImageWithOverlay(null);
+        setProcessedImageClean(null);
+        setProcessedImage(null);
+        savedProcessed = undefined;
+      }
 
       // Auto-save draft
       const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
@@ -196,7 +224,7 @@ export default function CreateScreen() {
         photo: photo || undefined,
         description,
         caption: cap,
-        processedImage: img || undefined,
+        processedImage: savedProcessed,
         platforms: enabledPlatforms,
         status: 'draft',
       });
@@ -322,6 +350,9 @@ export default function CreateScreen() {
     setDescription('');
     setCaption('');
     setProcessedImage(null);
+    setProcessedImageWithOverlay(null);
+    setProcessedImageClean(null);
+    setProcessedImageChoice('with');
     setDraftId(null);
     setPlatforms({
       instagram: !!socialAccounts.instagram?.connected,
@@ -641,11 +672,53 @@ export default function CreateScreen() {
               {/* Preview Image */}
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Preview</Text>
+                {processedImageWithOverlay && processedImageClean && (
+                  <View style={styles.photoVariantRow}>
+                    <TouchableOpacity
+                      testID="preview-variant-with-text"
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setProcessedImageChoice('with');
+                        if (processedImageWithOverlay) setProcessedImage(processedImageWithOverlay);
+                      }}
+                      style={[
+                        styles.photoVariantThumb,
+                        processedImageChoice === 'with' && styles.photoVariantThumbSelected,
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: imageDataUri(processedImageWithOverlay) ?? '' }}
+                        style={styles.photoVariantImg}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.photoVariantLabel}>With Text</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      testID="preview-variant-clean"
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setProcessedImageChoice('clean');
+                        if (processedImageClean) setProcessedImage(processedImageClean);
+                      }}
+                      style={[
+                        styles.photoVariantThumb,
+                        processedImageChoice === 'clean' && styles.photoVariantThumbSelected,
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: imageDataUri(processedImageClean) ?? '' }}
+                        style={styles.photoVariantImg}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.photoVariantLabel}>Clean</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <View style={styles.previewCard}>
                   {displayImage ? (
                     <Image
                       testID="preview-image"
-                      source={{ uri: `data:image/jpeg;base64,${displayImage}` }}
+                      source={{ uri: imageDataUri(displayImage) ?? `data:image/jpeg;base64,${displayImage}` }}
                       style={styles.previewImage}
                       resizeMode="cover"
                     />
@@ -906,6 +979,34 @@ const styles = StyleSheet.create({
   platformToggleText: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textTertiary },
   connectLink: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
   toggleDot: { width: 10, height: 10, borderRadius: 5 },
+  photoVariantRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: Spacing.md,
+  },
+  photoVariantThumb: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: CREATE_CARD,
+  },
+  photoVariantThumbSelected: {
+    borderColor: Colors.primary,
+  },
+  photoVariantImg: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#222',
+  },
+  photoVariantLabel: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    paddingVertical: 8,
+  },
   previewCard: { borderRadius: BorderRadius.xl, overflow: 'hidden', backgroundColor: Colors.subtle, ...Shadows.md, position: 'relative' },
   previewImage: { width: '100%', height: 260 },
   previewPlaceholder: { height: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },

@@ -1,4 +1,4 @@
-import { IAIProvider, CaptionParams, CaptionResult, ImageParams } from './IAIProvider';
+import { IAIProvider, CaptionParams, CaptionResult, ImageParams, ProcessImageResult } from './IAIProvider';
 
 const EMOJI: Record<string, string> = {
   restaurant: '🍽️',
@@ -50,7 +50,7 @@ export class MockAIProvider implements IAIProvider {
     return toCaptionResult(caption);
   }
 
-  async processImage(_params: ImageParams): Promise<string | null> {
-    return null;
+  async processImage(_params: ImageParams): Promise<ProcessImageResult | null> {
+    return { withOverlay: null, clean: null };
   }
 }

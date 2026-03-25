@@ -2,8 +2,15 @@
  * OpenAIProvider – gpt-4o-mini (configurable) for captions; gpt-image-1 / gpt-image-1-mini for image editing.
  * Image edit uses SDK images.edit with proper input (bytes/URL), optional mask, timeout, and retry classification.
  */
-import { IAIProvider, CaptionParams, CaptionResult, ImageParams } from './IAIProvider';
-import { CAPTION_SYSTEM_PROMPT, buildCaptionUserPrompt, IMAGE_EDIT_SYSTEM_PROMPT, IMAGE_EDIT_USER_PROMPT } from './prompts';
+import { IAIProvider, CaptionParams, CaptionResult, ImageParams, ProcessImageResult } from './IAIProvider';
+import {
+  CAPTION_SYSTEM_PROMPT,
+  buildCaptionUserPrompt,
+  MY_PHOTO_IMAGE_SYSTEM_PROMPT,
+  buildMyPhotoImagePromptWithOverlay,
+  buildMyPhotoImagePromptClean,
+  computeMyPhotoOverlayText,
+} from './prompts';
 import { parseCaptionJson } from './parseCaptionResponse';
 import { createImageEdit, buildImageInput } from './openaiImageEdit';
 import { MockAIProvider } from './mockAIProvider';
@@ -53,7 +60,7 @@ export class OpenAIProvider implements IAIProvider {
     }
   }
 
-  async processImage(params: ImageParams): Promise<string | null> {
+  async processImage(params: ImageParams): Promise<ProcessImageResult | null> {
     if (!config.openaiApiKey) return null;
     const imageInput = buildImageInput({
       photoBase64: params.photoBase64,
@@ -62,22 +69,41 @@ export class OpenAIProvider implements IAIProvider {
     if (!imageInput) return null;
 
     const model = params.premiumQuality ? IMAGE_MODEL_PREMIUM : IMAGE_MODEL_DEFAULT;
-    const stylePreset = params.brandStyle === 'bold' ? 'bold' : params.brandStyle === 'minimal' ? 'minimal' : 'clean';
-    const prompt = IMAGE_EDIT_USER_PROMPT({
-      stylePreset,
-      brandColor: params.brandColor ?? null,
-      overlayText: params.overlayText ?? null,
-      hasLogo: !!params.logoUrl,
-    });
 
-    const result = await createImageEdit({
-      image: imageInput,
-      mask: undefined,
-      prompt,
-      model,
-      size: '1024x1024',
-      quality: 'auto',
-    });
-    return result;
+    const overlayText =
+      params.overlayText?.trim() ||
+      computeMyPhotoOverlayText(params.businessType, params.description ?? '');
+
+    const userDesc = sanitizeForPrompt(params.description ?? '', 500);
+    const withPrompt = `${MY_PHOTO_IMAGE_SYSTEM_PROMPT}\n\n${buildMyPhotoImagePromptWithOverlay({
+      businessType: sanitizeForPrompt(params.businessType, 32),
+      userDescription: userDesc,
+      overlayText: sanitizeForPrompt(overlayText, 80),
+    })}`;
+    const cleanPrompt = `${MY_PHOTO_IMAGE_SYSTEM_PROMPT}\n\n${buildMyPhotoImagePromptClean({
+      businessType: sanitizeForPrompt(params.businessType, 32),
+      userDescription: userDesc,
+    })}`;
+
+    const [withOverlay, clean] = await Promise.all([
+      createImageEdit({
+        image: imageInput,
+        mask: undefined,
+        prompt: withPrompt,
+        model,
+        size: '1024x1024',
+        quality: 'auto',
+      }),
+      createImageEdit({
+        image: imageInput,
+        mask: undefined,
+        prompt: cleanPrompt,
+        model,
+        size: '1024x1024',
+        quality: 'auto',
+      }),
+    ]);
+
+    return { withOverlay, clean };
   }
 }

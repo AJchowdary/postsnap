@@ -31,9 +31,18 @@ export interface ImageParams {
   overlayText?: string | null;
   logoUrl?: string | null;
   premiumQuality?: boolean;
+  displayType?: string;
+  aiCategory?: string;
+  customDescription?: string;
 }
+
+/** Result of My Photo pipeline: enhanced + optional in-image text, and clean enhanced only. */
+export type ProcessImageResult = {
+  withOverlay: string | null;
+  clean: string | null;
+};
 
 export interface IAIProvider {
   generateCaption(params: CaptionParams): Promise<CaptionResult>;
-  processImage(params: ImageParams): Promise<string | null>;
+  processImage(params: ImageParams): Promise<ProcessImageResult | null>;
 }
