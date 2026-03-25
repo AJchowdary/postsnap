@@ -2,10 +2,74 @@
  * Quickpost API client — Node.js/Express backend. Endpoints use /api/v1.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Post } from '../types';
+import { Platform as RNPlatform } from 'react-native';
+import { Post, Platform, SocialAccount } from '../types';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const API_PREFIX = '/api/v1';
+
+/** Default fetch timeout (ms). Override with EXPO_PUBLIC_API_FETCH_TIMEOUT_MS. */
+const FETCH_TIMEOUT_MS =
+  Math.max(5000, parseInt(process.env.EXPO_PUBLIC_API_FETCH_TIMEOUT_MS || '60000', 10) || 60000);
+
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
+function isLoopbackApiUrl(url: string): boolean {
+  if (!url.trim()) return false;
+  try {
+    const normalized = url.includes('://') ? url : `http://${url}`;
+    const u = new URL(normalized);
+    const h = u.hostname.toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.endsWith('.localhost');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Web: uses EXPO_PUBLIC_API_BASE_URL (localhost is the browser’s machine).
+ * Native + loopback: uses EXPO_PUBLIC_API_BASE_URL_DEVICE / PRODUCTION, or Android emulator host (10.0.2.2).
+ */
+function resolveApiBaseUrl(): string {
+  const primary = stripTrailingSlash(
+    process.env.EXPO_PUBLIC_API_BASE_URL || process.env.EXPO_PUBLIC_BACKEND_URL || ''
+  );
+
+  if (RNPlatform.OS === 'web') {
+    return primary;
+  }
+
+  if (primary && isLoopbackApiUrl(primary)) {
+    const deviceUrl = stripTrailingSlash(
+      process.env.EXPO_PUBLIC_API_BASE_URL_DEVICE ||
+        process.env.EXPO_PUBLIC_API_BASE_URL_PRODUCTION ||
+        ''
+    );
+    if (deviceUrl) return deviceUrl;
+
+    if (RNPlatform.OS === 'android') {
+      try {
+        const u = new URL(primary.includes('://') ? primary : `http://${primary}`);
+        const port = u.port || '4000';
+        return `http://10.0.2.2:${port}`;
+      } catch {
+        return primary;
+      }
+    }
+
+    if (__DEV__) {
+      console.warn(
+        '[api] EXPO_PUBLIC_API_BASE_URL is localhost but this is a native build. ' +
+          'Set EXPO_PUBLIC_API_BASE_URL_DEVICE (e.g. https://quickpost-tl4u.onrender.com or http://192.168.x.x:4000).'
+      );
+    }
+  }
+
+  return primary;
+}
+
+const BASE_URL = resolveApiBaseUrl();
 const AUTH_TOKEN_KEY = '@quickpost_token';
 
 // ---- Token helpers ----
@@ -52,10 +116,26 @@ async function apiCall<T>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const response = await fetch(`${BASE_URL}${API_PREFIX}${path}`, {
-    ...options,
-    headers,
-  });
+  const url = `${BASE_URL}${API_PREFIX}${path}`;
+  let response: Response;
+  try {
+    if (options?.signal) {
+      response = await fetch(url, { ...options, headers });
+    } else {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        response = await fetch(url, { ...options, headers, signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error(`Request timeout after ${FETCH_TIMEOUT_MS / 1000}s (check API URL and network)`);
+    }
+    throw e;
+  }
 
   if (response.status === 401) {
     await clearToken();
@@ -242,25 +322,95 @@ export const fetchPostsFromBackend = async (status?: string): Promise<Post[]> =>
   }
 };
 
-// ---- Social Accounts ----
+// ---- Social / Meta OAuth ----
+/** Matches GET /social/connections response (camelCase from API). */
+export interface SocialConnectionMetaDto {
+  status: string;
+  reconnectRequired?: boolean;
+  pageName?: string | null;
+  pageId?: string | null;
+  expiresAt?: string | null;
+  username?: string | null;
+  igBusinessId?: string | null;
+}
+
+export interface SocialConnectionsResponse {
+  facebook: SocialConnectionMetaDto | null;
+  instagram: SocialConnectionMetaDto | null;
+}
+
+/** Must match apps/api `META_REDIRECT_URI` (Facebook Valid OAuth Redirect URI). */
+export function getMetaOAuthRedirectUrlForBrowser(): string {
+  const base = BASE_URL.replace(/\/$/, '');
+  const explicit = process.env.EXPO_PUBLIC_META_REDIRECT_URI?.trim();
+  if (explicit) return explicit;
+  return `${base}${API_PREFIX}/social/meta/callback`;
+}
+
+export async function fetchSocialConnections(): Promise<SocialConnectionsResponse> {
+  return apiCall<SocialConnectionsResponse>('/social/connections');
+}
+
+export async function getMetaOAuthLoginUrl(
+  platform: Platform
+): Promise<{ url: string }> {
+  return apiCall<{ url: string }>(
+    `/social/meta/login-url?platform=${encodeURIComponent(platform)}`
+  );
+}
+
+/** Legacy “fake” connect (handle only). Errors propagate to the caller. */
 export const connectSocialAccount = async (platform: string, handle: string) => {
-  try {
-    return await apiCall('/social/connect', {
-      method: 'POST',
-      body: JSON.stringify({ platform, handle }),
-    });
-  } catch {
-    return { success: true };
-  }
+  return apiCall<{ success: boolean }>('/social/connect', {
+    method: 'POST',
+    body: JSON.stringify({ platform, handle }),
+  });
 };
 
-export const disconnectSocialAccount = async (platform: string) => {
-  try {
-    return await apiCall(`/social/disconnect/${platform}`, { method: 'DELETE' });
-  } catch {
-    return { success: true };
-  }
+/** Meta-aware disconnect: clears tokens and Graph IDs server-side. */
+export const disconnectSocialAccount = async (platform: Platform) => {
+  return apiCall<{ success: boolean }>(`/social/connections/${platform}`, {
+    method: 'DELETE',
+  });
 };
+
+export function mapConnectionsToSocialAccounts(
+  data: SocialConnectionsResponse
+): { instagram: SocialAccount | null; facebook: SocialAccount | null } {
+  const mapFacebook = (fb: SocialConnectionMetaDto | null): SocialAccount | null => {
+    if (!fb || fb.status === 'disconnected') return null;
+    const usable =
+      (fb.status === 'connected' || fb.status === 'active') && !fb.reconnectRequired;
+    const label = fb.pageName || fb.pageId || 'Facebook Page';
+    return {
+      platform: 'facebook',
+      handle: label,
+      connected: usable,
+      pageName: fb.pageName ?? null,
+      status: fb.status,
+      reconnectRequired: !!fb.reconnectRequired,
+    };
+  };
+  const mapInstagram = (ig: SocialConnectionMetaDto | null): SocialAccount | null => {
+    if (!ig || ig.status === 'disconnected') return null;
+    const usable =
+      (ig.status === 'connected' || ig.status === 'active') && !ig.reconnectRequired;
+    const raw = ig.username?.replace(/^@/, '') || '';
+    const label = raw ? `@${raw}` : ig.igBusinessId || 'Instagram';
+    return {
+      platform: 'instagram',
+      handle: label,
+      connected: usable,
+      igUsername: ig.username ?? null,
+      status: ig.status,
+      reconnectRequired: !!ig.reconnectRequired,
+    };
+  };
+  return {
+    facebook: mapFacebook(data.facebook),
+    instagram: mapInstagram(data.instagram),
+  };
+}
 
 // ---- Subscription ----
 export const getSubscriptionStatus = async () => {

@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Switch, Alert, Linking,
+  Switch, Alert, Linking, Platform, ActivityIndicator,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
-import { BusinessType, BrandStyle } from '../../src/types';
+import { BusinessType, BrandStyle, Platform as SocialPlatform } from '../../src/types';
 import StatusChip from '../../src/components/StatusChip';
 import PrimaryButton from '../../src/components/PrimaryButton';
-import { connectSocialAccount, disconnectSocialAccount, updateBusinessProfile } from '../../src/services/api';
+import {
+  disconnectSocialAccount,
+  updateBusinessProfile,
+  fetchSocialConnections,
+  mapConnectionsToSocialAccounts,
+  getMetaOAuthLoginUrl,
+  getMetaOAuthRedirectUrlForBrowser,
+} from '../../src/services/api';
 import { purchaseSubscription, restorePurchases, refreshSubscriptionFromBackend } from '../../src/services/iapService';
 
 const BUSINESS_TYPES: { id: BusinessType; label: string; emoji: string }[] = [
@@ -60,7 +67,7 @@ export default function SettingsScreen() {
   const socialAccounts = useAppStore((s) => s.socialAccounts);
   const subscription = useAppStore((s) => s.subscription);
   const setBusinessProfile = useAppStore((s) => s.setBusinessProfile);
-  const setSocialAccount = useAppStore((s) => s.setSocialAccount);
+  const setSocialAccounts = useAppStore((s) => s.setSocialAccounts);
   const setShowPaywall = useAppStore((s) => s.setShowPaywall);
   const showToast = useAppStore((s) => s.showToast);
   const setSubscription = useAppStore((s) => s.setSubscription);
@@ -72,8 +79,30 @@ export default function SettingsScreen() {
   const [bizType, setBizType] = useState<BusinessType>(businessProfile.type);
   const [brandStyle, setBrandStyle] = useState<BrandStyle>(businessProfile.brandStyle);
   const [useLogoOverlay, setUseLogoOverlay] = useState(businessProfile.useLogoOverlay);
-  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
-  const [handleInput, setHandleInput] = useState('');
+  const [oauthBusyPlatform, setOauthBusyPlatform] = useState<SocialPlatform | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const data = await fetchSocialConnections();
+          if (cancelled) return;
+          try {
+            setSocialAccounts(mapConnectionsToSocialAccounts(data));
+          } catch (mapErr) {
+            if (__DEV__) console.warn('[settings] mapConnectionsToSocialAccounts failed', mapErr);
+          }
+        } catch (err) {
+          if (__DEV__) console.warn('[settings] fetchSocialConnections failed', err);
+          // Keep existing store; screen must still render (offline / API errors).
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [setSocialAccounts])
+  );
 
   const saveBusiness = async () => {
     if (!bizName.trim()) { showToast('Business name is required', 'error'); return; }
@@ -88,30 +117,52 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleConnect = async (platform: 'instagram' | 'facebook') => {
-    if (!handleInput.trim()) { showToast('Enter your handle', 'error'); return; }
+  const handleOAuthConnect = async (platform: SocialPlatform) => {
+    if (oauthBusyPlatform) return;
+    setOauthBusyPlatform(platform);
     try {
-      await connectSocialAccount(platform, handleInput.trim());
-      setSocialAccount(platform, { platform, handle: handleInput.trim(), connected: true });
-      setConnectingPlatform(null);
-      setHandleInput('');
-      showToast(`${platform} connected!`, 'success');
-    } catch {
-      showToast('Connection failed', 'error');
+      const { url } = await getMetaOAuthLoginUrl(platform);
+      const redirectUrl = getMetaOAuthRedirectUrlForBrowser();
+      const result = await WebBrowser.openAuthSessionAsync(url, redirectUrl);
+      if (result.type === 'success') {
+        const data = await fetchSocialConnections();
+        setSocialAccounts(mapConnectionsToSocialAccounts(data));
+        showToast(
+          platform === 'instagram' ? 'Instagram connected' : 'Facebook connected',
+          'success'
+        );
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not connect';
+      showToast(msg, 'error');
+    } finally {
+      setOauthBusyPlatform(null);
     }
   };
 
-  const handleDisconnect = (platform: 'instagram' | 'facebook') => {
+  const runDisconnect = async (platform: SocialPlatform) => {
+    try {
+      await disconnectSocialAccount(platform);
+      const data = await fetchSocialConnections();
+      setSocialAccounts(mapConnectionsToSocialAccounts(data));
+      showToast(`${platform} disconnected`, 'info');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Disconnect failed';
+      showToast(msg, 'error');
+    }
+  };
+
+  const handleDisconnect = (platform: SocialPlatform) => {
+    const go = () => {
+      void runDisconnect(platform);
+    };
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`Disconnect ${platform}?`)) go();
+      return;
+    }
     Alert.alert('Disconnect', `Disconnect ${platform}?`, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Disconnect', style: 'destructive',
-        onPress: async () => {
-          await disconnectSocialAccount(platform);
-          setSocialAccount(platform, null);
-          showToast(`${platform} disconnected`, 'info');
-        },
-      },
+      { text: 'Disconnect', style: 'destructive', onPress: go },
     ]);
   };
 
@@ -148,15 +199,26 @@ export default function SettingsScreen() {
     }
   };
 
+  const performLogout = async () => {
+    await clearAuth();
+    router.replace('/auth?mode=login');
+  };
+
   const handleLogout = () => {
+    // react-native-web's Alert.alert is a no-op; use window.confirm on web.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out?')) {
+        void performLogout();
+      }
+      return;
+    }
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log Out',
         style: 'destructive',
-        onPress: async () => {
-          await clearAuth();
-          router.replace('/welcome');
+        onPress: () => {
+          void performLogout();
         },
       },
     ]);
@@ -281,9 +343,17 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           {(['instagram', 'facebook'] as const).map((platform, i) => {
             const account = socialAccounts[platform];
-            const isConnected = !!account?.connected;
+            const isActive = !!account?.connected;
+            const needsReconnect = !!account?.reconnectRequired;
             const color = platform === 'instagram' ? Colors.instagram : Colors.facebook;
             const icon = platform === 'instagram' ? 'logo-instagram' : 'logo-facebook';
+            const displayLine =
+              platform === 'facebook'
+                ? (account?.pageName || account?.handle || '')
+                : (account?.igUsername
+                  ? `@${account.igUsername.replace(/^@/, '')}`
+                  : account?.handle || '');
+            const busy = oauthBusyPlatform === platform;
             return (
               <React.Fragment key={platform}>
                 {i > 0 && <View style={styles.divider} />}
@@ -293,13 +363,19 @@ export default function SettingsScreen() {
                   </View>
                   <View style={styles.rowContent}>
                     <Text style={styles.rowLabel}>{platform.charAt(0).toUpperCase() + platform.slice(1)}</Text>
-                    {isConnected ? (
-                      <Text style={[styles.rowSublabel, { color: Colors.success }]}>{account?.handle}</Text>
+                    {isActive ? (
+                      <Text style={[styles.rowSublabel, { color: Colors.success }]} numberOfLines={2}>
+                        {platform === 'facebook' ? (account?.pageName || account?.handle) : displayLine}
+                      </Text>
+                    ) : account && (needsReconnect || displayLine) ? (
+                      <Text style={[styles.rowSublabel, { color: Colors.warning }]} numberOfLines={2}>
+                        {displayLine ? `${displayLine} · ` : ''}Reconnect required
+                      </Text>
                     ) : (
                       <Text style={styles.rowSublabel}>Not connected</Text>
                     )}
                   </View>
-                  {isConnected ? (
+                  {isActive ? (
                     <TouchableOpacity
                       testID={`disconnect-${platform}-btn`}
                       onPress={() => handleDisconnect(platform)}
@@ -310,38 +386,18 @@ export default function SettingsScreen() {
                   ) : (
                     <TouchableOpacity
                       testID={`connect-${platform}-btn`}
-                      onPress={() => setConnectingPlatform(platform)}
-                      style={styles.connectBtn}
+                      onPress={() => handleOAuthConnect(platform)}
+                      disabled={busy || !!oauthBusyPlatform}
+                      style={[styles.connectBtn, (busy || oauthBusyPlatform) && styles.connectBtnDisabled]}
                     >
-                      <Text style={styles.connectBtnText}>Connect</Text>
+                      {busy ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Text style={styles.connectBtnText}>{account ? 'Reconnect' : 'Connect'}</Text>
+                      )}
                     </TouchableOpacity>
                   )}
                 </View>
-                {connectingPlatform === platform && (
-                  <View style={styles.connectForm}>
-                    <TextInput
-                      testID={`${platform}-handle-input`}
-                      value={handleInput}
-                      onChangeText={setHandleInput}
-                      placeholder={`@your${platform}handle`}
-                      placeholderTextColor={Colors.textTertiary}
-                      style={styles.input}
-                      autoCapitalize="none"
-                    />
-                    <View style={styles.connectFormBtns}>
-                      <TouchableOpacity onPress={() => { setConnectingPlatform(null); setHandleInput(''); }} style={styles.cancelBtn}>
-                        <Text style={styles.cancelBtnText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        testID={`confirm-connect-${platform}-btn`}
-                        onPress={() => handleConnect(platform)}
-                        style={styles.saveBtn}
-                      >
-                        <Text style={styles.saveBtnText}>Connect</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
               </React.Fragment>
             );
           })}
@@ -485,12 +541,11 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
   saveBtn: { flex: 1, paddingVertical: 12, borderRadius: BorderRadius.full, backgroundColor: Colors.primary, alignItems: 'center' },
   saveBtnText: { fontSize: 14, fontWeight: '700', color: Colors.white },
-  connectBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight },
+  connectBtn: { minWidth: 88, paddingHorizontal: 12, paddingVertical: 7, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  connectBtnDisabled: { opacity: 0.6 },
   connectBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   disconnectBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BorderRadius.full, backgroundColor: Colors.errorLight },
   disconnectBtnText: { fontSize: 12, fontWeight: '600', color: Colors.error },
-  connectForm: { paddingHorizontal: 14, paddingBottom: 14 },
-  connectFormBtns: { flexDirection: 'row', gap: 8, marginTop: 10 },
   subStatusRow: { padding: 16 },
   subInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   subPlanName: { ...Typography.h4, fontWeight: '700' },

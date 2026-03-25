@@ -1,5 +1,8 @@
 import { Stack } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+WebBrowser.maybeCompleteAuthSession();
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAppStore } from '../src/store/appStore';
 import Toast from '../src/components/Toast';

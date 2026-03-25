@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
   Image, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
@@ -43,8 +43,34 @@ export default function CreateScreen() {
   const [isPosting, setIsPosting] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [templateQuery, setTemplateQuery] = useState('');
 
   const templates = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
+  const templatesForGrid = useMemo(() => {
+    const list = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
+    const autoTpl = list.find((t) => t.id === 'auto');
+    const rest = list.filter((t) => t.id !== 'auto');
+    const q = templateQuery.trim().toLowerCase();
+    const filteredRest = q
+      ? rest.filter(
+          (t) =>
+            t.label.toLowerCase().includes(q) ||
+            t.id.toLowerCase().includes(q) ||
+            (t.description?.toLowerCase().includes(q) ?? false) ||
+            (t.helper?.toLowerCase().includes(q) ?? false)
+        )
+      : rest;
+    let ordered = autoTpl ? [autoTpl, ...filteredRest] : [...filteredRest];
+    const selectedRow = list.find((t) => t.id === selectedTemplate);
+    if (selectedRow && !ordered.some((t) => t.id === selectedTemplate)) {
+      if (autoTpl && selectedRow.id !== 'auto') {
+        ordered = [autoTpl, selectedRow, ...filteredRest.filter((t) => t.id !== selectedRow.id)];
+      } else {
+        ordered = [selectedRow, ...ordered.filter((t) => t.id !== selectedRow.id)];
+      }
+    }
+    return ordered;
+  }, [businessProfile.type, templateQuery, selectedTemplate]);
   const selectedTpl = templates.find((t) => t.id === selectedTemplate);
   const isBeforeAfter = selectedTpl?.beforeAfter;
 
@@ -258,6 +284,7 @@ export default function CreateScreen() {
   const resetForm = () => {
     setStep(1);
     setSelectedTemplate('auto');
+    setTemplateQuery('');
     setPhoto(null);
     setBeforePhoto(null);
     setDescription('');
@@ -318,26 +345,49 @@ export default function CreateScreen() {
           {/* ===== STEP 1 ===== */}
           {step === 1 && (
             <>
-              {/* Template Chips */}
+              {/* Template grid */}
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Template</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                  {templates.map((tpl) => (
-                    <TouchableOpacity
-                      key={tpl.id}
-                      testID={`template-chip-${tpl.id}`}
-                      onPress={() => setSelectedTemplate(tpl.id)}
-                      activeOpacity={0.8}
-                      style={[styles.chip, selectedTemplate === tpl.id && styles.chipActive]}
-                    >
-                      <Text style={styles.chipEmoji}>{tpl.emoji}</Text>
-                      <Text style={[styles.chipText, selectedTemplate === tpl.id && styles.chipTextActive]}>
-                        {tpl.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-                {selectedTpl?.helper && (
+                <View style={styles.templateSearchWrap}>
+                  <Ionicons name="search-outline" size={18} color={Colors.textTertiary} style={styles.templateSearchIcon} />
+                  <TextInput
+                    testID="template-search-input"
+                    value={templateQuery}
+                    onChangeText={setTemplateQuery}
+                    placeholder="Search templates…"
+                    placeholderTextColor={Colors.textTertiary}
+                    style={styles.templateSearchInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    clearButtonMode="while-editing"
+                  />
+                </View>
+                <View style={styles.templateGrid}>
+                  {templatesForGrid.map((tpl) => {
+                    const selected = selectedTemplate === tpl.id;
+                    const blurb = tpl.description || tpl.helper || '';
+                    return (
+                      <TouchableOpacity
+                        key={tpl.id}
+                        testID={`template-chip-${tpl.id}`}
+                        onPress={() => setSelectedTemplate(tpl.id)}
+                        activeOpacity={0.85}
+                        style={[styles.templateCard, selected && styles.templateCardSelected]}
+                      >
+                        <Text style={styles.templateCardEmoji}>{tpl.emoji}</Text>
+                        <Text style={[styles.templateCardTitle, selected && styles.templateCardTitleSelected]} numberOfLines={2}>
+                          {tpl.label}
+                        </Text>
+                        {!!blurb && (
+                          <Text style={styles.templateCardDesc} numberOfLines={2}>
+                            {blurb}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {selectedTpl?.helper && selectedTpl.id === 'auto' && (
                   <Text style={styles.helperText}>{selectedTpl.helper}</Text>
                 )}
               </View>
@@ -669,12 +719,39 @@ const styles = StyleSheet.create({
   stepLineActive: { backgroundColor: Colors.primary },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.lg },
   sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: Spacing.sm },
-  chipsRow: { gap: Spacing.sm, paddingRight: Spacing.base },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: Colors.subtle, borderWidth: 1.5, borderColor: Colors.border },
-  chipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-  chipEmoji: { fontSize: 14 },
-  chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  chipTextActive: { color: Colors.primary },
+  templateSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.paper,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 12,
+    marginBottom: Spacing.md,
+    ...Shadows.sm,
+  },
+  templateSearchIcon: { marginRight: 8 },
+  templateSearchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: Colors.textPrimary },
+  templateGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 },
+  templateCard: {
+    width: '48%',
+    minHeight: 112,
+    padding: 12,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.paper,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    ...Shadows.sm,
+  },
+  templateCardSelected: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.primaryLight,
+  },
+  templateCardEmoji: { fontSize: 22, marginBottom: 6 },
+  templateCardTitle: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  templateCardTitleSelected: { color: Colors.primary },
+  templateCardDesc: { fontSize: 11, color: Colors.textTertiary, lineHeight: 15 },
   helperText: { marginTop: 8, fontSize: 12, color: Colors.textTertiary, fontStyle: 'italic' },
   photoPicker: { flexDirection: 'row', borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.paper, overflow: 'hidden', ...Shadows.sm },
   photoPickerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18 },

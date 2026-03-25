@@ -81,11 +81,10 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="create"
+          name="home"
           options={{
-            title: 'Create',
-            tabBarIcon: ({ focused }) => <CreateTabIcon focused={focused} />,
-            tabBarLabelStyle: [styles.tabLabel, { color: Colors.primary, fontWeight: '700' }],
+            title: 'Home',
+            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
@@ -96,10 +95,11 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="home"
+          name="create"
           options={{
-            title: 'Home',
-            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+            title: 'Create',
+            tabBarIcon: ({ focused }) => <CreateTabIcon focused={focused} />,
+            tabBarLabelStyle: [styles.tabLabel, { color: Colors.primary, fontWeight: '700' }],
           }}
         />
         <Tabs.Screen

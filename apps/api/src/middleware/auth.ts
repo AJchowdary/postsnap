@@ -22,6 +22,9 @@ export function authenticate(
 ): void {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[authenticate] No Bearer token', req.method, req.originalUrl || req.url);
+    }
     next(new UnauthorizedError('No token provided'));
     return;
   }
@@ -31,7 +34,12 @@ export function authenticate(
       req.userId = uid;
       next();
     })
-    .catch((e) => next(e));
+    .catch((e) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[authenticate] Token rejected', req.method, req.originalUrl || req.url, (e as Error)?.message);
+      }
+      next(e);
+    });
 }
 
 /** Optional auth – attaches userId if token valid, does not fail if missing. */

@@ -70,11 +70,21 @@ router.delete('/disconnect/:platform', authenticate, asyncHandler(async (req: Au
 // --- Meta OAuth (Step 4) ---
 router.get('/meta/login-url', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const platform = (req.query.platform as string) || 'instagram';
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[social/meta/login-url] ok userId=', req.userId, 'platform=', platform);
+  }
   if (platform !== 'facebook' && platform !== 'instagram') {
     return sendFail(res, 400, 'VALIDATION_ERROR', 'platform must be facebook or instagram');
   }
-  const { url } = await getMetaLoginUrl(req.userId!, platform);
-  return sendSuccess(res, { url });
+  try {
+    const { url } = await getMetaLoginUrl(req.userId!, platform);
+    return sendSuccess(res, { url });
+  } catch (e) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[social/meta/login-url] getMetaLoginUrl error:', (e as Error)?.message || e);
+    }
+    throw e;
+  }
 }));
 
 router.get('/meta/callback', asyncHandler(async (req: AuthRequest, res: Response) => {

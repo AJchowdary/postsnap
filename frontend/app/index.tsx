@@ -2,7 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAppStore } from '../src/store/appStore';
-import { loadToken, authMe, bootstrapAccount } from '../src/services/api';
+import {
+  loadToken,
+  authMe,
+  bootstrapAccount,
+  fetchSocialConnections,
+  mapConnectionsToSocialAccounts,
+} from '../src/services/api';
 import { Colors } from '../src/constants/theme';
 
 export default function Index() {
@@ -10,6 +16,7 @@ export default function Index() {
   const setBusinessProfile = useAppStore((s) => s.setBusinessProfile);
   const setIsOnboarded = useAppStore((s) => s.setIsOnboarded);
   const showToast = useAppStore((s) => s.showToast);
+  const setSocialAccounts = useAppStore((s) => s.setSocialAccounts);
   const [checking, setChecking] = useState(true);
   const [route, setRoute] = useState<string | null>(null);
 
@@ -26,6 +33,13 @@ export default function Index() {
         // Bootstrap account and restore profile
         const account = await bootstrapAccount();
         await setAuth(me.userId, '', token);
+
+        try {
+          const social = await fetchSocialConnections();
+          setSocialAccounts(mapConnectionsToSocialAccounts(social));
+        } catch {
+          // offline or misconfigured Meta — keep empty social state
+        }
 
         if (account?.name) {
           setBusinessProfile({
@@ -47,7 +61,7 @@ export default function Index() {
         setChecking(false);
       }
     })();
-  }, [setAuth, setBusinessProfile, setIsOnboarded, showToast]);
+  }, [setAuth, setBusinessProfile, setIsOnboarded, showToast, setSocialAccounts]);
 
   if (checking) {
     return (

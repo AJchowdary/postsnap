@@ -35,6 +35,7 @@ interface AppState extends AuthState {
   setIsOnboarded: (v: boolean) => void;
   setBusinessProfile: (profile: Partial<BusinessProfile>) => void;
   setSocialAccount: (platform: Platform, account: SocialAccount | null) => void;
+  setSocialAccounts: (accounts: { instagram: SocialAccount | null; facebook: SocialAccount | null }) => void;
   setSubscription: (sub: Partial<Subscription>) => void;
 
   // Posts
@@ -109,6 +110,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   setSocialAccount: (platform, account) =>
     set((state) => ({ socialAccounts: { ...state.socialAccounts, [platform]: account } })),
+
+  setSocialAccounts: (accounts) => set({ socialAccounts: accounts }),
 
   setSubscription: (sub) =>
     set((state) => ({ subscription: { ...state.subscription, ...sub } })),
