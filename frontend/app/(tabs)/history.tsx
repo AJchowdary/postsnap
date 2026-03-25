@@ -100,11 +100,15 @@ export default function HistoryScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          deletePost(post.id);
-          deletePostFromBackend(post.id);
-          setSelectedPost(null);
-          showToast('Post deleted', 'info');
+        onPress: async () => {
+          try {
+            await deletePostFromBackend(post.id);
+            deletePost(post.id);
+            setSelectedPost(null);
+            showToast('Post deleted', 'info');
+          } catch (err: any) {
+            showToast(err?.message || 'Could not delete post', 'error');
+          }
         },
       },
     ]);

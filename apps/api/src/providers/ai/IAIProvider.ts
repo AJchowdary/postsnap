@@ -4,6 +4,8 @@ export interface CaptionParams {
   businessName: string;
   businessType: string;
   brandStyle: string;
+  /** e.g. Instagram, Facebook, or combined — used in caption prompt */
+  platform?: string;
 }
 
 export type CaptionResult = {

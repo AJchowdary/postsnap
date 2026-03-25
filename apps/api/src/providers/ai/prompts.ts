@@ -1,35 +1,60 @@
 /**
- * Exact prompts for captions and image editing. Used by OpenAI provider.
- * Template-aware: auto, todays_special, before_after, promo, behind_scenes.
+ * Caption prompts for OpenAI provider.
+ * Model returns JSON: { "captions": [ { "type": "hook"|"story"|"cta", "text": "..." } ] }
  */
 
-const TEMPLATE_HINT: Record<string, string> = {
-  auto: 'General post; match tone to description.',
-  todays_special: 'Today’s special / daily offer.',
-  before_after: 'Before/after or transformation.',
-  promo: 'Limited-time promotion.',
-  behind_scenes: 'Behind the scenes / making-of.',
-};
-
-export const CAPTION_SYSTEM_PROMPT = `You are a professional social media content creator for local businesses (restaurants, salons, tattoo shops, cafes). Write engaging, non-corporate captions tailored to the business type. Tone: friendly, authentic, and concise. Return ONLY valid JSON with no markdown or extra text.`;
+export const CAPTION_SYSTEM_PROMPT = `You are a social media content expert. Follow the user instructions exactly. Output ONLY valid JSON with no markdown fences or extra text.`;
 
 export const CAPTION_USER_PROMPT = (params: {
   businessName: string;
   businessType: string;
-  template: string;
-  description: string;
-  brandStyle: string;
-}) => {
-  const hint = TEMPLATE_HINT[params.template] ?? `Template: ${params.template}.`;
-  return `Business: ${params.businessName} (${params.businessType}). ${hint} Description: ${params.description}. Brand style: ${params.brandStyle}.
+  templateStyle: string;
+  userDescription: string;
+  platform: string;
+}) => `You are a social media content expert for small local businesses. Create authentic, engaging captions.
 
-Return a single JSON object with exactly this structure (no other keys):
+Business: ${params.businessName} (${params.businessType})
+Post description: ${params.userDescription}
+Visual style: ${params.templateStyle}
+Platform: ${params.platform}
+
+Generate 3 caption options:
+
+CAPTION 1 — Hook & Punch (max 60 words)
+Start with an attention-grabbing first line.
+Be direct, confident, conversational.
+End with ONE relevant emoji.
+Include 5 hashtags.
+
+CAPTION 2 — Story & Connect (80-120 words)
+Tell a mini story or share a behind-the-scenes moment.
+Make it feel personal and authentic.
+Sound like the owner wrote it, not a marketing team.
+Include 6-8 hashtags.
+
+CAPTION 3 — CTA Focus (max 80 words)
+Build desire then drive action.
+Use "you" language to speak directly to customer.
+Clear call to action at the end.
+Include 5-6 hashtags.
+
+Tone guide by business type:
+- restaurant: warm, community, "come hungry leave happy" energy
+- salon: confident, empowering, transformation focused
+- retail: exciting, FOMO-inducing, trend-aware
+- gym: motivational, results-driven, no excuses energy
+- cafe: cozy, artisanal, slow-living lifestyle
+
+NEVER use: synergy, leverage, cutting-edge, innovative, seamlessly, game-changer
+
+Format response as JSON:
 {
-  "instagram": { "caption": "string (under 200 chars, 2-3 emojis)", "hashtags": ["#a", "#b", ...] },
-  "facebook": { "caption": "string (under 200 chars)", "hashtags": ["#x", "#y", ...] }
-}
-Rules: Instagram hashtags: 8-15. Facebook hashtags: 3-8. Captions must be different per platform. No placeholder text.`;
-};
+  "captions": [
+    {"type": "hook", "text": "..."},
+    {"type": "story", "text": "..."},
+    {"type": "cta", "text": "..."}
+  ]
+}`;
 
 export const IMAGE_EDIT_SYSTEM_PROMPT = `You are an image enhancement assistant. Apply light, realistic enhancements. Do not distort the subject. Add branding elements within safe margins (8% from edges). Never cover the main subject. Output must be 1:1 square (1080x1080). No watermarks.`;
 

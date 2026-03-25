@@ -305,11 +305,7 @@ export const publishPostToBackend = async (
 };
 
 export const deletePostFromBackend = async (postId: string): Promise<void> => {
-  try {
-    await apiCall(`/posts/${postId}`, { method: 'DELETE' });
-  } catch {
-    // silently ignore
-  }
+  await apiCall(`/posts/${postId}`, { method: 'DELETE' });
 };
 
 export const fetchPostsFromBackend = async (status?: string): Promise<Post[]> => {

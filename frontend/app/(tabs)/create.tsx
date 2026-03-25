@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Image, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import { generateCaption, generatePostImage, savePostToBackend, publishPostToBackend } from '../../src/services/api';
 import StatusChip from '../../src/components/StatusChip';
@@ -15,7 +26,26 @@ import SecondaryButton from '../../src/components/SecondaryButton';
 import { SchedulePicker } from '../../src/components/SchedulePicker';
 import { TEMPLATES_BY_TYPE, Platform as SocialPlatform } from '../../src/types';
 
+const CREATE_BG = '#0d0d0d';
+const CREATE_CARD = '#141414';
+
+const TREND_STYLES: { id: string; label: string; uri: string }[] = [
+  { id: 'photo', label: 'Photo', uri: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=180&h=180&fit=crop' },
+  { id: 'illustration', label: 'Illustration', uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=180&h=180&fit=crop' },
+  { id: 'minimal', label: 'Minimal', uri: 'https://images.unsplash.com/photo-1494438639946-1ebd1d20fe85?w=180&h=180&fit=crop' },
+  { id: 'bold', label: 'Bold', uri: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=180&h=180&fit=crop' },
+];
+
+const IMAGE_TEMPLATES: { id: string; label: string; uri: string }[] = [
+  { id: 'story-grid', label: 'Grid', uri: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=220&h=280&fit=crop' },
+  { id: 'quote-overlay', label: 'Quote', uri: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=220&h=280&fit=crop' },
+  { id: 'carousel-hint', label: 'Carousel', uri: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=220&h=280&fit=crop' },
+  { id: 'reel-cover', label: 'Reel', uri: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=220&h=280&fit=crop' },
+];
+
 export default function CreateScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ templateStyle?: string }>();
   const businessProfile = useAppStore((s) => s.businessProfile);
   const subscription = useAppStore((s) => s.subscription);
   const socialAccounts = useAppStore((s) => s.socialAccounts);
@@ -43,39 +73,25 @@ export default function CreateScreen() {
   const [isPosting, setIsPosting] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-  const [templateQuery, setTemplateQuery] = useState('');
+  const [selectedTrendId, setSelectedTrendId] = useState<string | null>(null);
+  const [selectedImageTplId, setSelectedImageTplId] = useState<string | null>(null);
+  const [exploreStyleSlug, setExploreStyleSlug] = useState<string | null>(null);
 
   const templates = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
-  const templatesForGrid = useMemo(() => {
-    const list = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
-    const autoTpl = list.find((t) => t.id === 'auto');
-    const rest = list.filter((t) => t.id !== 'auto');
-    const q = templateQuery.trim().toLowerCase();
-    const filteredRest = q
-      ? rest.filter(
-          (t) =>
-            t.label.toLowerCase().includes(q) ||
-            t.id.toLowerCase().includes(q) ||
-            (t.description?.toLowerCase().includes(q) ?? false) ||
-            (t.helper?.toLowerCase().includes(q) ?? false)
-        )
-      : rest;
-    let ordered = autoTpl ? [autoTpl, ...filteredRest] : [...filteredRest];
-    const selectedRow = list.find((t) => t.id === selectedTemplate);
-    if (selectedRow && !ordered.some((t) => t.id === selectedTemplate)) {
-      if (autoTpl && selectedRow.id !== 'auto') {
-        ordered = [autoTpl, selectedRow, ...filteredRest.filter((t) => t.id !== selectedRow.id)];
-      } else {
-        ordered = [selectedRow, ...ordered.filter((t) => t.id !== selectedRow.id)];
-      }
-    }
-    return ordered;
-  }, [businessProfile.type, templateQuery, selectedTemplate]);
-  const selectedTpl = templates.find((t) => t.id === selectedTemplate);
+  const templateForApi = useMemo(() => {
+    if (selectedImageTplId) return selectedImageTplId;
+    if (selectedTrendId) return selectedTrendId;
+    if (exploreStyleSlug) return exploreStyleSlug;
+    return selectedTemplate;
+  }, [selectedImageTplId, selectedTrendId, exploreStyleSlug, selectedTemplate]);
+  const selectedTpl = templates.find((t) => t.id === templateForApi);
   const isBeforeAfter = selectedTpl?.beforeAfter;
 
   useEffect(() => {
     if (!currentEdit) return;
+    setExploreStyleSlug(null);
+    setSelectedTrendId(null);
+    setSelectedImageTplId(null);
     if (currentEdit.id) setDraftId(currentEdit.id);
     if (currentEdit.template) setSelectedTemplate(currentEdit.template);
     if (currentEdit.photo) setPhoto(currentEdit.photo);
@@ -86,6 +102,17 @@ export default function CreateScreen() {
     }
     if (currentEdit.processedImage) setProcessedImage(currentEdit.processedImage);
   }, [currentEdit]);
+
+  useEffect(() => {
+    if (currentEdit?.id) return;
+    const raw = params.templateStyle;
+    if (raw == null || Array.isArray(raw)) return;
+    const slug = String(raw).trim();
+    if (!slug) return;
+    setExploreStyleSlug(slug);
+    setSelectedTrendId(null);
+    setSelectedImageTplId(null);
+  }, [params.templateStyle, currentEdit?.id]);
 
   useEffect(() => {
     return () => setCurrentEdit(null);
@@ -138,7 +165,7 @@ export default function CreateScreen() {
       const [cap, img] = await Promise.all([
         generateCaption({
           description,
-          template: selectedTemplate,
+          template: templateForApi,
           businessName: businessProfile.name,
           businessType: businessProfile.type,
           brandStyle: businessProfile.brandStyle,
@@ -146,7 +173,7 @@ export default function CreateScreen() {
         photoToUse
           ? generatePostImage({
               photo: photoToUse,
-              template: selectedTemplate,
+              template: templateForApi,
               businessName: businessProfile.name,
               businessType: businessProfile.type,
               brandStyle: businessProfile.brandStyle,
@@ -160,7 +187,7 @@ export default function CreateScreen() {
       // Auto-save draft
       const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
       const draft = await savePostToBackend({
-        template: selectedTemplate,
+        template: templateForApi,
         photo: photo || undefined,
         description,
         caption: cap,
@@ -182,7 +209,7 @@ export default function CreateScreen() {
     const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
     const draft = await savePostToBackend({
       id: draftId || undefined,
-      template: selectedTemplate,
+      template: templateForApi,
       photo: photo || undefined,
       description,
       caption,
@@ -236,7 +263,7 @@ export default function CreateScreen() {
     try {
       const cap = await generateCaption({
         description,
-        template: selectedTemplate,
+        template: templateForApi,
         businessName: businessProfile.name,
         businessType: businessProfile.type,
         brandStyle: businessProfile.brandStyle,
@@ -257,7 +284,7 @@ export default function CreateScreen() {
       const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
       const post = await savePostToBackend({
         id: draftId || undefined,
-        template: selectedTemplate,
+        template: templateForApi,
         photo: photo || undefined,
         description,
         caption,
@@ -284,7 +311,9 @@ export default function CreateScreen() {
   const resetForm = () => {
     setStep(1);
     setSelectedTemplate('auto');
-    setTemplateQuery('');
+    setExploreStyleSlug(null);
+    setSelectedTrendId(null);
+    setSelectedImageTplId(null);
     setPhoto(null);
     setBeforePhoto(null);
     setDescription('');
@@ -345,55 +374,88 @@ export default function CreateScreen() {
           {/* ===== STEP 1 ===== */}
           {step === 1 && (
             <>
-              {/* Template grid */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Template</Text>
-                <View style={styles.templateSearchWrap}>
-                  <Ionicons name="search-outline" size={18} color={Colors.textTertiary} style={styles.templateSearchIcon} />
-                  <TextInput
-                    testID="template-search-input"
-                    value={templateQuery}
-                    onChangeText={setTemplateQuery}
-                    placeholder="Search templates…"
-                    placeholderTextColor={Colors.textTertiary}
-                    style={styles.templateSearchInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    clearButtonMode="while-editing"
-                  />
+              <View style={[styles.section, styles.blockCard]}>
+                <View style={styles.templatesLinkRow}>
+                  <Text style={styles.sectionLabelMuted}>Style</Text>
+                  <TouchableOpacity
+                    onPress={() => router.push('/templates')}
+                    activeOpacity={0.85}
+                    style={styles.templatesLinkBtn}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.templatesLinkText}>Browse templates</Text>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.templateGrid}>
-                  {templatesForGrid.map((tpl) => {
-                    const selected = selectedTemplate === tpl.id;
-                    const blurb = tpl.description || tpl.helper || '';
+                {exploreStyleSlug && (
+                  <View style={styles.exploreChip}>
+                    <Ionicons name="color-palette-outline" size={14} color={Colors.primary} />
+                    <Text style={styles.exploreChipText} numberOfLines={1}>
+                      {exploreStyleSlug.replace(/-/g, ' ')}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.sectionLabel}>Try trend styles</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.trendRow}
+                >
+                  {TREND_STYLES.map((t) => {
+                    const selected = selectedTrendId === t.id;
                     return (
                       <TouchableOpacity
-                        key={tpl.id}
-                        testID={`template-chip-${tpl.id}`}
-                        onPress={() => setSelectedTemplate(tpl.id)}
+                        key={t.id}
+                        testID={`trend-style-${t.id}`}
                         activeOpacity={0.85}
-                        style={[styles.templateCard, selected && styles.templateCardSelected]}
+                        onPress={() => {
+                          setSelectedTrendId((prev) => (prev === t.id ? null : t.id));
+                          setExploreStyleSlug(null);
+                        }}
+                        style={[styles.trendThumbWrap, selected && styles.trendThumbWrapSelected]}
                       >
-                        <Text style={styles.templateCardEmoji}>{tpl.emoji}</Text>
-                        <Text style={[styles.templateCardTitle, selected && styles.templateCardTitleSelected]} numberOfLines={2}>
-                          {tpl.label}
+                        <Image source={{ uri: t.uri }} style={styles.trendThumb} />
+                        <Text style={[styles.trendLabel, selected && styles.trendLabelSelected]} numberOfLines={1}>
+                          {t.label}
                         </Text>
-                        {!!blurb && (
-                          <Text style={styles.templateCardDesc} numberOfLines={2}>
-                            {blurb}
-                          </Text>
-                        )}
                       </TouchableOpacity>
                     );
                   })}
-                </View>
-                {selectedTpl?.helper && selectedTpl.id === 'auto' && (
+                </ScrollView>
+                <Text style={[styles.sectionLabel, styles.sectionLabelSpaced]}>Image templates</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.imageTplRow}
+                >
+                  {IMAGE_TEMPLATES.map((t) => {
+                    const selected = selectedImageTplId === t.id;
+                    return (
+                      <TouchableOpacity
+                        key={t.id}
+                        testID={`image-template-${t.id}`}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setSelectedImageTplId((prev) => (prev === t.id ? null : t.id));
+                          setExploreStyleSlug(null);
+                        }}
+                        style={[styles.imageTplWrap, selected && styles.imageTplWrapSelected]}
+                      >
+                        <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
+                        <Text style={[styles.imageTplLabel, selected && styles.imageTplLabelSelected]} numberOfLines={1}>
+                          {t.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                {selectedTpl?.helper && templateForApi === 'auto' && (
                   <Text style={styles.helperText}>{selectedTpl.helper}</Text>
                 )}
               </View>
 
               {/* Photo Picker */}
-              <View style={styles.section}>
+              <View style={[styles.section, styles.blockCard]}>
                 <Text style={styles.sectionLabel}>
                   Photo {isBeforeAfter ? '(Before)' : '(optional)'}
                 </Text>
@@ -465,14 +527,14 @@ export default function CreateScreen() {
               </View>
 
               {/* Description */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Creative Prompt *</Text>
+              <View style={[styles.section, styles.blockCard]}>
+                <Text style={styles.promptTitle}>What&apos;s your post about?</Text>
                 <TextInput
                   testID="description-input"
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="Describe the post idea you want to generate..."
-                  placeholderTextColor={Colors.textTertiary}
+                  placeholder="Describe your idea in one line…"
+                  placeholderTextColor="#666"
                   style={styles.promptInput}
                   returnKeyType="done"
                   maxLength={120}
@@ -484,14 +546,29 @@ export default function CreateScreen() {
 
               {/* Buttons */}
               <View style={styles.btnStack}>
-                <PrimaryButton
+                <TouchableOpacity
                   testID="generate-post-btn"
-                  title="Generate Content ⚡"
                   onPress={handleGeneratePost}
-                  loading={isGenerating}
-                  disabled={!description.trim()}
-                  icon={<Ionicons name="flash" size={18} color={Colors.white} />}
-                />
+                  activeOpacity={0.88}
+                  disabled={!description.trim() || isGenerating}
+                  style={styles.genBtnOuter}
+                >
+                  <LinearGradient
+                    colors={GradientColors.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.genBtnGrad, (!description.trim() || isGenerating) && styles.genBtnGradDisabled]}
+                  >
+                    {isGenerating ? (
+                      <ActivityIndicator color={Colors.white} />
+                    ) : (
+                      <>
+                        <Text style={styles.genBtnText}>Generate Content</Text>
+                        <Ionicons name="flash" size={20} color={Colors.white} />
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
                 <SecondaryButton
                   testID="save-draft-btn-step1"
                   title="Save Draft"
@@ -612,7 +689,7 @@ export default function CreateScreen() {
                         try {
                           const cap = await generateCaption({
                             description: `SHORT VERSION: ${description}`,
-                            template: selectedTemplate,
+                            template: templateForApi,
                             businessName: businessProfile.name,
                             businessType: businessProfile.type,
                             brandStyle: businessProfile.brandStyle,
@@ -632,7 +709,7 @@ export default function CreateScreen() {
                         try {
                           const cap = await generateCaption({
                             description: `FUN & PLAYFUL VERSION: ${description}`,
-                            template: selectedTemplate,
+                            template: templateForApi,
                             businessName: businessProfile.name,
                             businessType: businessProfile.type,
                             brandStyle: 'bold',
@@ -702,12 +779,12 @@ export default function CreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: CREATE_BG },
   kav: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingBottom: 120 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingTop: Spacing.base, paddingBottom: Spacing.md },
-  headerTitle: { ...Typography.h2 },
+  headerTitle: { ...Typography.h2, color: Colors.textPrimary },
   stepper: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, marginBottom: Spacing.lg, gap: 0 },
   stepperItem: { alignItems: 'center', gap: 4 },
   stepDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
@@ -720,35 +797,77 @@ const styles = StyleSheet.create({
   stepLine: { flex: 1, height: 2, backgroundColor: Colors.border, marginBottom: 14, marginHorizontal: 6 },
   stepLineActive: { backgroundColor: Colors.primary },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.lg },
+  blockCard: {
+    backgroundColor: CREATE_CARD,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+  },
   sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: Spacing.sm, color: Colors.textSecondary },
-  templateSearchWrap: {
+  sectionLabelMuted: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: '#888', marginBottom: 4 },
+  sectionLabelSpaced: { marginTop: Spacing.md },
+  templatesLinkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceContainerHighest,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: 12,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  templatesLinkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  templatesLinkText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  exploreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primaryLight,
     marginBottom: Spacing.md,
-    ...Shadows.sm,
+    maxWidth: '100%',
   },
-  templateSearchIcon: { marginRight: 8 },
-  templateSearchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: Colors.textPrimary },
-  templateGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 },
-  templateCard: {
-    width: '48%',
-    minHeight: 112,
-    padding: 12,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.surfaceContainer,
-    ...Shadows.sm,
+  exploreChipText: { fontSize: 12, fontWeight: '600', color: Colors.primary, flexShrink: 1 },
+  trendRow: { gap: 10, paddingVertical: 4 },
+  trendThumbWrap: {
+    width: 90,
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: BorderRadius.sm,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  templateCardSelected: {
-    backgroundColor: Colors.surfaceContainerHighest,
+  trendThumbWrapSelected: { borderColor: Colors.primary },
+  trendThumb: { width: 90, height: 90, borderRadius: BorderRadius.sm, backgroundColor: '#222' },
+  trendLabel: { fontSize: 11, color: '#888', fontWeight: '600', maxWidth: 90, textAlign: 'center' },
+  trendLabelSelected: { color: Colors.primary },
+  imageTplRow: { gap: 10, paddingVertical: 4 },
+  imageTplWrap: {
+    width: 110,
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: BorderRadius.sm,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  templateCardEmoji: { fontSize: 22, marginBottom: 6 },
-  templateCardTitle: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  templateCardTitleSelected: { color: Colors.primary },
-  templateCardDesc: { fontSize: 11, color: Colors.textTertiary, lineHeight: 15 },
+  imageTplWrapSelected: { borderColor: Colors.primary },
+  imageTplImg: { width: 110, height: 140, borderRadius: BorderRadius.sm, backgroundColor: '#222' },
+  imageTplLabel: { fontSize: 11, color: '#888', fontWeight: '600', maxWidth: 110, textAlign: 'center' },
+  imageTplLabelSelected: { color: Colors.primary },
+  promptTitle: { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: Spacing.md },
   helperText: { marginTop: 8, fontSize: 12, color: Colors.textTertiary, fontStyle: 'italic' },
+  genBtnOuter: { borderRadius: BorderRadius.lg, overflow: 'hidden', ...Shadows.sm },
+  genBtnGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  genBtnGradDisabled: { opacity: 0.45 },
+  genBtnText: { fontSize: 16, fontWeight: '800', color: Colors.white },
   photoPicker: { flexDirection: 'row', borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainerHighest, overflow: 'hidden', ...Shadows.sm },
   photoPickerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18 },
   photoPickerBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
@@ -759,14 +878,15 @@ const styles = StyleSheet.create({
   photoRemove: { position: 'absolute', top: 8, right: 8, backgroundColor: Colors.white, borderRadius: 12 },
   input: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary, ...Shadows.sm },
   promptInput: {
-    backgroundColor: '#000000',
+    backgroundColor: '#0a0a0a',
     borderRadius: BorderRadius.lg,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
-    color: Colors.textPrimary,
+    color: '#fff',
     minHeight: 120,
-    ...Shadows.sm,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
   },
   charCount: { fontSize: 11, color: Colors.textTertiary, textAlign: 'right', marginTop: 4 },
   btnStack: { paddingHorizontal: Spacing.base, gap: Spacing.md },

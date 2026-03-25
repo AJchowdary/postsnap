@@ -1,10 +1,22 @@
 import type { CaptionResult } from './IAIProvider';
 
-const MAX_CAPTION_LEN = 500;
+/** Combined three-option caption can be long */
+const MAX_CAPTION_LEN = 8000;
 const MIN_IG_HASHTAGS = 8;
 const MAX_IG_HASHTAGS = 15;
 const MIN_FB_HASHTAGS = 3;
 const MAX_FB_HASHTAGS = 8;
+
+const PAD_IG = [
+  '#smallbusiness',
+  '#localbusiness',
+  '#shoplocal',
+  '#community',
+  '#supportlocal',
+  '#buylocal',
+  '#local',
+  '#smallbiz',
+];
 
 function isNonEmptyString(x: unknown): x is string {
   return typeof x === 'string' && x.length > 0;
@@ -24,15 +36,77 @@ function normalizeHashtags(x: unknown, maxCount: number): string[] {
     .slice(0, maxCount);
 }
 
+function extractHashtagsFromText(text: string): string[] {
+  const found = [...text.matchAll(/#[\w\u00c0-\u024f]+/g)].map((m) => m[0]);
+  return [...new Set(found)];
+}
+
 /**
- * Validates and normalizes a parsed object into a strict CaptionResult.
- * Returns null if the shape is invalid (missing instagram/facebook or invalid types).
+ * New OpenAI format: { captions: [ { type: "hook"|"story"|"cta", text: "..." } ] }
+ */
+function parseThreeOptionsFormat(parsed: Record<string, unknown>): CaptionResult | null {
+  const captions = parsed.captions;
+  if (!Array.isArray(captions)) return null;
+
+  const byType: Record<string, string> = {};
+  for (const item of captions) {
+    if (item == null || typeof item !== 'object' || Array.isArray(item)) continue;
+    const o = item as Record<string, unknown>;
+    const type = typeof o.type === 'string' ? o.type.toLowerCase().trim() : '';
+    const text = typeof o.text === 'string' ? o.text.trim() : '';
+    if (type && text) byType[type] = text;
+  }
+
+  const hook = byType.hook ?? '';
+  const story = byType.story ?? '';
+  const cta = byType.cta ?? '';
+  if (!hook && !story && !cta) return null;
+
+  const sections: string[] = [];
+  if (hook) sections.push(`CAPTION 1 — Hook & Punch\n${hook}`);
+  if (story) sections.push(`CAPTION 2 — Story & Connect\n${story}`);
+  if (cta) sections.push(`CAPTION 3 — CTA Focus\n${cta}`);
+  const full = sections.join('\n\n').slice(0, MAX_CAPTION_LEN);
+
+  const allForTags = `${hook} ${story} ${cta}`;
+  let tags = extractHashtagsFromText(allForTags);
+  for (const t of PAD_IG) {
+    if (tags.length >= MIN_IG_HASHTAGS) break;
+    if (!tags.includes(t)) tags.push(t);
+  }
+  const igHashtags = tags.slice(0, MAX_IG_HASHTAGS);
+  const fbPad = ['#local', '#community', '#shoplocal', '#supportlocal'];
+  let fbTags = [...new Set(tags)];
+  for (const t of fbPad) {
+    if (fbTags.length >= MIN_FB_HASHTAGS) break;
+    if (!fbTags.includes(t)) fbTags.push(t);
+  }
+  let i = 0;
+  while (fbTags.length < MIN_FB_HASHTAGS && i < 10) {
+    const extra = `${fbPad[i % fbPad.length]}`;
+    if (!fbTags.includes(extra)) fbTags.push(extra);
+    i += 1;
+  }
+  fbTags = fbTags.slice(0, MAX_FB_HASHTAGS);
+
+  return {
+    instagram: { caption: full, hashtags: igHashtags },
+    facebook: { caption: full, hashtags: fbTags },
+  };
+}
+
+/**
+ * Legacy format: { instagram: { caption, hashtags }, facebook: { ... } }
  */
 export function parseAndValidateCaptionResponse(parsed: unknown): CaptionResult | null {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return null;
   }
   const obj = parsed as Record<string, unknown>;
+
+  if (Array.isArray(obj.captions)) {
+    return parseThreeOptionsFormat(obj);
+  }
 
   const instagramRaw = obj.instagram;
   const facebookRaw = obj.facebook;

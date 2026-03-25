@@ -49,6 +49,8 @@ export const GenerateCaptionSchema = z.object({
   businessName: z.string().max(120).default('My Business'),
   businessType: z.string().max(64).default('restaurant'),
   brandStyle: z.string().max(32).default('clean'),
+  /** Optional — e.g. Instagram, Facebook */
+  platform: z.string().max(80).optional(),
 });
 
 export const GenerateImageSchema = z.object({

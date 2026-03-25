@@ -28,13 +28,13 @@ export class OpenAIProvider implements IAIProvider {
       const userContent = CAPTION_USER_PROMPT({
         businessName: sanitizeForPrompt(params.businessName, 100),
         businessType: sanitizeForPrompt(params.businessType, 50),
-        template: sanitizeForPrompt(params.template, 50),
-        description: sanitizeForPrompt(params.description, 300),
-        brandStyle: sanitizeForPrompt(params.brandStyle, 20),
+        templateStyle: sanitizeForPrompt(params.template, 80),
+        userDescription: sanitizeForPrompt(params.description, 500),
+        platform: sanitizeForPrompt(params.platform ?? 'Instagram & Facebook', 80),
       });
       const response = await client.chat.completions.create({
         model: config.openaiCaptionModel,
-        max_tokens: 400,
+        max_tokens: 2500,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: CAPTION_SYSTEM_PROMPT },

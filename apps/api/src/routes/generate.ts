@@ -24,6 +24,7 @@ router.post(
       businessName: req.body.businessName,
       businessType: req.body.businessType,
       brandStyle: req.body.brandStyle,
+      platform: req.body.platform,
     });
     const caption = result.instagram?.caption ?? result.facebook?.caption ?? '';
     return sendSuccess(res, { caption });
