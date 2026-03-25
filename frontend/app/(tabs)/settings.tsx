@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import { BusinessType, BrandStyle, Platform as SocialPlatform } from '../../src/types';

@@ -239,7 +239,7 @@ export default function HistoryScreen() {
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
