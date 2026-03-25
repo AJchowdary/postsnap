@@ -1,31 +1,38 @@
 // ============================================================
 // Quickpost Design System – Dark Theme (2026)
-// Inspired by modern dark UI with pink/orange gradient accents
+// Inspired by modern dark UI with purple/blue gradient accents
 // ============================================================
 
 export const Colors = {
-  // Core brand
-  primary: '#f43f5e',         // Rose/Pink
-  primaryGrad: '#f97316',      // Orange (gradient end)
-  primaryLight: 'rgba(244,63,94,0.14)',
-  primaryMid: 'rgba(244,63,94,0.22)',
-  secondary: '#8b5cf6',        // Purple accent
+  // Core brand (Design System)
+  primary: '#ba9eff', // Primary accent
+  secondary: '#699cff', // Secondary accent
+  tertiary: '#ec63ff',
+
+  // Button/glow helpers (kept for existing components)
+  primaryGrad: '#699cff', // Gradient end
+  primaryLight: 'rgba(186,158,255,0.14)',
+  primaryMid: 'rgba(186,158,255,0.22)',
 
   // Backgrounds
-  background: '#1c1e30',       // Lighter navy (user requested lighter theme)
-  paper: '#262842',            // Card / sheet background
-  subtle: '#212338',           // Slightly lighter dark
-  surface: 'rgba(255,255,255,0.11)', // Glass/frosted surface
+  background: '#060e20', // Deep navy
+  paper: '#0f1930', // Surface container
+  subtle: '#141f38', // Surface container high
+  surface: 'rgba(20,31,56,0.35)', // Glass-ish surface
+
+  surfaceContainer: '#0f1930',
+  surfaceContainerHigh: '#141f38',
+  surfaceContainerHighest: '#192540',
 
   // Text
-  text: '#ffffff',
-  textPrimary: '#ffffff',      // Alias for text
-  textSecondary: '#a1a1aa',
-  textTertiary: '#71717a',
+  text: '#dee5ff',
+  textPrimary: '#dee5ff', // On surface text
+  textSecondary: '#a3aac4', // Muted text (on surface variant)
+  textTertiary: '#a3aac4',
 
   // Borders
-  border: 'rgba(255,255,255,0.13)',
-  borderActive: 'rgba(255,255,255,0.30)',
+  border: '#40485d', // Outline variant
+  borderActive: 'rgba(186,158,255,0.35)',
 
   // Status
   success: '#4ade80',
@@ -44,9 +51,10 @@ export const Colors = {
 };
 
 export const GradientColors = {
-  primary: ['#f43f5e', '#f97316'] as [string, string],
-  purple: ['#8b5cf6', '#6366f1'] as [string, string],
-  dark: ['#262842', '#1c1e30'] as [string, string],
+  // Primary buttons: #ba9eff -> #699cff
+  primary: ['#ba9eff', '#699cff'] as [string, string],
+  purple: ['#ba9eff', '#ec63ff'] as [string, string],
+  dark: ['#060e20', '#141f38'] as [string, string],
 };
 
 export const Spacing = {
@@ -61,24 +69,25 @@ export const Spacing = {
 };
 
 export const BorderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
+  sm: 12,
+  md: 20,
+  lg: 24,
+  xl: 24,
   full: 999,
 };
 
 export const Typography = {
-  h1: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.5, color: '#ffffff' },
-  h2: { fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3, color: '#ffffff' },
-  h3: { fontSize: 20, fontWeight: '700' as const, color: '#ffffff' },
-  h4: { fontSize: 17, fontWeight: '600' as const, color: '#ffffff' },
-  bodyLarge: { fontSize: 16, lineHeight: 24, color: '#ffffff' },
-  body: { fontSize: 14, lineHeight: 20, color: '#ffffff' },
-  bodySmall: { fontSize: 12, lineHeight: 18, color: '#a1a1aa' },
-  label: { fontSize: 12, fontWeight: '600' as const, color: '#a1a1aa' },
-  caption: { fontSize: 11, fontWeight: '500' as const, letterSpacing: 0.3, color: '#71717a' },
-  title: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5, color: '#ffffff' },
+  // Note: font families fall back to system fonts if Manrope/Inter aren't loaded.
+  h1: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.5, color: '#dee5ff', fontFamily: 'Manrope' },
+  h2: { fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3, color: '#dee5ff', fontFamily: 'Manrope' },
+  h3: { fontSize: 20, fontWeight: '700' as const, color: '#dee5ff', fontFamily: 'Manrope' },
+  h4: { fontSize: 17, fontWeight: '600' as const, color: '#dee5ff', fontFamily: 'Manrope' },
+  bodyLarge: { fontSize: 16, lineHeight: 24, color: '#dee5ff', fontFamily: 'Inter' },
+  body: { fontSize: 14, lineHeight: 20, color: '#dee5ff', fontFamily: 'Inter' },
+  bodySmall: { fontSize: 12, lineHeight: 18, color: '#a3aac4', fontFamily: 'Inter' },
+  label: { fontSize: 12, fontWeight: '600' as const, color: '#a3aac4', fontFamily: 'Inter' },
+  caption: { fontSize: 11, fontWeight: '500' as const, letterSpacing: 0.3, color: '#a3aac4', fontFamily: 'Inter' },
+  title: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5, color: '#dee5ff', fontFamily: 'Manrope' },
 };
 
 export const Shadows = {
@@ -97,7 +106,7 @@ export const Shadows = {
     elevation: 6,
   },
   primary: {
-    shadowColor: '#f43f5e',
+    shadowColor: '#ba9eff',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.40,
     shadowRadius: 16,

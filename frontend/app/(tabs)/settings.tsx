@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
   Switch, Alert, Linking, Platform, ActivityIndicator,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -72,6 +71,7 @@ export default function SettingsScreen() {
   const showToast = useAppStore((s) => s.showToast);
   const setSubscription = useAppStore((s) => s.setSubscription);
   const clearAuth = useAppStore((s) => s.clearAuth);
+  const userEmail = useAppStore((s) => s.userEmail);
 
   const [editingBusiness, setEditingBusiness] = useState(false);
   const [bizName, setBizName] = useState(businessProfile.name);
@@ -166,19 +166,6 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const openLegalUrl = async (url: string | undefined, label: string) => {
-    const u = url?.trim();
-    if (!u || !u.startsWith('http')) {
-      showToast(`${label} URL not configured`, 'info');
-      return;
-    }
-    try {
-      await WebBrowser.openBrowserAsync(u, { controlsColor: Colors.primary });
-    } catch {
-      Linking.openURL(u).catch(() => showToast(`Could not open ${label}`, 'error'));
-    }
-  };
-
   const handleStartSubscription = async () => {
     const result = await purchaseSubscription(() => refreshSubscriptionFromBackend(setSubscription));
     if (result.success) {
@@ -227,13 +214,25 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Header + Profile */}
         <View style={styles.header}>
           <Text style={styles.title} testID="settings-title">Settings</Text>
+          <View style={styles.profileCard}>
+            <View style={styles.profileAvatar}>
+              <Ionicons name="person" size={26} color={Colors.background} />
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{businessProfile.name || 'Quickpost User'}</Text>
+              <Text style={styles.profileEmail} numberOfLines={1}>
+                {userEmail || 'you@example.com'}
+              </Text>
+            </View>
+            <StatusChip status={subscription.status} daysLeft={subscription.daysLeft} />
+          </View>
         </View>
 
-        {/* ---- Business Info ---- */}
-        <SectionHeader title="Business" />
+        {/* ---- Business Profile ---- */}
+        <SectionHeader title="Business Profile" />
         <View style={styles.card}>
           {!editingBusiness ? (
             <>
@@ -448,8 +447,8 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* ---- App Info ---- */}
-        <SectionHeader title="App Info" />
+        {/* ---- Support ---- */}
+        <SectionHeader title="Support" />
         <View style={styles.card}>
           <SettingsRow
             icon="help-circle-outline"
@@ -460,48 +459,20 @@ export default function SettingsScreen() {
           />
           <View style={styles.divider} />
           <SettingsRow
-            icon="shield-checkmark-outline"
+            icon="chatbubble-ellipses-outline"
             iconBg="#64748b"
-            label="Privacy Policy"
-            onPress={() => openLegalUrl(process.env.EXPO_PUBLIC_PRIVACY_URL, 'Privacy Policy')}
-            testID="settings-privacy-row"
-          />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="document-text-outline"
-            iconBg="#64748b"
-            label="Terms of Service"
-            onPress={() => openLegalUrl(process.env.EXPO_PUBLIC_TERMS_URL, 'Terms of Service')}
-            testID="settings-terms-row"
-          />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="trash-outline"
-            iconBg="#64748b"
-            label="Data Deletion"
-            sublabel="How to delete your account and data"
-            onPress={() => openLegalUrl(process.env.EXPO_PUBLIC_DATA_DELETION_URL, 'Data Deletion')}
-            testID="settings-data-deletion-row"
-          />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="information-circle-outline"
-            iconBg="#64748b"
-            label="App Version"
-            sublabel="Quickpost v1.0.0"
-            testID="settings-version-row"
-          />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="log-out-outline"
-            iconBg="#ef4444"
-            label="Log Out"
-            onPress={handleLogout}
-            testID="settings-logout-row"
+            label="Send Feedback"
+            onPress={() => Linking.openURL('mailto:hello@quickpost.app?subject=Quickpost%20Feedback')}
+            testID="settings-feedback-row"
           />
         </View>
 
-        <View style={{ height: 40 }} />
+        <TouchableOpacity testID="settings-logout-row" onPress={handleLogout} style={styles.signOutBtn} activeOpacity={0.85}>
+          <Ionicons name="log-out-outline" size={18} color="#ffd7e1" />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 28 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -512,8 +483,29 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 100 },
   header: { paddingHorizontal: Spacing.base, paddingTop: Spacing.base, paddingBottom: Spacing.md },
   title: { ...Typography.h2 },
+  profileCard: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.surfaceContainer,
+    borderRadius: BorderRadius.lg,
+    padding: 14,
+    ...Shadows.sm,
+  },
+  profileAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileInfo: { flex: 1 },
+  profileName: { ...Typography.h4, fontWeight: '800' },
+  profileEmail: { ...Typography.bodySmall, marginTop: 2, color: Colors.textSecondary },
   sectionHeader: { paddingHorizontal: Spacing.base, marginBottom: Spacing.sm, marginTop: Spacing.lg, ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.8 },
-  card: { marginHorizontal: Spacing.base, backgroundColor: Colors.paper, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', ...Shadows.sm },
+  card: { marginHorizontal: Spacing.base, backgroundColor: Colors.surfaceContainer, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
   divider: { height: 1, backgroundColor: Colors.border, marginLeft: 56 },
   settingsRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   rowIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -555,4 +547,16 @@ const styles = StyleSheet.create({
   subActions: { padding: 14 },
   secondaryBtn: { paddingVertical: 10, alignItems: 'center' },
   secondaryText: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+  signOutBtn: {
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(236,99,140,0.28)',
+    borderRadius: BorderRadius.full,
+    paddingVertical: 14,
+  },
+  signOutText: { color: '#ffd7e1', fontWeight: '800', fontSize: 15 },
 });

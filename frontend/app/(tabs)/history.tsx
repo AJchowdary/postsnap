@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Image, Modal,
-  Alert, Dimensions, ActivityIndicator,
+  Alert, Dimensions, ActivityIndicator, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,13 +13,12 @@ import { deletePostFromBackend, fetchPostsFromBackend } from '../../src/services
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-type Filter = 'all' | 'drafts' | 'scheduled' | 'published';
+type Filter = 'all' | 'instagram' | 'facebook';
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'drafts', label: 'Drafts' },
-  { id: 'scheduled', label: 'Scheduled' },
-  { id: 'published', label: 'Published' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'facebook', label: 'Facebook' },
 ];
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -58,6 +57,7 @@ export default function HistoryScreen() {
   const showToast = useAppStore((s) => s.showToast);
 
   const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -72,12 +72,27 @@ export default function HistoryScreen() {
     }, [setPosts])
   );
 
+  const q = query.trim().toLowerCase();
   const filtered = posts.filter((p) => {
-    if (filter === 'drafts') return p.status === 'draft';
-    if (filter === 'scheduled') return p.status === 'scheduled';
-    if (filter === 'published') return p.status === 'published';
-    return true;
+    const matchesPlatform = filter === 'all' ? true : p.platforms.includes(filter);
+    const text = `${p.caption} ${p.description || ''}`.toLowerCase();
+    const matchesQuery = q ? text.includes(q) : true;
+    return matchesPlatform && matchesQuery;
   });
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const sixDaysAgo = new Date(startOfToday);
+  sixDaysAgo.setDate(startOfToday.getDate() - 6);
+
+  const groups = {
+    today: filtered.filter((p) => new Date(p.createdAt) >= startOfToday),
+    thisWeek: filtered.filter((p) => {
+      const d = new Date(p.createdAt);
+      return d < startOfToday && d >= sixDaysAgo;
+    }),
+    older: filtered.filter((p) => new Date(p.createdAt) < sixDaysAgo),
+  };
 
   const handleDelete = useCallback((post: Post) => {
     Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
@@ -113,9 +128,7 @@ export default function HistoryScreen() {
     router.push('/(tabs)/create');
   };
 
-  const emptyMessage = filter === 'drafts' ? 'No drafts yet' :
-    filter === 'scheduled' ? 'No scheduled posts' :
-    filter === 'published' ? "You haven't posted yet" : 'No posts yet';
+  const emptyMessage = q ? 'No matching posts found' : 'No posts yet';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -129,6 +142,19 @@ export default function HistoryScreen() {
       </View>
 
       {/* Filter */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
+        <TextInput
+          testID="history-search-input"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search posts..."
+          placeholderTextColor={Colors.textTertiary}
+          style={styles.searchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
       <View style={styles.filterRow}>
         {FILTERS.map((f) => (
           <TouchableOpacity
@@ -143,7 +169,7 @@ export default function HistoryScreen() {
         ))}
       </View>
 
-      {/* List */}
+      {/* Grouped List */}
       {filtered.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="images-outline" size={48} color={Colors.textTertiary} />
@@ -154,54 +180,69 @@ export default function HistoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
+          data={[
+            { key: 'Today', data: groups.today },
+            { key: 'This Week', data: groups.thisWeek },
+            { key: 'Older', data: groups.older },
+          ]}
+          keyExtractor={(item) => item.key}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const sc = STATUS_CONFIG[item.status];
+          renderItem={({ item: section }) => {
+            if (section.data.length === 0) return null;
             return (
-              <TouchableOpacity
-                testID={`history-post-${item.id}`}
-                onPress={() => setSelectedPost(item)}
-                activeOpacity={0.8}
-                style={styles.card}
-              >
-                <View style={styles.cardThumb}>
-                  {item.processedImage || item.photo ? (
-                    <Image
-                      source={{ uri: `data:image/jpeg;base64,${item.processedImage || item.photo}` }}
-                      style={styles.cardThumbImg}
-                    />
-                  ) : (
-                    <View style={styles.thumbPlaceholder}>
-                      <Text style={styles.templateEmoji}>
-                        {getTemplateEmoji(item.template)}
-                      </Text>
+              <View style={styles.group}>
+                <Text style={styles.groupTitle}>{section.key}</Text>
+                {section.data.map((post) => {
+                  const sc = STATUS_CONFIG[post.status];
+                  const primaryPlatform = post.platforms[0] || 'instagram';
+                  const platformColor = PLATFORM_COLORS[primaryPlatform] || Colors.instagram;
+                  return (
+                    <TouchableOpacity
+                      key={post.id}
+                      testID={`history-post-${post.id}`}
+                      onPress={() => setSelectedPost(post)}
+                      activeOpacity={0.82}
+                      style={styles.card}
+                    >
+                      <View style={styles.cardThumb}>
+                        {post.processedImage || post.photo ? (
+                          <Image
+                            source={{ uri: `data:image/jpeg;base64,${post.processedImage || post.photo}` }}
+                            style={styles.cardThumbImg}
+                          />
+                        ) : (
+                          <View style={styles.thumbPlaceholder}>
+                            <Text style={styles.templateEmoji}>
+                              {getTemplateEmoji(post.template)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.cardBody}>
+                        <View style={styles.cardTopMeta}>
+                          <View style={[styles.platformLabel, { backgroundColor: platformColor }]}>
+                            <Text style={styles.platformLabelText}>
+                              {primaryPlatform === 'instagram' ? 'Instagram' : 'Facebook'}
+                            </Text>
+                          </View>
+                          <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
+                            <Ionicons name={sc.icon as any} size={10} color={sc.text} />
+                            <Text style={[styles.statusText, { color: sc.text }]}>{post.status}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.cardCaption} numberOfLines={2}>{post.caption}</Text>
+                        <Text style={styles.dateText}>
+                          {post.status === 'scheduled' && post.scheduledAt
+                            ? formatScheduled(post.scheduledAt)
+                            : formatDate(post.createdAt)}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
                     </View>
-                  )}
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardCaption} numberOfLines={2}>{item.caption}</Text>
-                  <View style={styles.cardMeta}>
-                    <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                      <Ionicons name={sc.icon as any} size={10} color={sc.text} />
-                      <Text style={[styles.statusText, { color: sc.text }]}>{item.status}</Text>
-                    </View>
-                    <View style={styles.platforms}>
-                      {item.platforms.map((p) => (
-                        <View key={p} style={[styles.platformDot, { backgroundColor: PLATFORM_COLORS[p] }]} />
-                      ))}
-                    </View>
-                    <Text style={styles.dateText}>
-                      {item.status === 'scheduled' && item.scheduledAt
-                        ? formatScheduled(item.scheduledAt)
-                        : formatDate(item.createdAt)}
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-              </TouchableOpacity>
+                  );
+                })}
+              </View>
             );
           }}
         />
@@ -343,28 +384,47 @@ const styles = StyleSheet.create({
   title: { ...Typography.h2 },
   headerSpinner: { marginLeft: 4 },
   count: { ...Typography.bodySmall, color: Colors.textTertiary },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: Spacing.base,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surfaceContainerHighest,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
   filterRow: { flexDirection: 'row', paddingHorizontal: Spacing.base, gap: Spacing.sm, marginBottom: Spacing.base },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: Colors.subtle, borderWidth: 1, borderColor: Colors.border },
-  filterChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primaryMid },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: Colors.surfaceContainerHigh },
+  filterChipActive: { backgroundColor: Colors.primaryLight },
   filterText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   filterTextActive: { color: Colors.primary },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyTitle: { ...Typography.bodyLarge, color: Colors.textSecondary, fontWeight: '600' },
   emptyBtn: { backgroundColor: Colors.primaryLight, paddingHorizontal: 20, paddingVertical: 10, borderRadius: BorderRadius.full, marginTop: 4 },
   emptyBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
-  list: { paddingHorizontal: Spacing.base, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.paper, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, borderWidth: 1, borderColor: Colors.border, gap: Spacing.md, ...Shadows.sm },
+  list: { paddingHorizontal: Spacing.base, paddingBottom: 110 },
+  group: { marginBottom: Spacing.lg },
+  groupTitle: { ...Typography.label, color: Colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceContainer, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.sm, gap: Spacing.md, ...Shadows.sm },
   cardThumb: { width: 60, height: 60, borderRadius: 10, overflow: 'hidden' },
   cardThumbImg: { width: '100%', height: '100%' },
   thumbPlaceholder: { width: '100%', height: '100%', backgroundColor: Colors.subtle, alignItems: 'center', justifyContent: 'center' },
   templateEmoji: { fontSize: 24 },
   cardBody: { flex: 1 },
-  cardCaption: { fontSize: 13, fontWeight: '500', color: Colors.textPrimary, marginBottom: 6, lineHeight: 18 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardTopMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  platformLabel: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full },
+  platformLabelText: { color: Colors.white, fontSize: 10, fontWeight: '700' },
+  cardCaption: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, marginBottom: 4, lineHeight: 18 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: BorderRadius.full },
   statusText: { fontSize: 10, fontWeight: '600', textTransform: 'capitalize' },
-  platforms: { flexDirection: 'row', gap: 4 },
-  platformDot: { width: 8, height: 8, borderRadius: 4 },
   dateText: { fontSize: 11, color: Colors.textTertiary },
 });
 

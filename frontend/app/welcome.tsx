@@ -5,62 +5,52 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width } = Dimensions.get('window');
-
-const FEATURES = [
-  {
-    icon: 'time-outline' as const,
-    title: 'Save Hours Daily',
-    description: 'Post in 2 minutes instead of hours',
-  },
-  {
-    icon: 'flash-outline' as const,
-    title: 'Auto-Post Everywhere',
-    description: 'Instagram, Facebook, Twitter, LinkedIn',
-  },
-  {
-    icon: 'trending-up-outline' as const,
-    title: 'Grow Your Business',
-    description: 'Stay consistent, boost engagement',
-  },
-];
+import { BorderRadius, Colors, GradientColors } from '../src/constants/theme';
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
     <LinearGradient
-      colors={['#eff6ff', '#f5f3ff', '#eef2ff']}
+      colors={GradientColors.dark}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.root}
     >
+      <View style={styles.glow1} />
+      <View style={styles.glow2} />
+      <View style={styles.glow3} />
       <SafeAreaView style={styles.safe}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* Platform badge */}
-          <View style={styles.badge}>
-            <Ionicons name="phone-portrait-outline" size={14} color="#2563eb" />
-            <Text style={styles.badgeText}>Available on iOS & Android</Text>
+          <View style={styles.brandRow}>
+            <Ionicons name="sparkles" size={18} color={Colors.primary} />
+            <Text style={styles.brandText}>Quickpost</Text>
           </View>
 
-          {/* Hero headline */}
-          <Text style={styles.headline}>Social Media{'\n'}in 2 Minutes</Text>
+          <View style={styles.heroWrap}>
+            <Text style={styles.headline}>Create content</Text>
+            <LinearGradient
+              colors={GradientColors.purple}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.headlineGradient}
+            >
+              <Text style={styles.headlineAccent}>faster.</Text>
+            </LinearGradient>
+          </View>
+
           <Text style={styles.subtitle}>
-            One photo. One line. Auto-posted everywhere.
-            {'\n'}Perfect for busy business owners.
+            Elevate your digital presence with AI-driven precision
           </Text>
 
-          {/* CTA Buttons */}
           <View style={styles.ctaGroup}>
             <TouchableOpacity
               onPress={() => router.push('/auth?mode=register')}
@@ -69,13 +59,12 @@ export default function WelcomeScreen() {
               testID="welcome-signup-btn"
             >
               <LinearGradient
-                colors={['#2563eb', '#4f46e5']}
+                colors={GradientColors.primary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryBtn}
               >
                 <Text style={styles.primaryBtnText}>Get Started</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
               </LinearGradient>
             </TouchableOpacity>
 
@@ -85,63 +74,8 @@ export default function WelcomeScreen() {
               style={styles.secondaryBtn}
               testID="welcome-login-btn"
             >
-              <Text style={styles.secondaryBtnText}>Sign In</Text>
+              <Text style={styles.secondaryBtnText}>Login</Text>
             </TouchableOpacity>
-          </View>
-
-          <Text style={styles.trialNote}>
-            14-day free trial • No credit card needed
-          </Text>
-
-          {/* Feature cards */}
-          <View style={styles.featuresSection}>
-            {FEATURES.map((f) => (
-              <View key={f.title} style={styles.featureCard}>
-                <LinearGradient
-                  colors={['#dbeafe', '#e0e7ff']}
-                  style={styles.featureIconWrap}
-                >
-                  <Ionicons name={f.icon} size={26} color="#2563eb" />
-                </LinearGradient>
-                <Text style={styles.featureTitle}>{f.title}</Text>
-                <Text style={styles.featureDesc}>{f.description}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Bottom CTA banner */}
-          <LinearGradient
-            colors={['#2563eb', '#4f46e5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.ctaBanner}
-          >
-            <Text style={styles.ctaBannerTitle}>Ready to Save Time?</Text>
-            <Text style={styles.ctaBannerSub}>
-              Start your 14-day free trial today
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/auth?mode=register')}
-              activeOpacity={0.85}
-              style={styles.ctaBannerBtn}
-            >
-              <Text style={styles.ctaBannerBtnText}>Get Started Free</Text>
-              <Ionicons name="arrow-forward" size={18} color="#2563eb" />
-            </TouchableOpacity>
-          </LinearGradient>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <View style={styles.footerLogo}>
-              <LinearGradient
-                colors={['#2563eb', '#4f46e5']}
-                style={styles.footerLogoDot}
-              />
-              <Text style={styles.footerBrand}>Quickpost</Text>
-            </View>
-            <Text style={styles.footerTagline}>
-              Social media made simple for busy business owners.
-            </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -153,187 +87,129 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
   scroll: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingTop: 40,
+    paddingBottom: 48,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  badge: {
+  glow1: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    backgroundColor: Colors.tertiary,
+    opacity: 0.16,
+    left: -90,
+    top: 40,
+  },
+  glow2: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+    opacity: 0.15,
+    right: -70,
+    top: 150,
+  },
+  glow3: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    backgroundColor: Colors.secondary,
+    opacity: 0.12,
+    left: -120,
+    bottom: -90,
+  },
+
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    marginBottom: 28,
+    gap: 8,
+    marginBottom: 30,
   },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#2563eb',
+  brandText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    letterSpacing: -0.4,
+    fontFamily: 'Manrope',
   },
 
+  heroWrap: { alignItems: 'center', marginBottom: 14 },
   headline: {
-    fontSize: width > 400 ? 46 : 38,
+    fontSize: 44,
     fontWeight: '800',
-    color: '#1e1b4b',
+    color: Colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -1,
-    lineHeight: width > 400 ? 52 : 44,
-    marginBottom: 16,
+    letterSpacing: -1.1,
+    lineHeight: 48,
+    fontFamily: 'Manrope',
+  },
+  headlineGradient: {
+    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  headlineAccent: {
+    fontSize: 44,
+    fontWeight: '900',
+    letterSpacing: -1.1,
+    lineHeight: 48,
+    color: Colors.background,
+    fontFamily: 'Manrope',
   },
   subtitle: {
-    fontSize: 17,
-    color: '#4b5563',
+    fontSize: 16,
+    color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 24,
     marginBottom: 32,
-    maxWidth: 340,
+    maxWidth: 330,
+    fontFamily: 'Inter',
   },
 
   ctaGroup: {
     width: '100%',
-    maxWidth: 340,
-    gap: 12,
-    marginBottom: 16,
+    maxWidth: 320,
+    gap: 14,
   },
   primaryBtnWrap: {
-    borderRadius: 14,
+    borderRadius: BorderRadius.full,
     overflow: 'hidden',
-    shadowColor: '#2563eb',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 14,
     elevation: 8,
   },
   primaryBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 14,
-    gap: 8,
+    paddingVertical: 17,
+    borderRadius: BorderRadius.full,
   },
   primaryBtnText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.background,
+    fontFamily: 'Manrope',
   },
   secondaryBtn: {
     paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#c7d2fe',
-    backgroundColor: '#fff',
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(20,31,56,0.6)',
   },
   secondaryBtnText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#4f46e5',
-  },
-
-  trialNote: {
-    fontSize: 13,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: 40,
-  },
-
-  featuresSection: {
-    width: '100%',
-    gap: 16,
-    marginBottom: 32,
-  },
-  featureCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  featureIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  featureTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  featureDesc: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-
-  ctaBanner: {
-    width: '100%',
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  ctaBannerTitle: {
-    fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  ctaBannerSub: {
     fontSize: 16,
-    color: '#bfdbfe',
-    marginBottom: 20,
-  },
-  ctaBannerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  ctaBannerBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2563eb',
-  },
-
-  footer: {
-    alignItems: 'center',
-    paddingTop: 8,
-  },
-  footerLogo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  footerLogoDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-  },
-  footerBrand: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1e1b4b',
-  },
-  footerTagline: {
-    fontSize: 13,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: Colors.textPrimary,
+    fontFamily: 'Manrope',
   },
 });

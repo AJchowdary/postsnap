@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
+import { BorderRadius, Colors, GradientColors } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
 import { authRegister, authLogin, bootstrapAccount } from '../src/services/api';
 
@@ -94,11 +95,14 @@ export default function AuthScreen() {
 
   return (
     <LinearGradient
-      colors={['#eff6ff', '#f5f3ff', '#eef2ff']}
+      colors={GradientColors.dark}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.root}
     >
+      <View style={styles.glow1} />
+      <View style={styles.glow2} />
+      <View style={styles.glow3} />
       <SafeAreaView style={styles.safe}>
         <KeyboardAvoidingView
           style={styles.flex}
@@ -109,53 +113,37 @@ export default function AuthScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Back button */}
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={20} color="#4b5563" />
-            </TouchableOpacity>
+            <View style={styles.brandArea}>
+              <View style={styles.brandRow}>
+                <Ionicons name="sparkles" size={22} color={Colors.primary} />
+                <LinearGradient
+                  colors={GradientColors.purple}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.brandTextBg}
+                >
+                  <Text style={styles.brandText}>Quickpost</Text>
+                </LinearGradient>
+              </View>
+            </View>
 
             {/* Card */}
             <View style={styles.card}>
               {/* Header */}
               <Text style={styles.cardTitle}>
-                {isRegister ? 'Create Your Account' : 'Welcome back to Quickpost'}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {isRegister
-                  ? 'Start your free 14-day trial'
-                  : 'Continue to your account'}
+                {isRegister ? 'Create your account' : 'Welcome back'}
               </Text>
 
               {/* Form fields */}
               <View style={styles.form}>
-                {/* Full Name (register only) */}
-                {isRegister && (
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>Full Name</Text>
-                    <View style={styles.inputWrap}>
-                      <Ionicons name="person-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="John Doe"
-                        placeholderTextColor="#9ca3af"
-                        value={fullName}
-                        onChangeText={setFullName}
-                        autoCapitalize="words"
-                        autoComplete="name"
-                      />
-                    </View>
-                  </View>
-                )}
-
                 {/* Email */}
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Email</Text>
                   <View style={styles.inputWrap}>
-                    <Ionicons name="mail-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                    <Ionicons name="at-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
                       placeholder="you@example.com"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={Colors.textSecondary}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -166,57 +154,33 @@ export default function AuthScreen() {
                   </View>
                 </View>
 
-                {/* Business Name (register only, optional) */}
-                {isRegister && (
-                  <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>Business Name (Optional)</Text>
-                    <View style={styles.inputWrap}>
-                      <Ionicons name="briefcase-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Your Business"
-                        placeholderTextColor="#9ca3af"
-                        value={businessName}
-                        onChangeText={setBusinessName}
-                        autoCapitalize="words"
-                      />
-                    </View>
-                  </View>
-                )}
-
                 {/* Password */}
                 <View style={styles.fieldGroup}>
-                  <View style={styles.passwordHeader}>
-                    <Text style={styles.fieldLabel}>Password</Text>
-                    {!isRegister && (
-                      <TouchableOpacity>
-                        <Text style={styles.forgotText}>Forgot password?</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
                   <View style={styles.inputWrap}>
-                    <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={18}
+                      color={Colors.textSecondary}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
-                      style={[styles.input, styles.flex]}
+                      style={styles.input}
                       placeholder={isRegister ? 'Min 8 characters' : '••••••••'}
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={Colors.textSecondary}
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPass}
                       autoComplete={isRegister ? 'new-password' : 'current-password'}
                       testID="password-input"
                     />
-                    <TouchableOpacity onPress={() => setShowPass(!showPass)} hitSlop={8}>
+                    <TouchableOpacity onPress={() => setShowPass(!showPass)} hitSlop={10}>
                       <Ionicons
                         name={showPass ? 'eye-outline' : 'eye-off-outline'}
                         size={18}
-                        color="#9ca3af"
+                        color={Colors.textSecondary}
                       />
                     </TouchableOpacity>
                   </View>
-                  {isRegister && (
-                    <Text style={styles.hint}>Must be at least 8 characters</Text>
-                  )}
                 </View>
 
                 {/* Terms checkbox (register only) */}
@@ -254,16 +218,16 @@ export default function AuthScreen() {
                 style={[styles.submitWrap, loading && { opacity: 0.6 }]}
               >
                 <LinearGradient
-                  colors={['#2563eb', '#4f46e5']}
+                  colors={GradientColors.primary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.submitBtn}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={Colors.white} />
                   ) : (
                     <Text style={styles.submitText}>
-                      {isRegister ? 'Create Account' : 'Sign In'}
+                      {isRegister ? 'Sign Up' : 'Login'}
                     </Text>
                   )}
                 </LinearGradient>
@@ -278,7 +242,7 @@ export default function AuthScreen() {
                 </Text>
                 <TouchableOpacity onPress={switchMode}>
                   <Text style={styles.footerLink}>
-                    {isRegister ? 'Sign in' : 'Sign up'}
+                    {isRegister ? 'Login' : 'Sign Up'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -297,9 +261,58 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 36,
     paddingBottom: 40,
     justifyContent: 'center',
+  },
+
+  // Background ambient glows
+  glow1: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    backgroundColor: Colors.tertiary,
+    opacity: 0.18,
+    left: -90,
+    top: 40,
+  },
+  glow2: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+    opacity: 0.16,
+    right: -70,
+    top: 120,
+  },
+  glow3: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    backgroundColor: Colors.secondary,
+    opacity: 0.12,
+    left: -110,
+    bottom: -120,
+  },
+
+  // Brand
+  brandArea: { alignItems: 'center', marginBottom: 26 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandTextBg: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  brandText: {
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+    color: Colors.background,
+    fontFamily: 'Manrope',
   },
 
   backBtn: {
@@ -318,24 +331,23 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(25,37,64,0.6)',
     borderRadius: 24,
     padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.35,
     shadowRadius: 24,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    elevation: 12,
+    overflow: 'hidden',
   },
 
   cardTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#111827',
+    color: Colors.textPrimary,
     letterSpacing: -0.5,
-    marginBottom: 6,
+    marginBottom: 18,
   },
   cardSubtitle: {
     fontSize: 15,
@@ -344,11 +356,11 @@ const styles = StyleSheet.create({
   },
 
   form: {
-    gap: 18,
-    marginBottom: 24,
+    gap: 14,
+    marginBottom: 18,
   },
 
-  fieldGroup: { gap: 6 },
+  fieldGroup: { gap: 10 },
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -369,18 +381,17 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: '#000000',
+    borderRadius: 16,
     paddingHorizontal: 14,
-    height: 50,
+    height: 52,
   },
   inputIcon: { marginRight: 10 },
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
+    color: Colors.textPrimary,
+    fontFamily: 'Inter',
   },
 
   hint: {
@@ -398,48 +409,47 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#d1d5db',
-    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    backgroundColor: 'rgba(64,72,93,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   checkboxChecked: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: Colors.primary,
   },
   termsText: {
     flex: 1,
     fontSize: 13,
-    color: '#4b5563',
+    color: Colors.textSecondary,
     lineHeight: 20,
   },
   termsLink: {
-    color: '#2563eb',
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
 
   submitWrap: {
-    borderRadius: 14,
+    borderRadius: BorderRadius.full,
     overflow: 'hidden',
-    shadowColor: '#2563eb',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 14,
     elevation: 8,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   submitBtn: {
     paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: BorderRadius.full,
+    minHeight: 52,
   },
   submitText: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: '800',
+    color: Colors.background,
+    fontFamily: 'Manrope',
   },
 
   footerRow: {
@@ -449,11 +459,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: Colors.textSecondary,
   },
   footerLink: {
     fontSize: 14,
-    color: '#2563eb',
-    fontWeight: '700',
+    color: Colors.primary,
+    fontWeight: '800',
   },
 });

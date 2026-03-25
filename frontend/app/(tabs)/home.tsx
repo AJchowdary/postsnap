@@ -4,11 +4,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
-import StatusChip from '../../src/components/StatusChip';
-import { POST_IDEAS } from '../../src/types';
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -23,25 +22,11 @@ function formatDate(iso: string) {
 export default function HomeScreen() {
   const router = useRouter();
   const businessProfile = useAppStore((s) => s.businessProfile);
-  const subscription = useAppStore((s) => s.subscription);
   const posts = useAppStore((s) => s.posts);
   const setCurrentEdit = useAppStore((s) => s.setCurrentEdit);
 
   const recentPosts = posts.slice(0, 3);
-  const latestDraft = posts.find((p) => p.status === 'draft');
-  const ideas = POST_IDEAS[businessProfile.type] || POST_IDEAS.restaurant;
-
-  const handleContinueDraft = () => {
-    if (latestDraft) {
-      setCurrentEdit(latestDraft);
-      router.push('/(tabs)/create');
-    }
-  };
-
-  const handleIdeaTap = (idea: { template: string; description: string }) => {
-    setCurrentEdit({ template: idea.template, description: idea.description });
-    router.push('/(tabs)/create');
-  };
+  const userName = businessProfile.name?.trim() || 'there';
 
   const platformColors: Record<string, string> = {
     instagram: Colors.instagram,
@@ -63,89 +48,71 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoText}>PS</Text>
-            </View>
-            <View>
-              <Text style={styles.businessName}>{businessProfile.name}</Text>
-              <Text style={styles.businessType} testID="home-business-type">
-                {businessProfile.type.charAt(0).toUpperCase() + businessProfile.type.slice(1)}
-                {businessProfile.city ? ` · ${businessProfile.city}` : ''}
-              </Text>
+            <View style={styles.logoRow}>
+              <Ionicons name="sparkles" size={16} color={Colors.primary} />
+              <Text style={styles.logoText}>Quickpost</Text>
             </View>
           </View>
-          <StatusChip
-            status={subscription.status}
-            daysLeft={subscription.daysLeft}
-            testID="home-status-chip"
-          />
+          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.85}>
+            <Ionicons name="notifications-outline" size={20} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Greeting */}
+        <View style={styles.greetingWrap}>
+          <Text style={styles.greeting}>Hi {userName} 👋</Text>
+          <Text style={styles.greetingSub}>Welcome back.</Text>
+        </View>
+
+        {/* Hero */}
+        <View style={styles.section}>
+          <LinearGradient
+            colors={['rgba(186,158,255,0.28)', 'rgba(105,156,255,0.20)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroIllustration} />
+            <Text style={styles.heroTitle}>What do you want to create today?</Text>
+            <TouchableOpacity
+              testID="home-start-creating-btn"
+              onPress={() => { setCurrentEdit(null); router.push('/(tabs)/create'); }}
+              activeOpacity={0.9}
+              style={styles.heroCtaWrap}
+            >
+              <LinearGradient colors={GradientColors.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.heroCta}>
+                <Text style={styles.heroCtaText}>Start Creating</Text>
+                <Ionicons name="arrow-forward" size={16} color={Colors.background} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
 
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
+          <View style={styles.quickRow}>
             <TouchableOpacity
-              testID="home-create-post-btn"
+              testID="home-action-post-btn"
               onPress={() => { setCurrentEdit(null); router.push('/(tabs)/create'); }}
               activeOpacity={0.85}
-              style={styles.primaryAction}
+              style={styles.quickAction}
             >
-              <View style={styles.primaryActionIcon}>
-                <Ionicons name="add" size={28} color={Colors.white} />
-              </View>
-              <Text style={styles.primaryActionText}>Create Post</Text>
-              <Text style={styles.primaryActionSub}>Takes ~30 seconds</Text>
+              <Ionicons name="create-outline" size={20} color={Colors.primary} />
+              <Text style={styles.quickActionText}>Post</Text>
             </TouchableOpacity>
-
-            <View style={styles.secondaryActionsCol}>
-              <TouchableOpacity
-                testID="home-use-last-template-btn"
-                onPress={() => {
-                  const last = posts.find((p) => p.status === 'published');
-                  if (last) setCurrentEdit({ template: last.template, description: '' });
-                  router.push('/(tabs)/create');
-                }}
-                activeOpacity={0.8}
-                style={[styles.secondaryAction, styles.secondaryTop]}
-              >
-                <Ionicons name="copy-outline" size={18} color={Colors.primary} />
-                <Text style={styles.secondaryActionText}>Last Template</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="home-continue-draft-btn"
-                onPress={handleContinueDraft}
-                disabled={!latestDraft}
-                activeOpacity={0.8}
-                style={[styles.secondaryAction, !latestDraft && styles.secondaryDisabled]}
-              >
-                <Ionicons name="document-text-outline" size={18} color={latestDraft ? Colors.secondary : Colors.textTertiary} />
-                <Text style={[styles.secondaryActionText, !latestDraft && { color: Colors.textTertiary }]}>
-                  {latestDraft ? 'Continue Draft' : 'No Drafts'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Post Ideas */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Post Ideas</Text>
-          <View style={styles.ideasRow}>
-            {ideas.map((idea, i) => (
-              <TouchableOpacity
-                key={i}
-                testID={`home-post-idea-${i}`}
-                onPress={() => handleIdeaTap(idea)}
-                activeOpacity={0.8}
-                style={styles.ideaCard}
-              >
-                <Text style={styles.ideaEmoji}>{idea.emoji}</Text>
-                <Text style={styles.ideaTitle}>{idea.title}</Text>
-                <Text style={styles.ideaSub} numberOfLines={2}>{idea.description}</Text>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity
+              testID="home-action-caption-btn"
+              onPress={() => {
+                setCurrentEdit({ description: '' });
+                router.push('/(tabs)/create');
+              }}
+              activeOpacity={0.85}
+              style={styles.quickAction}
+            >
+              <Ionicons name="chatbox-ellipses-outline" size={20} color={Colors.secondary} />
+              <Text style={styles.quickActionText}>Caption</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -211,90 +178,93 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: { flex: 1 },
-  content: { paddingBottom: 100 },
+  content: { paddingBottom: 120 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.base,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.md,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoMark: {
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.paper,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+  },
+  logoText: { color: Colors.textPrimary, fontWeight: '800', fontSize: 14, letterSpacing: 0.2 },
+  bellBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.paper,
   },
-  logoText: { color: Colors.white, fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
-  businessName: { ...Typography.h4, fontWeight: '700' },
-  businessType: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: 1 },
+  greetingWrap: { paddingHorizontal: Spacing.base, marginBottom: Spacing.base },
+  greeting: { ...Typography.h2, marginBottom: 2 },
+  greetingSub: { ...Typography.body, color: Colors.textSecondary },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
   sectionTitle: { ...Typography.label, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: Spacing.md },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
-  seeAll: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
-  actionsGrid: { flexDirection: 'row', gap: Spacing.md },
-  primaryAction: {
-    flex: 1.4,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.xl,
+  heroCard: {
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
-    ...Shadows.primary,
+    overflow: 'hidden',
+    backgroundColor: Colors.surfaceContainerHighest,
   },
-  primaryActionIcon: {
-    width: 48,
-    height: 48,
+  heroIllustration: {
+    width: '100%',
+    height: 80,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    backgroundColor: 'rgba(186,158,255,0.20)',
+    marginBottom: 12,
   },
-  primaryActionText: { color: Colors.white, fontSize: 16, fontWeight: '700', marginBottom: 3 },
-  primaryActionSub: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
-  secondaryActionsCol: { flex: 1, gap: Spacing.md },
-  secondaryAction: {
-    flex: 1,
-    backgroundColor: Colors.paper,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+  heroTitle: { ...Typography.h3, marginBottom: 14 },
+  heroCtaWrap: {
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+  },
+  heroCta: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.sm,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
   },
-  secondaryTop: { borderColor: Colors.primaryLight, backgroundColor: Colors.primaryLight },
-  secondaryDisabled: { opacity: 0.5 },
-  secondaryActionText: { fontSize: 12, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' },
-  ideasRow: { flexDirection: 'row', gap: Spacing.md },
-  ideaCard: {
+  heroCtaText: {
+    color: Colors.background,
+    fontWeight: '800',
+    fontFamily: 'Manrope',
+  },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+  seeAll: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
+  quickRow: { flexDirection: 'row', gap: Spacing.md },
+  quickAction: {
     flex: 1,
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.surfaceContainer,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     ...Shadows.sm,
   },
-  ideaEmoji: { fontSize: 22, marginBottom: 6 },
-  ideaTitle: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary, marginBottom: 3 },
-  ideaSub: { fontSize: 11, color: Colors.textTertiary, lineHeight: 15 },
+  quickActionText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, fontFamily: 'Inter' },
   emptyActivity: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   emptyText: { ...Typography.bodySmall, color: Colors.textTertiary, textAlign: 'center' },
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.surfaceContainer,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.border,
     gap: Spacing.md,
     ...Shadows.sm,
   },

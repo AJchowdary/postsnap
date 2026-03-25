@@ -4,7 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../src/constants/theme';
+import { BorderRadius, Colors, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import Toast from '../../src/components/Toast';
 import PaywallModal from '../../src/components/PaywallModal';
@@ -18,17 +18,17 @@ function CreateTabIcon({ focused }: { focused: boolean }) {
   if (focused) {
     return (
       <LinearGradient
-        colors={['#f43f5e', '#f97316']}
+        colors={GradientColors.primary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.createBtn}
       >
-        <Ionicons name="add" size={22} color={Colors.white} />
+        <Ionicons name="add" size={22} color={Colors.background} />
       </LinearGradient>
     );
   }
   return (
-    <View style={[styles.createBtn, { backgroundColor: 'rgba(244,63,94,0.18)' }]}>
+    <View style={[styles.createBtn, { backgroundColor: 'rgba(20,31,56,0.7)' }]}>
       <Ionicons name="add" size={22} color={Colors.primary} />
     </View>
   );
@@ -69,14 +69,18 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            height: 64 + insets.bottom,
+            height: 68 + insets.bottom,
             paddingBottom: insets.bottom,
-            backgroundColor: '#13131c',
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.08)',
+            paddingTop: 10,
+            marginHorizontal: 14,
+            marginBottom: 10,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: 'rgba(20,31,56,0.7)',
+            borderTopWidth: 0,
+            position: 'absolute',
           },
           tabBarActiveTintColor: Colors.primary,
-          tabBarInactiveTintColor: '#71717a',
+          tabBarInactiveTintColor: Colors.textSecondary,
           tabBarLabelStyle: styles.tabLabel,
         }}
       >
@@ -125,8 +129,8 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   createBtn: {
     width: 44,
-    height: 32,
-    borderRadius: 16,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -142,7 +146,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     marginTop: 2,
   },
 });

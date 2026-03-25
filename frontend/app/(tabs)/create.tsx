@@ -466,16 +466,18 @@ export default function CreateScreen() {
 
               {/* Description */}
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Describe this in one line *</Text>
+                <Text style={styles.sectionLabel}>Creative Prompt *</Text>
                 <TextInput
                   testID="description-input"
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="e.g. Chef's special pasta carbonara today"
+                  placeholder="Describe the post idea you want to generate..."
                   placeholderTextColor={Colors.textTertiary}
-                  style={styles.input}
+                  style={styles.promptInput}
                   returnKeyType="done"
                   maxLength={120}
+                  multiline
+                  textAlignVertical="top"
                 />
                 <Text style={styles.charCount}>{description.length}/120</Text>
               </View>
@@ -484,7 +486,7 @@ export default function CreateScreen() {
               <View style={styles.btnStack}>
                 <PrimaryButton
                   testID="generate-post-btn"
-                  title="Generate Post"
+                  title="Generate Content ⚡"
                   onPress={handleGeneratePost}
                   loading={isGenerating}
                   disabled={!description.trim()}
@@ -718,13 +720,11 @@ const styles = StyleSheet.create({
   stepLine: { flex: 1, height: 2, backgroundColor: Colors.border, marginBottom: 14, marginHorizontal: 6 },
   stepLineActive: { backgroundColor: Colors.primary },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.lg },
-  sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: Spacing.sm },
+  sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: Spacing.sm, color: Colors.textSecondary },
   templateSearchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.paper,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceContainerHighest,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: 12,
     marginBottom: Spacing.md,
@@ -738,30 +738,36 @@ const styles = StyleSheet.create({
     minHeight: 112,
     padding: 12,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.paper,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceContainer,
     ...Shadows.sm,
   },
   templateCardSelected: {
-    borderColor: Colors.primary,
-    borderWidth: 2,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.surfaceContainerHighest,
   },
   templateCardEmoji: { fontSize: 22, marginBottom: 6 },
   templateCardTitle: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   templateCardTitleSelected: { color: Colors.primary },
   templateCardDesc: { fontSize: 11, color: Colors.textTertiary, lineHeight: 15 },
   helperText: { marginTop: 8, fontSize: 12, color: Colors.textTertiary, fontStyle: 'italic' },
-  photoPicker: { flexDirection: 'row', borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.paper, overflow: 'hidden', ...Shadows.sm },
+  photoPicker: { flexDirection: 'row', borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainerHighest, overflow: 'hidden', ...Shadows.sm },
   photoPickerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18 },
   photoPickerBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  photoPickerDivider: { width: 1, backgroundColor: Colors.border },
-  photoPickerCompact: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.paper },
+  photoPickerDivider: { width: 10 },
+  photoPickerCompact: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainerHighest },
   photoPreviewWrap: { position: 'relative' },
   photoPreview: { width: '100%', height: 200, borderRadius: BorderRadius.lg, backgroundColor: Colors.subtle },
   photoRemove: { position: 'absolute', top: 8, right: 8, backgroundColor: Colors.white, borderRadius: 12 },
-  input: { backgroundColor: Colors.paper, borderWidth: 1.5, borderColor: Colors.border, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary, ...Shadows.sm },
+  input: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary, ...Shadows.sm },
+  promptInput: {
+    backgroundColor: '#000000',
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    minHeight: 120,
+    ...Shadows.sm,
+  },
   charCount: { fontSize: 11, color: Colors.textTertiary, textAlign: 'right', marginTop: 4 },
   btnStack: { paddingHorizontal: Spacing.base, gap: Spacing.md },
   btnRow: { flexDirection: 'row', gap: Spacing.md },
@@ -769,15 +775,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1.5, borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.surfaceContainerHighest,
   },
   scheduleBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.base, paddingBottom: Spacing.md },
   backBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
   platformToggles: { flexDirection: 'row', gap: Spacing.md },
-  platformToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.paper, ...Shadows.sm },
-  platformToggleActive: { backgroundColor: Colors.paper },
+  platformToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainer, ...Shadows.sm },
+  platformToggleActive: { backgroundColor: Colors.surfaceContainerHighest },
   platformToggleText: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textTertiary },
   connectLink: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
   toggleDot: { width: 10, height: 10, borderRadius: 5 },
@@ -788,7 +793,7 @@ const styles = StyleSheet.create({
   aiTag: { position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primaryLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: BorderRadius.full },
   aiTagText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
   captionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
-  captionInput: { backgroundColor: Colors.paper, borderWidth: 1.5, borderColor: Colors.border, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 14, color: Colors.textPrimary, lineHeight: 22, minHeight: 120, ...Shadows.sm },
+  captionInput: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 14, color: Colors.textPrimary, lineHeight: 22, minHeight: 120, ...Shadows.sm },
   captionFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   quickActions: { flexDirection: 'row', gap: 8 },
   quickActionBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight },
