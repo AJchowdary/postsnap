@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import { generateCaption, generatePostImage, savePostToBackend, publishPostToBackend } from '../../src/services/api';
@@ -24,17 +23,12 @@ import StatusChip from '../../src/components/StatusChip';
 import PrimaryButton from '../../src/components/PrimaryButton';
 import SecondaryButton from '../../src/components/SecondaryButton';
 import { SchedulePicker } from '../../src/components/SchedulePicker';
-import { TEMPLATES_BY_TYPE, Platform as SocialPlatform } from '../../src/types';
+import { TEMPLATES_BY_TYPE, Platform as SocialPlatform, BusinessType, Template } from '../../src/types';
 
 const CREATE_BG = '#0d0d0d';
 const CREATE_CARD = '#141414';
-
-const TREND_STYLES: { id: string; label: string; uri: string }[] = [
-  { id: 'photo', label: 'Photo', uri: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=180&h=180&fit=crop' },
-  { id: 'illustration', label: 'Illustration', uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=180&h=180&fit=crop' },
-  { id: 'minimal', label: 'Minimal', uri: 'https://images.unsplash.com/photo-1494438639946-1ebd1d20fe85?w=180&h=180&fit=crop' },
-  { id: 'bold', label: 'Bold', uri: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=180&h=180&fit=crop' },
-];
+type CreationMode = 'way1' | 'way2' | 'way3';
+type TemplatePreview = { id: string; label: string; uri: string; mediaType: 'photo' | 'video' };
 
 /** Raw base64 or full data URL from API */
 function imageDataUri(s: string | null | undefined): string | undefined {
@@ -43,16 +37,53 @@ function imageDataUri(s: string | null | undefined): string | undefined {
   return `data:image/jpeg;base64,${s}`;
 }
 
-const IMAGE_TEMPLATES: { id: string; label: string; uri: string }[] = [
-  { id: 'story-grid', label: 'Grid', uri: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=220&h=280&fit=crop' },
-  { id: 'quote-overlay', label: 'Quote', uri: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=220&h=280&fit=crop' },
-  { id: 'carousel-hint', label: 'Carousel', uri: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=220&h=280&fit=crop' },
-  { id: 'reel-cover', label: 'Reel', uri: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=220&h=280&fit=crop' },
-];
+const BUSINESS_TEMPLATE_MEDIA: Record<BusinessType, { uri: string; mediaType: 'photo' | 'video' }[]> = {
+  restaurant: [
+    { uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=300&h=380&fit=crop', mediaType: 'video' },
+  ],
+  salon: [
+    { uri: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&h=380&fit=crop', mediaType: 'video' },
+  ],
+  retail: [
+    { uri: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=300&h=380&fit=crop', mediaType: 'video' },
+  ],
+  gym: [
+    { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712?w=300&h=380&fit=crop', mediaType: 'video' },
+  ],
+  cafe: [
+    { uri: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=300&h=380&fit=crop', mediaType: 'video' },
+  ],
+};
+
+function getBusinessTemplatePreviews(type: BusinessType, templates: Template[]): TemplatePreview[] {
+  const media = BUSINESS_TEMPLATE_MEDIA[type] || BUSINESS_TEMPLATE_MEDIA.restaurant;
+  return templates
+    .filter((t) => t.id !== 'auto')
+    .slice(0, 6)
+    .map((t, i) => ({
+      id: t.id,
+      label: t.label,
+      uri: media[i % media.length].uri,
+      mediaType: media[i % media.length].mediaType,
+    }));
+}
 
 export default function CreateScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{ templateStyle?: string }>();
   const businessProfile = useAppStore((s) => s.businessProfile);
   const subscription = useAppStore((s) => s.subscription);
   const socialAccounts = useAppStore((s) => s.socialAccounts);
@@ -75,6 +106,7 @@ export default function CreateScreen() {
   const [processedImageWithOverlay, setProcessedImageWithOverlay] = useState<string | null>(null);
   const [processedImageClean, setProcessedImageClean] = useState<string | null>(null);
   const [processedImageChoice, setProcessedImageChoice] = useState<'with' | 'clean'>('with');
+  const [mode, setMode] = useState<CreationMode>('way1');
   const [platforms, setPlatforms] = useState<Record<string, boolean>>({
     instagram: !!socialAccounts.instagram?.connected,
     facebook: !!socialAccounts.facebook?.connected,
@@ -83,9 +115,6 @@ export default function CreateScreen() {
   const [isPosting, setIsPosting] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-  const [selectedTrendId, setSelectedTrendId] = useState<string | null>(null);
-  const [selectedImageTplId, setSelectedImageTplId] = useState<string | null>(null);
-  const [exploreStyleSlug, setExploreStyleSlug] = useState<string | null>(null);
 
   const genBiz = {
     businessName: businessProfile.name,
@@ -97,20 +126,15 @@ export default function CreateScreen() {
   };
 
   const templates = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
-  const templateForApi = useMemo(() => {
-    if (selectedImageTplId) return selectedImageTplId;
-    if (selectedTrendId) return selectedTrendId;
-    if (exploreStyleSlug) return exploreStyleSlug;
-    return selectedTemplate;
-  }, [selectedImageTplId, selectedTrendId, exploreStyleSlug, selectedTemplate]);
-  const selectedTpl = templates.find((t) => t.id === templateForApi);
+  const templatePreviews = useMemo(
+    () => getBusinessTemplatePreviews(businessProfile.type, templates),
+    [businessProfile.type, templates]
+  );
+  const selectedTpl = templates.find((t) => t.id === selectedTemplate);
   const isBeforeAfter = selectedTpl?.beforeAfter;
 
   useEffect(() => {
     if (!currentEdit) return;
-    setExploreStyleSlug(null);
-    setSelectedTrendId(null);
-    setSelectedImageTplId(null);
     if (currentEdit.id) setDraftId(currentEdit.id);
     if (currentEdit.template) setSelectedTemplate(currentEdit.template);
     if (currentEdit.photo) setPhoto(currentEdit.photo);
@@ -125,18 +149,8 @@ export default function CreateScreen() {
       setProcessedImageClean(currentEdit.processedImage);
       setProcessedImageChoice('with');
     }
+    setMode(currentEdit.photo ? 'way3' : 'way2');
   }, [currentEdit]);
-
-  useEffect(() => {
-    if (currentEdit?.id) return;
-    const raw = params.templateStyle;
-    if (raw == null || Array.isArray(raw)) return;
-    const slug = String(raw).trim();
-    if (!slug) return;
-    setExploreStyleSlug(slug);
-    setSelectedTrendId(null);
-    setSelectedImageTplId(null);
-  }, [params.templateStyle, currentEdit?.id]);
 
   useEffect(() => {
     return () => setCurrentEdit(null);
@@ -179,24 +193,39 @@ export default function CreateScreen() {
   };
 
   const handleGeneratePost = async () => {
-    if (!description.trim()) {
+    if (mode === 'way1' && !photo) {
+      showToast('Upload a photo first', 'error');
+      return;
+    }
+    if ((mode === 'way2' || mode === 'way3') && !selectedTemplate) {
+      showToast('Choose a template first', 'error');
+      return;
+    }
+    if (mode === 'way3' && !photo) {
+      showToast('Upload a photo for this mode', 'error');
+      return;
+    }
+    if ((mode === 'way2' || mode === 'way3') && !description.trim()) {
       showToast('Add a one-line description first', 'error');
       return;
     }
     setIsGenerating(true);
     try {
       const photoToUse = isBeforeAfter ? (beforePhoto || photo) : photo;
+      const effectiveTemplate = mode === 'way1' ? 'auto' : selectedTemplate;
+      const effectiveDescription = description.trim() || `Create a polished post for ${businessProfile.displayType}`;
+      const selectedPreview = templatePreviews.find((t) => t.id === selectedTemplate);
       const [cap, imgResult] = await Promise.all([
         generateCaption({
-          description,
-          template: templateForApi,
+          description: effectiveDescription,
+          template: effectiveTemplate,
           ...genBiz,
         }),
-        photoToUse
+        (mode === 'way1' || mode === 'way3') && photoToUse
           ? generatePostImage({
               photo: photoToUse,
-              template: templateForApi,
-              description,
+              template: effectiveTemplate,
+              description: effectiveDescription,
               ...genBiz,
             })
           : Promise.resolve(null),
@@ -216,13 +245,19 @@ export default function CreateScreen() {
         setProcessedImage(null);
         savedProcessed = undefined;
       }
+      if (!imgResult && mode === 'way2' && selectedPreview?.uri) {
+        setProcessedImageWithOverlay(null);
+        setProcessedImageClean(null);
+        setProcessedImage(selectedPreview.uri);
+        savedProcessed = selectedPreview.uri;
+      }
 
       // Auto-save draft
       const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
       const draft = await savePostToBackend({
-        template: templateForApi,
+        template: effectiveTemplate,
         photo: photo || undefined,
-        description,
+        description: effectiveDescription,
         caption: cap,
         processedImage: savedProcessed,
         platforms: enabledPlatforms,
@@ -242,7 +277,7 @@ export default function CreateScreen() {
     const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
     const draft = await savePostToBackend({
       id: draftId || undefined,
-      template: templateForApi,
+      template: mode === 'way1' ? 'auto' : selectedTemplate,
       photo: photo || undefined,
       description,
       caption,
@@ -296,7 +331,7 @@ export default function CreateScreen() {
     try {
       const cap = await generateCaption({
         description,
-        template: templateForApi,
+        template: mode === 'way1' ? 'auto' : selectedTemplate,
         ...genBiz,
       });
       setCaption(cap);
@@ -315,7 +350,7 @@ export default function CreateScreen() {
       const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
       const post = await savePostToBackend({
         id: draftId || undefined,
-        template: templateForApi,
+        template: mode === 'way1' ? 'auto' : selectedTemplate,
         photo: photo || undefined,
         description,
         caption,
@@ -342,9 +377,7 @@ export default function CreateScreen() {
   const resetForm = () => {
     setStep(1);
     setSelectedTemplate('auto');
-    setExploreStyleSlug(null);
-    setSelectedTrendId(null);
-    setSelectedImageTplId(null);
+    setMode('way1');
     setPhoto(null);
     setBeforePhoto(null);
     setDescription('');
@@ -409,89 +442,92 @@ export default function CreateScreen() {
           {step === 1 && (
             <>
               <View style={[styles.section, styles.blockCard]}>
-                <View style={styles.templatesLinkRow}>
-                  <Text style={styles.sectionLabelMuted}>Style</Text>
+                <Text style={styles.sectionLabel}>How do you want to create?</Text>
+                <View style={styles.modeRow}>
                   <TouchableOpacity
-                    onPress={() => router.push('/templates')}
+                    testID="create-mode-way1"
+                    onPress={() => setMode('way1')}
+                    style={[styles.modeChip, mode === 'way1' && styles.modeChipActive]}
                     activeOpacity={0.85}
-                    style={styles.templatesLinkBtn}
-                    hitSlop={8}
                   >
-                    <Text style={styles.templatesLinkText}>Browse templates</Text>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+                    <Text style={[styles.modeTitle, mode === 'way1' && styles.modeTitleActive]}>Way 1</Text>
+                    <Text style={styles.modeDesc}>My photo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="create-mode-way2"
+                    onPress={() => setMode('way2')}
+                    style={[styles.modeChip, mode === 'way2' && styles.modeChipActive]}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.modeTitle, mode === 'way2' && styles.modeTitleActive]}>Way 2</Text>
+                    <Text style={styles.modeDesc}>Template + description</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="create-mode-way3"
+                    onPress={() => setMode('way3')}
+                    style={[styles.modeChip, mode === 'way3' && styles.modeChipActive]}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.modeTitle, mode === 'way3' && styles.modeTitleActive]}>Way 3</Text>
+                    <Text style={styles.modeDesc}>Template + photo + description</Text>
                   </TouchableOpacity>
                 </View>
-                {exploreStyleSlug && (
-                  <View style={styles.exploreChip}>
-                    <Ionicons name="color-palette-outline" size={14} color={Colors.primary} />
-                    <Text style={styles.exploreChipText} numberOfLines={1}>
-                      {exploreStyleSlug.replace(/-/g, ' ')}
+                <View style={styles.modeHintBox}>
+                  {mode === 'way1' && (
+                    <Text style={styles.modeHintText}>Way 1: Upload photo. AI enhances it and generates caption.</Text>
+                  )}
+                  {mode === 'way2' && (
+                    <Text style={styles.modeHintText}>Way 2: Pick template + write description. No upload needed.</Text>
+                  )}
+                  {mode === 'way3' && (
+                    <Text style={styles.modeHintText}>Way 3: Pick template + upload photo + write description.</Text>
+                  )}
+                </View>
+                {(mode === 'way2' || mode === 'way3') && (
+                  <>
+                    <Text style={[styles.sectionLabel, styles.sectionLabelSpaced]}>
+                      Templates for {businessProfile.displayType}
                     </Text>
-                  </View>
-                )}
-                <Text style={styles.sectionLabel}>Try trend styles</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.trendRow}
-                >
-                  {TREND_STYLES.map((t) => {
-                    const selected = selectedTrendId === t.id;
-                    return (
-                      <TouchableOpacity
-                        key={t.id}
-                        testID={`trend-style-${t.id}`}
-                        activeOpacity={0.85}
-                        onPress={() => {
-                          setSelectedTrendId((prev) => (prev === t.id ? null : t.id));
-                          setExploreStyleSlug(null);
-                        }}
-                        style={[styles.trendThumbWrap, selected && styles.trendThumbWrapSelected]}
-                      >
-                        <Image source={{ uri: t.uri }} style={styles.trendThumb} />
-                        <Text style={[styles.trendLabel, selected && styles.trendLabelSelected]} numberOfLines={1}>
-                          {t.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                <Text style={[styles.sectionLabel, styles.sectionLabelSpaced]}>Image templates</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.imageTplRow}
-                >
-                  {IMAGE_TEMPLATES.map((t) => {
-                    const selected = selectedImageTplId === t.id;
-                    return (
-                      <TouchableOpacity
-                        key={t.id}
-                        testID={`image-template-${t.id}`}
-                        activeOpacity={0.85}
-                        onPress={() => {
-                          setSelectedImageTplId((prev) => (prev === t.id ? null : t.id));
-                          setExploreStyleSlug(null);
-                        }}
-                        style={[styles.imageTplWrap, selected && styles.imageTplWrapSelected]}
-                      >
-                        <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
-                        <Text style={[styles.imageTplLabel, selected && styles.imageTplLabelSelected]} numberOfLines={1}>
-                          {t.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                {selectedTpl?.helper && templateForApi === 'auto' && (
-                  <Text style={styles.helperText}>{selectedTpl.helper}</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.imageTplRow}
+                    >
+                      {templatePreviews.map((t) => {
+                        const selected = selectedTemplate === t.id;
+                        return (
+                          <TouchableOpacity
+                            key={t.id}
+                            testID={`business-template-${t.id}`}
+                            activeOpacity={0.85}
+                            onPress={() => setSelectedTemplate(t.id)}
+                            style={[styles.imageTplWrap, selected && styles.imageTplWrapSelected]}
+                          >
+                            <View style={styles.templateMediaWrap}>
+                              <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
+                              {t.mediaType === 'video' && (
+                                <View style={styles.videoBadge}>
+                                  <Ionicons name="play" size={12} color={Colors.white} />
+                                  <Text style={styles.videoBadgeText}>Video</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.imageTplLabel, selected && styles.imageTplLabelSelected]} numberOfLines={1}>
+                              {t.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
                 )}
               </View>
 
               {/* Photo Picker */}
+              {(mode === 'way1' || mode === 'way3') && (
               <View style={[styles.section, styles.blockCard]}>
                 <Text style={styles.sectionLabel}>
-                  Photo {isBeforeAfter ? '(Before)' : '(optional)'}
+                  Photo {isBeforeAfter ? '(Before) *' : '*'}
                 </Text>
                 {photo ? (
                   <View style={styles.photoPreviewWrap}>
@@ -559,10 +595,12 @@ export default function CreateScreen() {
                   </>
                 )}
               </View>
+              )}
 
               {/* Description */}
+              {(mode === 'way2' || mode === 'way3') && (
               <View style={[styles.section, styles.blockCard]}>
-                <Text style={styles.promptTitle}>What&apos;s your post about?</Text>
+                <Text style={styles.promptTitle}>What&apos;s your post about? *</Text>
                 <TextInput
                   testID="description-input"
                   value={description}
@@ -577,6 +615,7 @@ export default function CreateScreen() {
                 />
                 <Text style={styles.charCount}>{description.length}/120</Text>
               </View>
+              )}
 
               {/* Buttons */}
               <View style={styles.btnStack}>
@@ -597,7 +636,7 @@ export default function CreateScreen() {
                       <ActivityIndicator color={Colors.white} />
                     ) : (
                       <>
-                        <Text style={styles.genBtnText}>Generate Content</Text>
+                        <Text style={styles.genBtnText}>Generate Preview</Text>
                         <Ionicons name="flash" size={20} color={Colors.white} />
                       </>
                     )}
@@ -765,7 +804,7 @@ export default function CreateScreen() {
                         try {
                           const cap = await generateCaption({
                             description: `SHORT VERSION: ${description}`,
-                            template: templateForApi,
+                            template: mode === 'way1' ? 'auto' : selectedTemplate,
                             ...genBiz,
                           });
                           setCaption(cap);
@@ -783,7 +822,7 @@ export default function CreateScreen() {
                         try {
                           const cap = await generateCaption({
                             description: `FUN & PLAYFUL VERSION: ${description}`,
-                            template: templateForApi,
+                            template: mode === 'way1' ? 'auto' : selectedTemplate,
                             ...genBiz,
                             brandStyle: 'bold',
                           });
@@ -802,7 +841,7 @@ export default function CreateScreen() {
               <View style={styles.btnStack}>
                 <PrimaryButton
                   testID="post-now-btn"
-                  title={`Post Now${enabledCount > 0 ? ` (${enabledCount})` : ''}`}
+                  title={`Confirm & Post${enabledCount > 0 ? ` (${enabledCount})` : ''}`}
                   onPress={handlePostNow}
                   loading={isPosting}
                   disabled={enabledCount === 0 || !caption}
@@ -819,7 +858,7 @@ export default function CreateScreen() {
                   style={styles.scheduleBtn}
                 >
                   <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-                  <Text style={styles.scheduleBtnText}>Schedule for Later</Text>
+                  <Text style={styles.scheduleBtnText}>Confirm & Schedule</Text>
                 </TouchableOpacity>
                 <View style={styles.btnRow}>
                   <SecondaryButton
@@ -877,6 +916,30 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: Spacing.sm, color: Colors.textSecondary },
+  modeRow: { gap: 8 },
+  modeChip: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: '#101010',
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  modeChipActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  modeTitle: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary, marginBottom: 2 },
+  modeTitleActive: { color: Colors.primary },
+  modeDesc: { fontSize: 12, color: Colors.textSecondary },
+  modeHintBox: {
+    marginTop: 8,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  modeHintText: { fontSize: 12, color: Colors.textSecondary },
   sectionLabelMuted: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: '#888', marginBottom: 4 },
   sectionLabelSpaced: { marginTop: Spacing.md },
   templatesLinkRow: {
@@ -925,7 +988,21 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   imageTplWrapSelected: { borderColor: Colors.primary },
+  templateMediaWrap: { width: 110, height: 140, borderRadius: BorderRadius.sm, overflow: 'hidden', position: 'relative' },
   imageTplImg: { width: 110, height: 140, borderRadius: BorderRadius.sm, backgroundColor: '#222' },
+  videoBadge: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  videoBadgeText: { fontSize: 10, color: Colors.white, fontWeight: '700' },
   imageTplLabel: { fontSize: 11, color: '#888', fontWeight: '600', maxWidth: 110, textAlign: 'center' },
   imageTplLabelSelected: { color: Colors.primary },
   promptTitle: { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: Spacing.md },
