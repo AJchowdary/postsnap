@@ -25,6 +25,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="templates" options={{ headerShown: false }} />
+          <Stack.Screen name="template-workflow" options={{ headerShown: false }} />
         </Stack>
         <GlobalToast />
       </SafeAreaProvider>

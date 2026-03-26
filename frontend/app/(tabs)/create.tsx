@@ -15,11 +15,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, BorderRadius, Typography, Shadows, GradientColors } from '../../src/constants/theme';
+import { useRouter } from 'expo-router';
+import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import { generateCaption, generatePostImage, savePostToBackend, publishPostToBackend } from '../../src/services/api';
-import StatusChip from '../../src/components/StatusChip';
 import PrimaryButton from '../../src/components/PrimaryButton';
 import SecondaryButton from '../../src/components/SecondaryButton';
 import { SchedulePicker } from '../../src/components/SchedulePicker';
@@ -27,7 +26,6 @@ import { TEMPLATES_BY_TYPE, Platform as SocialPlatform, BusinessType, Template }
 
 const CREATE_BG = '#0d0d0d';
 const CREATE_CARD = '#141414';
-type CreationMode = 'way1' | 'way2' | 'way3';
 type TemplatePreview = { id: string; label: string; uri: string; mediaType: 'photo' | 'video' };
 
 /** Raw base64 or full data URL from API */
@@ -84,8 +82,8 @@ function getBusinessTemplatePreviews(type: BusinessType, templates: Template[]):
 }
 
 export default function CreateScreen() {
+  const router = useRouter();
   const businessProfile = useAppStore((s) => s.businessProfile);
-  const subscription = useAppStore((s) => s.subscription);
   const socialAccounts = useAppStore((s) => s.socialAccounts);
   const addPost = useAppStore((s) => s.addPost);
   const updatePost = useAppStore((s) => s.updatePost);
@@ -106,7 +104,6 @@ export default function CreateScreen() {
   const [processedImageWithOverlay, setProcessedImageWithOverlay] = useState<string | null>(null);
   const [processedImageClean, setProcessedImageClean] = useState<string | null>(null);
   const [processedImageChoice, setProcessedImageChoice] = useState<'with' | 'clean'>('with');
-  const [mode, setMode] = useState<CreationMode>('way1');
   const [platforms, setPlatforms] = useState<Record<string, boolean>>({
     instagram: !!socialAccounts.instagram?.connected,
     facebook: !!socialAccounts.facebook?.connected,
@@ -149,7 +146,6 @@ export default function CreateScreen() {
       setProcessedImageClean(currentEdit.processedImage);
       setProcessedImageChoice('with');
     }
-    setMode(currentEdit.photo ? 'way3' : 'way2');
   }, [currentEdit]);
 
   useEffect(() => {
@@ -193,35 +189,22 @@ export default function CreateScreen() {
   };
 
   const handleGeneratePost = async () => {
-    if (mode === 'way1' && !photo) {
+    if (!photo) {
       showToast('Upload a photo first', 'error');
-      return;
-    }
-    if ((mode === 'way2' || mode === 'way3') && !selectedTemplate) {
-      showToast('Choose a template first', 'error');
-      return;
-    }
-    if (mode === 'way3' && !photo) {
-      showToast('Upload a photo for this mode', 'error');
-      return;
-    }
-    if ((mode === 'way2' || mode === 'way3') && !description.trim()) {
-      showToast('Add a one-line description first', 'error');
       return;
     }
     setIsGenerating(true);
     try {
       const photoToUse = isBeforeAfter ? (beforePhoto || photo) : photo;
-      const effectiveTemplate = mode === 'way1' ? 'auto' : selectedTemplate;
+      const effectiveTemplate = 'auto';
       const effectiveDescription = description.trim() || `Create a polished post for ${businessProfile.displayType}`;
-      const selectedPreview = templatePreviews.find((t) => t.id === selectedTemplate);
       const [cap, imgResult] = await Promise.all([
         generateCaption({
           description: effectiveDescription,
           template: effectiveTemplate,
           ...genBiz,
         }),
-        (mode === 'way1' || mode === 'way3') && photoToUse
+        photoToUse
           ? generatePostImage({
               photo: photoToUse,
               template: effectiveTemplate,
@@ -244,12 +227,6 @@ export default function CreateScreen() {
         setProcessedImageClean(null);
         setProcessedImage(null);
         savedProcessed = undefined;
-      }
-      if (!imgResult && mode === 'way2' && selectedPreview?.uri) {
-        setProcessedImageWithOverlay(null);
-        setProcessedImageClean(null);
-        setProcessedImage(selectedPreview.uri);
-        savedProcessed = selectedPreview.uri;
       }
 
       // Auto-save draft
@@ -277,7 +254,7 @@ export default function CreateScreen() {
     const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
     const draft = await savePostToBackend({
       id: draftId || undefined,
-      template: mode === 'way1' ? 'auto' : selectedTemplate,
+      template: 'auto',
       photo: photo || undefined,
       description,
       caption,
@@ -331,7 +308,7 @@ export default function CreateScreen() {
     try {
       const cap = await generateCaption({
         description,
-        template: mode === 'way1' ? 'auto' : selectedTemplate,
+        template: 'auto',
         ...genBiz,
       });
       setCaption(cap);
@@ -350,7 +327,7 @@ export default function CreateScreen() {
       const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
       const post = await savePostToBackend({
         id: draftId || undefined,
-        template: mode === 'way1' ? 'auto' : selectedTemplate,
+        template: 'auto',
         photo: photo || undefined,
         description,
         caption,
@@ -377,7 +354,6 @@ export default function CreateScreen() {
   const resetForm = () => {
     setStep(1);
     setSelectedTemplate('auto');
-    setMode('way1');
     setPhoto(null);
     setBeforePhoto(null);
     setDescription('');
@@ -409,32 +385,13 @@ export default function CreateScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.headerTitle} testID="create-header-title">Create</Text>
+          <View style={styles.topBar}>
+            <View style={styles.brandRow}>
+              <Ionicons name="sparkles" size={14} color={Colors.primary} />
+              <Text style={styles.brandText}>Quickpost</Text>
             </View>
-            <StatusChip
-              status={subscription.status}
-              daysLeft={subscription.daysLeft}
-              testID="create-status-chip"
-            />
-          </View>
-
-          {/* Stepper */}
-          <View style={styles.stepper}>
-            <View style={styles.stepperItem}>
-              <View style={[styles.stepDot, styles.stepDotActive]}>
-                <Text style={styles.stepNum}>1</Text>
-              </View>
-              <Text style={[styles.stepLabel, step === 1 && styles.stepLabelActive]}>Build</Text>
-            </View>
-            <View style={[styles.stepLine, step === 2 && styles.stepLineActive]} />
-            <View style={styles.stepperItem}>
-              <View style={[styles.stepDot, step === 2 && styles.stepDotActive, step === 1 && styles.stepDotInactive]}>
-                <Text style={[styles.stepNum, step === 1 && styles.stepNumInactive]}>2</Text>
-              </View>
-              <Text style={[styles.stepLabel, step === 2 && styles.stepLabelActive]}>Preview</Text>
+            <View style={styles.avatarDot}>
+              <Ionicons name="person" size={12} color={Colors.white} />
             </View>
           </View>
 
@@ -442,211 +399,103 @@ export default function CreateScreen() {
           {step === 1 && (
             <>
               <View style={[styles.section, styles.blockCard]}>
-                <Text style={styles.sectionLabel}>How do you want to create?</Text>
-                <View style={styles.modeRow}>
-                  <TouchableOpacity
-                    testID="create-mode-way1"
-                    onPress={() => setMode('way1')}
-                    style={[styles.modeChip, mode === 'way1' && styles.modeChipActive]}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.modeTitle, mode === 'way1' && styles.modeTitleActive]}>Way 1</Text>
-                    <Text style={styles.modeDesc}>My photo</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="create-mode-way2"
-                    onPress={() => setMode('way2')}
-                    style={[styles.modeChip, mode === 'way2' && styles.modeChipActive]}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.modeTitle, mode === 'way2' && styles.modeTitleActive]}>Way 2</Text>
-                    <Text style={styles.modeDesc}>Template + description</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="create-mode-way3"
-                    onPress={() => setMode('way3')}
-                    style={[styles.modeChip, mode === 'way3' && styles.modeChipActive]}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.modeTitle, mode === 'way3' && styles.modeTitleActive]}>Way 3</Text>
-                    <Text style={styles.modeDesc}>Template + photo + description</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.modeHintBox}>
-                  {mode === 'way1' && (
-                    <Text style={styles.modeHintText}>Way 1: Upload photo. AI enhances it and generates caption.</Text>
-                  )}
-                  {mode === 'way2' && (
-                    <Text style={styles.modeHintText}>Way 2: Pick template + write description. No upload needed.</Text>
-                  )}
-                  {mode === 'way3' && (
-                    <Text style={styles.modeHintText}>Way 3: Pick template + upload photo + write description.</Text>
-                  )}
-                </View>
-                {(mode === 'way2' || mode === 'way3') && (
-                  <>
-                    <Text style={[styles.sectionLabel, styles.sectionLabelSpaced]}>
-                      Templates for {businessProfile.displayType}
-                    </Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.imageTplRow}
-                    >
-                      {templatePreviews.map((t) => {
-                        const selected = selectedTemplate === t.id;
-                        return (
-                          <TouchableOpacity
-                            key={t.id}
-                            testID={`business-template-${t.id}`}
-                            activeOpacity={0.85}
-                            onPress={() => setSelectedTemplate(t.id)}
-                            style={[styles.imageTplWrap, selected && styles.imageTplWrapSelected]}
-                          >
-                            <View style={styles.templateMediaWrap}>
-                              <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
-                              {t.mediaType === 'video' && (
-                                <View style={styles.videoBadge}>
-                                  <Ionicons name="play" size={12} color={Colors.white} />
-                                  <Text style={styles.videoBadgeText}>Video</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={[styles.imageTplLabel, selected && styles.imageTplLabelSelected]} numberOfLines={1}>
-                              {t.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </>
-                )}
-              </View>
-
-              {/* Photo Picker */}
-              {(mode === 'way1' || mode === 'way3') && (
-              <View style={[styles.section, styles.blockCard]}>
-                <Text style={styles.sectionLabel}>
-                  Photo {isBeforeAfter ? '(Before) *' : '*'}
-                </Text>
-                {photo ? (
-                  <View style={styles.photoPreviewWrap}>
-                    <Image
-                      source={{ uri: `data:image/jpeg;base64,${photo}` }}
-                      style={styles.photoPreview}
-                    />
-                    <TouchableOpacity
-                      testID="photo-remove-btn"
-                      onPress={() => setPhoto(null)}
-                      style={styles.photoRemove}
-                    >
-                      <Ionicons name="close-circle" size={24} color={Colors.error} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.photoPicker}>
-                    <TouchableOpacity
-                      testID="photo-camera-btn"
-                      onPress={takePhoto}
-                      activeOpacity={0.8}
-                      style={styles.photoPickerBtn}
-                    >
-                      <Ionicons name="camera-outline" size={22} color={Colors.primary} />
-                      <Text style={styles.photoPickerBtnText}>Take Photo</Text>
-                    </TouchableOpacity>
-                    <View style={styles.photoPickerDivider} />
-                    <TouchableOpacity
-                      testID="photo-library-btn"
-                      onPress={() => pickPhoto('main')}
-                      activeOpacity={0.8}
-                      style={styles.photoPickerBtn}
-                    >
-                      <Ionicons name="image-outline" size={22} color={Colors.primary} />
-                      <Text style={styles.photoPickerBtnText}>Upload</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* Before photo for before/after */}
-                {isBeforeAfter && (
-                  <>
-                    <Text style={[styles.sectionLabel, { marginTop: 12 }]}>After Photo</Text>
-                    {beforePhoto ? (
-                      <View style={styles.photoPreviewWrap}>
-                        <Image
-                          source={{ uri: `data:image/jpeg;base64,${beforePhoto}` }}
-                          style={styles.photoPreview}
-                        />
-                        <TouchableOpacity onPress={() => setBeforePhoto(null)} style={styles.photoRemove}>
-                          <Ionicons name="close-circle" size={24} color={Colors.error} />
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        testID="before-photo-btn"
-                        onPress={() => pickPhoto('before')}
-                        activeOpacity={0.8}
-                        style={styles.photoPickerCompact}
-                      >
-                        <Ionicons name="image-outline" size={18} color={Colors.primary} />
-                        <Text style={styles.photoPickerBtnText}>Add After Photo</Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
-                )}
-              </View>
-              )}
-
-              {/* Description */}
-              {(mode === 'way2' || mode === 'way3') && (
-              <View style={[styles.section, styles.blockCard]}>
-                <Text style={styles.promptTitle}>What&apos;s your post about? *</Text>
+                <Text style={styles.vibeTitle}>What&apos;s the vibe today?</Text>
                 <TextInput
                   testID="description-input"
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="Describe your idea in one line…"
+                  placeholder="Describe your post in one line..."
                   placeholderTextColor="#666"
-                  style={styles.promptInput}
+                  style={styles.vibeInput}
                   returnKeyType="done"
                   maxLength={120}
                   multiline
                   textAlignVertical="top"
                 />
-                <Text style={styles.charCount}>{description.length}/120</Text>
+                <View style={styles.vibeActions}>
+                  <TouchableOpacity
+                    testID="photo-library-btn"
+                    onPress={() => pickPhoto('main')}
+                    activeOpacity={0.85}
+                    style={styles.uploadChip}
+                  >
+                    <Ionicons name="cloud-upload-outline" size={14} color={Colors.textPrimary} />
+                    <Text style={styles.uploadChipText}>{photo ? 'Change Upload' : 'Upload'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="photo-camera-btn"
+                    onPress={takePhoto}
+                    activeOpacity={0.85}
+                    style={styles.uploadChip}
+                  >
+                    <Ionicons name="camera-outline" size={14} color={Colors.textPrimary} />
+                    <Text style={styles.uploadChipText}>Take Photo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    testID="generate-post-btn"
+                    onPress={handleGeneratePost}
+                    activeOpacity={0.9}
+                    disabled={!photo || isGenerating}
+                    style={styles.generateMiniBtn}
+                  >
+                    {isGenerating ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <Text style={styles.generateMiniBtnText}>Generate</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
+
+              {!!photo && (
+                <View style={[styles.section, styles.blockCard]}>
+                  <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photoPreview} />
+                </View>
               )}
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeadRow}>
+                  <Text style={styles.sectionHeaderTitle}>Photo Templates</Text>
+                  <Text style={styles.viewAllText}>Tap any card</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageTplRow}>
+                  {templatePreviews.map((t) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      testID={`business-template-${t.id}`}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/template-workflow',
+                          params: { templateId: t.id },
+                        } as any)
+                      }
+                      style={styles.imageTplWrap}
+                    >
+                      <View style={styles.templateMediaWrap}>
+                        <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
+                        {t.mediaType === 'video' && (
+                          <View style={styles.videoBadge}>
+                            <Ionicons name="play" size={12} color={Colors.white} />
+                            <Text style={styles.videoBadgeText}>Video</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.imageTplLabel} numberOfLines={1}>
+                        {t.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
 
               {/* Buttons */}
               <View style={styles.btnStack}>
-                <TouchableOpacity
-                  testID="generate-post-btn"
-                  onPress={handleGeneratePost}
-                  activeOpacity={0.88}
-                  disabled={!description.trim() || isGenerating}
-                  style={styles.genBtnOuter}
-                >
-                  <LinearGradient
-                    colors={GradientColors.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.genBtnGrad, (!description.trim() || isGenerating) && styles.genBtnGradDisabled]}
-                  >
-                    {isGenerating ? (
-                      <ActivityIndicator color={Colors.white} />
-                    ) : (
-                      <>
-                        <Text style={styles.genBtnText}>Generate Preview</Text>
-                        <Ionicons name="flash" size={20} color={Colors.white} />
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
                 <SecondaryButton
                   testID="save-draft-btn-step1"
                   title="Save Draft"
                   onPress={handleSaveDraft}
-                  disabled={!description.trim()}
+                  disabled={!photo}
                 />
               </View>
             </>
@@ -804,7 +653,7 @@ export default function CreateScreen() {
                         try {
                           const cap = await generateCaption({
                             description: `SHORT VERSION: ${description}`,
-                            template: mode === 'way1' ? 'auto' : selectedTemplate,
+                            template: 'auto',
                             ...genBiz,
                           });
                           setCaption(cap);
@@ -822,7 +671,7 @@ export default function CreateScreen() {
                         try {
                           const cap = await generateCaption({
                             description: `FUN & PLAYFUL VERSION: ${description}`,
-                            template: mode === 'way1' ? 'auto' : selectedTemplate,
+                            template: 'auto',
                             ...genBiz,
                             brandStyle: 'bold',
                           });
@@ -895,6 +744,24 @@ const styles = StyleSheet.create({
   kav: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingBottom: 120 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.md,
+  },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  brandText: { fontSize: 16, fontWeight: '800', color: Colors.primary },
+  avatarDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.surfaceContainerHighest,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingTop: Spacing.base, paddingBottom: Spacing.md },
   headerTitle: { ...Typography.h2, color: Colors.textPrimary },
   stepper: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, marginBottom: Spacing.lg, gap: 0 },
@@ -916,6 +783,38 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: Spacing.sm, color: Colors.textSecondary },
+  sectionHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  sectionHeaderTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
+  viewAllText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
+  vibeTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10 },
+  vibeInput: {
+    backgroundColor: '#101522',
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 84,
+    color: Colors.textPrimary,
+    marginBottom: 10,
+  },
+  vibeActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  uploadChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    backgroundColor: '#111827',
+  },
+  uploadChipText: { fontSize: 12, color: Colors.textPrimary, fontWeight: '600' },
+  generateMiniBtn: {
+    marginLeft: 'auto',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  generateMiniBtnText: { color: Colors.white, fontWeight: '800', fontSize: 12 },
   modeRow: { gap: 8 },
   modeChip: {
     borderWidth: 1.5,
