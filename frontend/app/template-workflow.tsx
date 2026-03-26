@@ -91,7 +91,6 @@ export default function TemplateWorkflowScreen() {
     facebook: !!socialAccounts.facebook?.connected,
   });
 
-  const detectedWay = photo ? 'Way 3' : 'Way 2';
   const enabledCount = Object.values(platforms).filter(Boolean).length;
 
   const pickPhoto = async () => {
@@ -102,6 +101,21 @@ export default function TemplateWorkflowScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images' as any,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.65,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0].base64) setPhoto(result.assets[0].base64);
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow camera access to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.65,
@@ -234,24 +248,30 @@ export default function TemplateWorkflowScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.helper}>{detectedWay} detected automatically</Text>
           <Image source={{ uri: templatePreview }} style={styles.templatePreview} />
-          <Text style={styles.inputLabel}>Description *</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe what you want for this template..."
-            placeholderTextColor={Colors.textTertiary}
-            style={styles.input}
-            multiline
-          />
+          <Text style={styles.inputLabel}>Add your photo (optional)</Text>
           <View style={styles.photoRow}>
             <TouchableOpacity onPress={pickPhoto} style={styles.uploadBtn}>
               <Ionicons name="image-outline" size={16} color={Colors.primary} />
               <Text style={styles.uploadText}>{photo ? 'Change Photo' : 'Upload Photo (optional)'}</Text>
             </TouchableOpacity>
           </View>
+          <View style={styles.photoRow}>
+            <TouchableOpacity onPress={takePhoto} style={styles.uploadBtn}>
+              <Ionicons name="camera-outline" size={16} color={Colors.primary} />
+              <Text style={styles.uploadText}>Take Photo</Text>
+            </TouchableOpacity>
+          </View>
           {!!photo && <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photoPreview} />}
+          <Text style={styles.inputLabel}>What is this post about? *</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Write a short description..."
+            placeholderTextColor={Colors.textTertiary}
+            style={styles.input}
+            multiline
+          />
 
           <TouchableOpacity onPress={handleGenerate} style={styles.generateBtn} disabled={isGenerating}>
             {isGenerating ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.generateText}>Generate Preview</Text>}
@@ -324,7 +344,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     ...Shadows.sm,
   },
-  helper: { fontSize: 12, color: Colors.textTertiary, marginBottom: 8 },
   templatePreview: { width: '100%', height: 220, borderRadius: BorderRadius.md, marginBottom: 12 },
   inputLabel: { ...Typography.label, color: Colors.textSecondary, marginBottom: 8 },
   input: {
