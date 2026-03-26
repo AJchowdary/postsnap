@@ -48,6 +48,12 @@ function formatScheduled(iso: string) {
   });
 }
 
+function imageDataUri(s: string | null | undefined): string | undefined {
+  if (!s) return undefined;
+  if (s.startsWith('data:') || s.startsWith('http')) return s;
+  return `data:image/jpeg;base64,${s}`;
+}
+
 export default function HistoryScreen() {
   const router = useRouter();
   const posts = useAppStore((s) => s.posts);
@@ -201,6 +207,8 @@ export default function HistoryScreen() {
                   const sc = STATUS_CONFIG[post.status];
                   const primaryPlatform = post.platforms[0] || 'instagram';
                   const platformColor = PLATFORM_COLORS[primaryPlatform] || Colors.instagram;
+                  const captionText = (post.caption || '').trim()
+                    || (post.status === 'published' ? 'Published post' : 'Draft post');
                   return (
                     <TouchableOpacity
                       key={post.id}
@@ -212,7 +220,7 @@ export default function HistoryScreen() {
                       <View style={styles.cardThumb}>
                         {post.processedImage || post.photo ? (
                           <Image
-                            source={{ uri: `data:image/jpeg;base64,${post.processedImage || post.photo}` }}
+                            source={{ uri: imageDataUri(post.processedImage || post.photo) }}
                             style={styles.cardThumbImg}
                           />
                         ) : (
@@ -235,7 +243,7 @@ export default function HistoryScreen() {
                             <Text style={[styles.statusText, { color: sc.text }]}>{post.status}</Text>
                           </View>
                         </View>
-                        <Text style={styles.cardCaption} numberOfLines={2}>{post.caption}</Text>
+                        <Text style={styles.cardCaption} numberOfLines={2}>{captionText}</Text>
                         <Text style={styles.dateText}>
                           {post.status === 'scheduled' && post.scheduledAt
                             ? formatScheduled(post.scheduledAt)
@@ -295,7 +303,7 @@ function PostDetailModal({
             {/* Image */}
             {(post.processedImage || post.photo) ? (
               <Image
-                source={{ uri: `data:image/jpeg;base64,${post.processedImage || post.photo}` }}
+                source={{ uri: imageDataUri(post.processedImage || post.photo) }}
                 style={modal.image}
                 resizeMode="cover"
               />
@@ -323,7 +331,9 @@ function PostDetailModal({
               {/* Caption */}
               <View style={modal.captionBox}>
                 <Text style={modal.captionLabel}>Caption</Text>
-                <Text style={modal.captionText}>{post.caption}</Text>
+                <Text style={modal.captionText}>
+                  {(post.caption || '').trim() || (post.status === 'published' ? 'Published post' : 'Draft post')}
+                </Text>
               </View>
 
               {/* Actions */}

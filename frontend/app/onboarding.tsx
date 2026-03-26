@@ -254,7 +254,7 @@ export default function OnboardingScreen() {
                 <View style={styles.footer}>
                   <PrimaryButton
                     testID="onboarding-get-started-btn"
-                    title={saving ? 'Saving…' : 'Next'}
+                    title={saving ? 'Saving…' : 'Get Started'}
                     onPress={handleGetStarted}
                     disabled={!businessName.trim() || saving}
                     loading={saving}

@@ -259,7 +259,7 @@ export default function SettingsScreen() {
               <SettingsRow
                 icon="storefront-outline"
                 iconBg={Colors.primary}
-                label={businessProfile.name}
+                label={businessProfile.name || 'Business Profile'}
                 sublabel={`${businessProfile.displayType}${businessProfile.city ? ` · ${businessProfile.city}` : ''}`}
                 onPress={() => setEditingBusiness(true)}
                 testID="settings-business-row"

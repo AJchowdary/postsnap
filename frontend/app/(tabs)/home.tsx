@@ -19,14 +19,25 @@ function formatDate(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function imageDataUri(s: string | null | undefined): string | undefined {
+  if (!s) return undefined;
+  if (s.startsWith('data:') || s.startsWith('http')) return s;
+  return `data:image/jpeg;base64,${s}`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const businessProfile = useAppStore((s) => s.businessProfile);
   const posts = useAppStore((s) => s.posts);
   const setCurrentEdit = useAppStore((s) => s.setCurrentEdit);
+  const showToast = useAppStore((s) => s.showToast);
 
   const recentPosts = posts.slice(0, 3);
+  const latestDraft = posts.find((p) => p.status === 'draft');
   const userName = businessProfile.name?.trim() || 'there';
+  const userBusinessType = businessProfile.displayType?.trim() || 'your business';
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const postsThisWeek = posts.filter((p) => new Date(p.createdAt).getTime() >= oneWeekAgo).length;
 
   const platformColors: Record<string, string> = {
     instagram: Colors.instagram,
@@ -53,7 +64,11 @@ export default function HomeScreen() {
               <Text style={styles.logoText}>Quickpost</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.bellBtn}
+            activeOpacity={0.85}
+            onPress={() => showToast('Notifications coming soon', 'info')}
+          >
             <Ionicons name="notifications-outline" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -62,6 +77,7 @@ export default function HomeScreen() {
         <View style={styles.greetingWrap}>
           <Text style={styles.greeting}>Hi {userName} 👋</Text>
           <Text style={styles.greetingSub}>Welcome back.</Text>
+          <Text style={styles.greetingType}>Creating for {userBusinessType}</Text>
         </View>
 
         {/* Hero */}
@@ -74,6 +90,9 @@ export default function HomeScreen() {
           >
             <View style={styles.heroIllustration} />
             <Text style={styles.heroTitle}>What do you want to create today?</Text>
+            <Text style={styles.heroMetric}>
+              {postsThisWeek} post{postsThisWeek === 1 ? '' : 's'} created this week
+            </Text>
             <TouchableOpacity
               testID="home-start-creating-btn"
               onPress={() => { setCurrentEdit(null); router.push('/(tabs)/create'); }}
@@ -102,16 +121,24 @@ export default function HomeScreen() {
               <Text style={styles.quickActionText}>Post</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              testID="home-action-caption-btn"
+              testID="home-action-secondary-btn"
               onPress={() => {
-                setCurrentEdit({ description: '' });
-                router.push('/(tabs)/create');
+                if (latestDraft) {
+                  setCurrentEdit(latestDraft);
+                  router.push('/(tabs)/create');
+                } else {
+                  router.push('/(tabs)/history');
+                }
               }}
               activeOpacity={0.85}
               style={styles.quickAction}
             >
-              <Ionicons name="chatbox-ellipses-outline" size={20} color={Colors.secondary} />
-              <Text style={styles.quickActionText}>Caption</Text>
+              <Ionicons
+                name={latestDraft ? 'refresh-circle-outline' : 'time-outline'}
+                size={20}
+                color={Colors.secondary}
+              />
+              <Text style={styles.quickActionText}>{latestDraft ? 'Continue Draft' : 'History'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -128,22 +155,35 @@ export default function HomeScreen() {
             <View style={styles.emptyActivity}>
               <Ionicons name="images-outline" size={32} color={Colors.textTertiary} />
               <Text style={styles.emptyText}>No posts yet — create your first one!</Text>
+              <TouchableOpacity
+                testID="home-empty-create-btn"
+                style={styles.emptyCta}
+                activeOpacity={0.85}
+                onPress={() => { setCurrentEdit(null); router.push('/(tabs)/create'); }}
+              >
+                <Text style={styles.emptyCtaText}>Create Post</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             recentPosts.map((post) => {
               const sc = statusColors[post.status] || statusColors.draft;
+              const captionText = (post.caption || '').trim()
+                || (post.status === 'published' ? 'Published post' : 'Draft post');
               return (
                 <TouchableOpacity
                   key={post.id}
                   testID={`home-recent-post-${post.id}`}
-                  onPress={() => router.push('/(tabs)/history')}
+                  onPress={() => {
+                    setCurrentEdit(post);
+                    router.push('/(tabs)/create');
+                  }}
                   activeOpacity={0.8}
                   style={styles.recentItem}
                 >
                   <View style={[styles.recentThumb, { backgroundColor: Colors.subtle }]}>
                     {post.processedImage || post.photo ? (
                       <Image
-                        source={{ uri: `data:image/jpeg;base64,${post.processedImage || post.photo}` }}
+                        source={{ uri: imageDataUri(post.processedImage || post.photo) }}
                         style={styles.thumbImg}
                       />
                     ) : (
@@ -151,7 +191,7 @@ export default function HomeScreen() {
                     )}
                   </View>
                   <View style={styles.recentInfo}>
-                    <Text style={styles.recentCaption} numberOfLines={2}>{post.caption}</Text>
+                    <Text style={styles.recentCaption} numberOfLines={2}>{captionText}</Text>
                     <View style={styles.recentMeta}>
                       <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
                         <Text style={[styles.statusText, { color: sc.text }]}>{post.status}</Text>
@@ -209,6 +249,7 @@ const styles = StyleSheet.create({
   greetingWrap: { paddingHorizontal: Spacing.base, marginBottom: Spacing.base },
   greeting: { ...Typography.h2, marginBottom: 2 },
   greetingSub: { ...Typography.body, color: Colors.textSecondary },
+  greetingType: { ...Typography.bodySmall, color: Colors.textTertiary, marginTop: 2 },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
   sectionTitle: { ...Typography.label, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: Spacing.md },
   heroCard: {
@@ -225,6 +266,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   heroTitle: { ...Typography.h3, marginBottom: 14 },
+  heroMetric: { ...Typography.bodySmall, color: Colors.textSecondary, marginBottom: 12 },
   heroCtaWrap: {
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
@@ -258,6 +300,14 @@ const styles = StyleSheet.create({
   quickActionText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, fontFamily: 'Inter' },
   emptyActivity: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   emptyText: { ...Typography.bodySmall, color: Colors.textTertiary, textAlign: 'center' },
+  emptyCta: {
+    marginTop: 6,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  emptyCtaText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
