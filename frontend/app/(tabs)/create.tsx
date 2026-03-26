@@ -41,30 +41,60 @@ const BUSINESS_TEMPLATE_MEDIA: Record<BusinessType, { uri: string; mediaType: 'p
     { uri: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=300&h=380&fit=crop', mediaType: 'video' },
     { uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=300&h=380&fit=crop', mediaType: 'video' },
   ],
   salon: [
     { uri: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=300&h=380&fit=crop', mediaType: 'video' },
     { uri: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1600948836101-f9ffda59d250?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1582095133179-bfd08e2fc6b3?w=300&h=380&fit=crop', mediaType: 'video' },
   ],
   retail: [
     { uri: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=300&h=380&fit=crop', mediaType: 'video' },
     { uri: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1557821552-17105176677c?w=300&h=380&fit=crop', mediaType: 'video' },
   ],
   gym: [
     { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300&h=380&fit=crop', mediaType: 'video' },
     { uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1593079831268-3381b0db4a77?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=300&h=380&fit=crop', mediaType: 'video' },
   ],
   cafe: [
     { uri: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=380&fit=crop', mediaType: 'video' },
     { uri: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300&h=380&fit=crop', mediaType: 'photo' },
     { uri: 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1511537190424-bbbab87ac5eb?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1494314671902-399b18174975?w=300&h=380&fit=crop', mediaType: 'video' },
+    { uri: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=300&h=380&fit=crop', mediaType: 'photo' },
+    { uri: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300&h=380&fit=crop', mediaType: 'video' },
   ],
 };
 
@@ -72,7 +102,7 @@ function getBusinessTemplatePreviews(type: BusinessType, templates: Template[]):
   const media = BUSINESS_TEMPLATE_MEDIA[type] || BUSINESS_TEMPLATE_MEDIA.restaurant;
   return templates
     .filter((t) => t.id !== 'auto')
-    .slice(0, 6)
+    .slice(0, 12)
     .map((t, i) => ({
       id: t.id,
       label: t.label,
@@ -126,6 +156,14 @@ export default function CreateScreen() {
   const templatePreviews = useMemo(
     () => getBusinessTemplatePreviews(businessProfile.type, templates),
     [businessProfile.type, templates]
+  );
+  const photoTemplates = useMemo(
+    () => templatePreviews.filter((t) => t.mediaType === 'photo'),
+    [templatePreviews]
+  );
+  const videoTemplates = useMemo(
+    () => templatePreviews.filter((t) => t.mediaType === 'video'),
+    [templatePreviews]
   );
   const selectedTpl = templates.find((t) => t.id === selectedTemplate);
   const isBeforeAfter = selectedTpl?.beforeAfter;
@@ -456,10 +494,10 @@ export default function CreateScreen() {
               <View style={styles.section}>
                 <View style={styles.sectionHeadRow}>
                   <Text style={styles.sectionHeaderTitle}>Photo Templates</Text>
-                  <Text style={styles.viewAllText}>Tap any card</Text>
+                  <Text style={styles.viewAllText}>Tap to open</Text>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageTplRow}>
-                  {templatePreviews.map((t) => (
+                  {photoTemplates.map((t) => (
                     <TouchableOpacity
                       key={t.id}
                       testID={`business-template-${t.id}`}
@@ -480,6 +518,40 @@ export default function CreateScreen() {
                             <Text style={styles.videoBadgeText}>Video</Text>
                           </View>
                         )}
+                      </View>
+                      <Text style={styles.imageTplLabel} numberOfLines={1}>
+                        {t.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeadRow}>
+                  <Text style={styles.sectionHeaderTitle}>Video Templates</Text>
+                  <Text style={styles.viewAllText}>Tap to open</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageTplRow}>
+                  {videoTemplates.map((t) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      testID={`business-video-template-${t.id}`}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/template-workflow',
+                          params: { templateId: t.id },
+                        } as any)
+                      }
+                      style={styles.imageTplWrap}
+                    >
+                      <View style={styles.templateMediaWrap}>
+                        <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
+                        <View style={styles.videoBadge}>
+                          <Ionicons name="play" size={12} color={Colors.white} />
+                          <Text style={styles.videoBadgeText}>Video</Text>
+                        </View>
                       </View>
                       <Text style={styles.imageTplLabel} numberOfLines={1}>
                         {t.label}
