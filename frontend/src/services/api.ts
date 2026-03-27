@@ -204,6 +204,26 @@ export const getMyAccount = async (): Promise<any> => {
   return apiCall('/account/me');
 };
 
+export type WebsiteScanResult = {
+  brandSummary: string;
+  suggestedVibe: 'professional' | 'bold' | 'warm';
+  suggestedColor: string;
+  suggestedColors: string[];
+  businessType: string;
+  city: string | null;
+  instagramHandle: string | null;
+  tone: string;
+};
+
+export const scanWebsite = async (
+  websiteUrl: string
+): Promise<{ account: Record<string, unknown>; scan: WebsiteScanResult }> => {
+  return apiCall('/account/scan-website', {
+    method: 'POST',
+    body: JSON.stringify({ websiteUrl }),
+  });
+};
+
 export const updateBusinessProfile = async (profile: {
   name: string;
   type: string;
@@ -212,6 +232,15 @@ export const updateBusinessProfile = async (profile: {
   city?: string;
   brandStyle: string;
   useLogoOverlay: boolean;
+  brandColor?: string;
+  brandVibe?: 'professional' | 'bold' | 'warm';
+  dominantColors?: string[];
+  websiteUrl?: string;
+  websiteSummary?: string;
+  toneExample?: string;
+  instagramHandle?: string;
+  facebookPage?: string;
+  brandDnaSource?: 'website' | 'manual' | 'hybrid';
 }): Promise<any> => {
   return apiCall('/account/profile', {
     method: 'PUT',
@@ -229,6 +258,12 @@ export interface GenerateCaptionParams {
   displayType: string;
   aiCategory: string;
   customDescription: string;
+  brandColor?: string;
+  brandVibe?: string;
+  dominantColors?: string[];
+  websiteSummary?: string;
+  city?: string;
+  instagramHandle?: string;
 }
 
 export interface GenerateImageParams {
@@ -241,6 +276,12 @@ export interface GenerateImageParams {
   displayType: string;
   aiCategory: string;
   customDescription: string;
+  brandColor?: string;
+  brandVibe?: string;
+  websiteSummary?: string;
+  dominantColors?: string[];
+  city?: string;
+  instagramHandle?: string;
 }
 
 export const generateCaption = async (params: GenerateCaptionParams): Promise<string> => {

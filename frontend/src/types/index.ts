@@ -1,4 +1,6 @@
 export type BusinessType = 'restaurant' | 'salon' | 'retail' | 'gym' | 'cafe';
+export type BrandVibe = 'professional' | 'bold' | 'warm';
+export type BrandDnaSource = 'website' | 'manual' | 'hybrid';
 export type BrandStyle = 'clean' | 'bold' | 'minimal';
 export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed';
 export type Platform = 'instagram' | 'facebook';
@@ -15,6 +17,15 @@ export interface BusinessProfile {
   city?: string;
   logo?: string;
   brandColor?: string;
+  /** Brand DNA — AI personality for captions (distinct from legacy brandStyle chips). */
+  brandVibe?: BrandVibe;
+  dominantColors?: string[];
+  websiteUrl?: string;
+  websiteSummary?: string;
+  toneExample?: string;
+  instagramHandle?: string;
+  facebookPage?: string;
+  brandDnaSource?: BrandDnaSource;
   brandStyle: BrandStyle;
   useLogoOverlay: boolean;
 }

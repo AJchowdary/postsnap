@@ -37,6 +37,16 @@ export class OpenAIProvider implements IAIProvider {
         displayType: sanitizeForPrompt(params.displayType ?? params.businessType, 80),
         aiCategory: sanitizeForPrompt(params.aiCategory ?? params.businessType, 32),
         customDescription: sanitizeForPrompt(params.customDescription ?? '', 400),
+        brandColor: params.brandColor ? sanitizeForPrompt(params.brandColor, 32) : undefined,
+        brandVibe: params.brandVibe ? sanitizeForPrompt(params.brandVibe, 24) : undefined,
+        dominantColors: params.dominantColors,
+        websiteSummary: params.websiteSummary
+          ? sanitizeForPrompt(params.websiteSummary, 800)
+          : undefined,
+        city: params.city ? sanitizeForPrompt(params.city, 80) : undefined,
+        instagramHandle: params.instagramHandle
+          ? sanitizeForPrompt(params.instagramHandle, 80)
+          : undefined,
         templateStyle: sanitizeForPrompt(params.template, 80),
         userDescription: sanitizeForPrompt(params.description, 500),
         platform: sanitizeForPrompt(params.platform ?? 'Instagram & Facebook', 80),
@@ -74,7 +84,17 @@ export class OpenAIProvider implements IAIProvider {
       params.overlayText?.trim() ||
       computeMyPhotoOverlayText(params.businessType, params.description ?? '');
 
-    const userDesc = sanitizeForPrompt(params.description ?? '', 500);
+    const dnaExtra = [
+      params.brandVibe && `Brand vibe: ${sanitizeForPrompt(params.brandVibe, 40)}`,
+      params.websiteSummary && `Brand story: ${sanitizeForPrompt(params.websiteSummary, 240)}`,
+      params.city && `Location: ${sanitizeForPrompt(params.city, 60)}`,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const userDesc = sanitizeForPrompt(
+      [params.description ?? '', dnaExtra].filter(Boolean).join('\n'),
+      500
+    );
     const withPrompt = `${MY_PHOTO_IMAGE_SYSTEM_PROMPT}\n\n${buildMyPhotoImagePromptWithOverlay({
       businessType: sanitizeForPrompt(params.businessType, 32),
       userDescription: userDesc,

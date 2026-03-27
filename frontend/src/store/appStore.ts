@@ -34,6 +34,7 @@ interface AppState extends AuthState {
   // Profile
   setIsOnboarded: (v: boolean) => void;
   setBusinessProfile: (profile: Partial<BusinessProfile>) => void;
+  setBrandDna: (dna: Partial<BusinessProfile>) => void;
   setSocialAccount: (platform: Platform, account: SocialAccount | null) => void;
   setSocialAccounts: (accounts: { instagram: SocialAccount | null; facebook: SocialAccount | null }) => void;
   setSubscription: (sub: Partial<Subscription>) => void;
@@ -60,6 +61,7 @@ const DEFAULT_PROFILE: BusinessProfile = {
   customDescription: '',
   brandStyle: 'clean',
   useLogoOverlay: false,
+  brandDnaSource: 'manual',
 };
 
 const DEFAULT_SUBSCRIPTION: Subscription = {
@@ -109,6 +111,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   setBusinessProfile: (profile) =>
     set((state) => ({ businessProfile: { ...state.businessProfile, ...profile } })),
+
+  setBrandDna: (dna) =>
+    set((state) => ({ businessProfile: { ...state.businessProfile, ...dna } })),
 
   setSocialAccount: (platform, account) =>
     set((state) => ({ socialAccounts: { ...state.socialAccounts, [platform]: account } })),

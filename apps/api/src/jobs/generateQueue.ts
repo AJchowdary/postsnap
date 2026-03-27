@@ -335,11 +335,11 @@ async function processJob(job: JobRecord): Promise<void> {
 
   const { account, profile } = await getAccountForWorker(payload.accountId);
   const businessName = profile?.name ?? account?.name ?? 'My Business';
-  const businessType = (account?.business_type ?? 'restaurant') as string;
-  const brandStyle = (profile?.brand_style ?? 'clean') as string;
-  const brandColor = profile?.brand_color ?? null;
-  const overlayDefaultOn = profile?.overlay_default_on ?? false;
-  const logoUrl = profile?.logo_url ?? null;
+  const businessType = (account?.businessType ?? account?.business_type ?? 'restaurant') as string;
+  const brandStyle = (profile?.brandStyle ?? profile?.brand_style ?? 'clean') as string;
+  const brandColor = profile?.brandColor ?? profile?.brand_color ?? null;
+  const overlayDefaultOn = profile?.overlayDefaultOn ?? profile?.overlay_default_on ?? false;
+  const logoUrl = profile?.logoUrl ?? profile?.logo_url ?? null;
 
   const sub = await db.findOne<{ status: string }>('subscriptions', {
     account_id: payload.accountId,
@@ -406,6 +406,16 @@ async function processJob(job: JobRecord): Promise<void> {
       businessName,
       businessType,
       brandStyle,
+      displayType: profile?.displayType ?? profile?.display_type,
+      aiCategory: businessType,
+      customDescription: profile?.customDescription ?? profile?.custom_description ?? '',
+      brandColor: profile?.brandColor ?? profile?.brand_color,
+      brandVibe: profile?.brandVibe ?? profile?.brand_vibe,
+      dominantColors: profile?.dominantColors ?? profile?.dominant_colors,
+      websiteSummary: profile?.websiteSummary ?? profile?.website_summary,
+      city: profile?.city,
+      instagramHandle: profile?.instagramHandle ?? profile?.instagram_handle,
+      platform: 'Instagram & Facebook',
     });
 
     let processedImagePath: string | null = null;
@@ -423,6 +433,14 @@ async function processJob(job: JobRecord): Promise<void> {
           overlayText: overlayText || undefined,
           logoUrl: overlayDefaultOn ? logoUrl ?? undefined : undefined,
           premiumQuality: payload.premiumQuality ?? false,
+          displayType: profile?.displayType ?? profile?.display_type,
+          aiCategory: businessType,
+          customDescription: profile?.customDescription ?? profile?.custom_description ?? '',
+          brandVibe: profile?.brandVibe ?? profile?.brand_vibe,
+          websiteSummary: profile?.websiteSummary ?? profile?.website_summary,
+          dominantColors: profile?.dominantColors ?? profile?.dominant_colors,
+          city: profile?.city,
+          instagramHandle: profile?.instagramHandle ?? profile?.instagram_handle,
         });
         const processedDataUrlOrUrl =
           processedResult?.withOverlay ?? processedResult?.clean ?? null;

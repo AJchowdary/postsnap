@@ -53,6 +53,15 @@ export default function Index() {
             city: account.city,
             brandStyle: account.brandStyle || 'clean',
             useLogoOverlay: account.useLogoOverlay || false,
+            brandColor: account.brandColor,
+            brandVibe: account.brandVibe,
+            dominantColors: account.dominantColors ?? [],
+            websiteUrl: account.websiteUrl,
+            websiteSummary: account.websiteSummary,
+            toneExample: account.toneExample,
+            instagramHandle: account.instagramHandle,
+            facebookPage: account.facebookPage,
+            brandDnaSource: account.brandDnaSource ?? 'manual',
           });
           setIsOnboarded(true);
           setRoute('/(tabs)/create');

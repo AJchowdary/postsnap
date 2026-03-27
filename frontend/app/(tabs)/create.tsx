@@ -150,6 +150,19 @@ export default function CreateScreen() {
     displayType: businessProfile.displayType,
     aiCategory: businessProfile.type,
     customDescription: businessProfile.customDescription || '',
+    brandColor: businessProfile.brandColor,
+    brandVibe: businessProfile.brandVibe,
+    dominantColors: businessProfile.dominantColors,
+    websiteSummary: businessProfile.websiteSummary,
+    city: businessProfile.city,
+    instagramHandle: businessProfile.instagramHandle,
+  };
+
+  const vibeEmoji = (v?: string) => {
+    if (v === 'professional') return '🎯';
+    if (v === 'bold') return '🔥';
+    if (v === 'warm') return '🌿';
+    return '✨';
   };
 
   const templates = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
@@ -432,6 +445,24 @@ export default function CreateScreen() {
               <Ionicons name="person" size={12} color={Colors.white} />
             </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/settings')}
+            activeOpacity={0.85}
+            style={styles.brandDnaBar}
+          >
+            <View
+              style={[
+                styles.brandDnaDot,
+                { backgroundColor: businessProfile.brandColor || '#2A9D8F' },
+              ]}
+            />
+            <Text style={styles.brandDnaEmoji}>{vibeEmoji(businessProfile.brandVibe)}</Text>
+            <Text style={styles.brandDnaName} numberOfLines={1}>
+              {businessProfile.name || 'Your brand'}
+            </Text>
+            <Text style={styles.brandDnaEdit}>Edit →</Text>
+          </TouchableOpacity>
 
           {/* ===== STEP 1 ===== */}
           {step === 1 && (
@@ -834,6 +865,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  brandDnaBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: Spacing.base,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
+    backgroundColor: '#141f38',
+    borderRadius: BorderRadius.lg,
+    gap: 8,
+  },
+  brandDnaDot: { width: 10, height: 10, borderRadius: 5 },
+  brandDnaEmoji: { fontSize: 16 },
+  brandDnaName: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  brandDnaEdit: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingTop: Spacing.base, paddingBottom: Spacing.md },
   headerTitle: { ...Typography.h2, color: Colors.textPrimary },
   stepper: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, marginBottom: Spacing.lg, gap: 0 },

@@ -54,6 +54,12 @@ export const GenerateCaptionSchema = z.object({
   displayType: z.string().max(120).optional(),
   aiCategory: z.string().max(32).optional(),
   customDescription: z.string().max(500).optional(),
+  brandColor: z.string().max(32).optional(),
+  brandVibe: z.enum(['professional', 'bold', 'warm']).optional(),
+  dominantColors: z.array(z.string().max(16)).max(12).optional(),
+  websiteSummary: z.string().max(2000).optional(),
+  city: z.string().max(120).optional(),
+  instagramHandle: z.string().max(120).optional(),
 });
 
 export const GenerateImageSchema = z.object({
@@ -70,6 +76,11 @@ export const GenerateImageSchema = z.object({
   aiCategory: z.string().max(32).optional(),
   customDescription: z.string().max(500).optional(),
   brandColor: z.string().max(32).optional().nullable(),
+  brandVibe: z.enum(['professional', 'bold', 'warm']).optional(),
+  websiteSummary: z.string().max(2000).optional(),
+  dominantColors: z.array(z.string().max(16)).max(12).optional(),
+  city: z.string().max(120).optional(),
+  instagramHandle: z.string().max(120).optional(),
 });
 
 export type CreatePostInput = z.infer<typeof CreatePostBodySchema>;

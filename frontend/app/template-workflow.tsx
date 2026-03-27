@@ -156,6 +156,12 @@ export default function TemplateWorkflowScreen() {
         displayType: businessProfile.displayType,
         aiCategory: businessProfile.type,
         customDescription: businessProfile.customDescription || '',
+        brandColor: businessProfile.brandColor,
+        brandVibe: businessProfile.brandVibe,
+        dominantColors: businessProfile.dominantColors,
+        websiteSummary: businessProfile.websiteSummary,
+        city: businessProfile.city,
+        instagramHandle: businessProfile.instagramHandle,
       };
       const [cap, img] = await Promise.all([
         generateCaption({ description: description.trim(), template: selectedTemplateId, ...genBiz }),

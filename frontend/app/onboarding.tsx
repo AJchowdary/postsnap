@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,15 +17,58 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, BorderRadius, Shadows, GradientColors } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
 import PrimaryButton from '../src/components/PrimaryButton';
-import { updateBusinessProfile } from '../src/services/api';
+import { scanWebsite, updateBusinessProfile } from '../src/services/api';
 import { BusinessTypeSelector, BusinessTypeSelection } from '../src/components/BusinessTypeSelector';
+import BrandColorPicker from '../src/components/BrandColorPicker';
+import BrandVibePicker from '../src/components/BrandVibePicker';
+import type { BrandVibe } from '../src/types';
+
+type Flow = 'undecided' | 'manual' | 'website';
+
+function progressDots(
+  step: number,
+  flow: Flow
+): { key: string; state: 'done' | 'current' | 'upcoming' }[] {
+  const labels = ['Basics', 'Website', 'Color', 'Review'];
+  const mk = (currentIdx: number, allDone = false) =>
+    labels.map((key, i) => ({
+      key,
+      state: (allDone ? 'done' : i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'upcoming') as
+        | 'done'
+        | 'current'
+        | 'upcoming',
+    }));
+
+  if (flow === 'undecided') {
+    if (step <= 1) return mk(0);
+    if (step === 2) return mk(1);
+    return mk(0);
+  }
+
+  if (flow === 'website') {
+    if (step <= 1) return mk(0);
+    if (step === 2) return mk(1);
+    return mk(3, true);
+  }
+  if (flow === 'manual') {
+    if (step <= 1) return mk(0);
+    if (step === 2) return mk(1);
+    if (step === 3) return mk(2);
+    if (step === 4) return mk(3);
+    return mk(3, true);
+  }
+  return mk(0);
+}
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const setBusinessProfile = useAppStore((s) => s.setBusinessProfile);
   const setIsOnboarded = useAppStore((s) => s.setIsOnboarded);
+  const showToast = useAppStore((s) => s.showToast);
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState(1);
+  const [flow, setFlow] = useState<Flow>('undecided');
+
   const [bizSelection, setBizSelection] = useState<BusinessTypeSelection>({
     type: 'restaurant',
     displayType: 'Restaurant',
@@ -26,9 +76,88 @@ export default function OnboardingScreen() {
   });
   const [businessName, setBusinessName] = useState('');
   const [city, setCity] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  const handleGetStarted = async () => {
+  const [websiteUrlDraft, setWebsiteUrlDraft] = useState('');
+  const [serverAccount, setServerAccount] = useState<Record<string, any> | null>(null);
+
+  const [brandColor, setBrandColor] = useState('#2A9D8F');
+  const [brandVibe, setBrandVibe] = useState<BrandVibe>('warm');
+
+  const [saving, setSaving] = useState(false);
+  const [scanBusy, setScanBusy] = useState(false);
+
+  const dots = useMemo(() => progressDots(step, flow), [step, flow]);
+
+  const goManual = () => {
+    setFlow('manual');
+    setStep(3);
+  };
+
+  const runWebsiteScan = async () => {
+    const u = websiteUrlDraft.trim();
+    if (!u) return;
+    setScanBusy(true);
+    try {
+      const { account } = await scanWebsite(u);
+      setServerAccount(account as Record<string, any>);
+      setFlow('website');
+      setStep(5);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not scan website. Try manual setup.', 'error');
+    } finally {
+      setScanBusy(false);
+    }
+  };
+
+  const finishWebsite = async () => {
+    if (!businessName.trim()) return;
+    setSaving(true);
+    try {
+      const acc = serverAccount || {};
+      await updateBusinessProfile({
+        name: businessName.trim(),
+        type: (acc.type || bizSelection.type) as string,
+        displayType: bizSelection.displayType,
+        customDescription: bizSelection.customDescription,
+        city: city.trim() || undefined,
+        brandColor: acc.brandColor || brandColor,
+        brandVibe: acc.brandVibe || 'warm',
+        dominantColors: acc.dominantColors || [],
+        websiteUrl: acc.websiteUrl,
+        websiteSummary: acc.websiteSummary,
+        toneExample: acc.toneExample,
+        instagramHandle: acc.instagramHandle,
+        brandDnaSource: 'website',
+        brandStyle: 'clean',
+        useLogoOverlay: false,
+      });
+    } catch {
+      // local store still updated
+    } finally {
+      setSaving(false);
+    }
+    setBusinessProfile({
+      name: businessName.trim(),
+      type: (serverAccount?.type || bizSelection.type) as any,
+      displayType: bizSelection.displayType,
+      customDescription: bizSelection.customDescription,
+      city: city.trim() || undefined,
+      brandColor: serverAccount?.brandColor,
+      brandVibe: serverAccount?.brandVibe,
+      dominantColors: serverAccount?.dominantColors ?? [],
+      websiteUrl: serverAccount?.websiteUrl,
+      websiteSummary: serverAccount?.websiteSummary,
+      toneExample: serverAccount?.toneExample,
+      instagramHandle: serverAccount?.instagramHandle,
+      brandDnaSource: 'website',
+      brandStyle: 'clean',
+      useLogoOverlay: false,
+    });
+    setIsOnboarded(true);
+    router.replace('/(tabs)/create');
+  };
+
+  const finishManual = async () => {
     if (!businessName.trim()) return;
     setSaving(true);
     try {
@@ -38,11 +167,15 @@ export default function OnboardingScreen() {
         displayType: bizSelection.displayType,
         customDescription: bizSelection.customDescription,
         city: city.trim() || undefined,
+        brandColor,
+        brandVibe,
+        dominantColors: [brandColor],
+        brandDnaSource: 'manual',
         brandStyle: 'clean',
         useLogoOverlay: false,
       });
     } catch {
-      // proceed anyway, store locally
+      // proceed
     } finally {
       setSaving(false);
     }
@@ -52,40 +185,23 @@ export default function OnboardingScreen() {
       displayType: bizSelection.displayType,
       customDescription: bizSelection.customDescription,
       city: city.trim() || undefined,
+      brandColor,
+      brandVibe,
+      dominantColors: [brandColor],
+      brandDnaSource: 'manual',
+      brandStyle: 'clean',
+      useLogoOverlay: false,
     });
     setIsOnboarded(true);
     router.replace('/(tabs)/create');
   };
 
-  const skip = () => {
-    // Skip slide content, but keep the required business name inputs visible on step 3.
-    setStep(3);
-  };
-
-  const slides = [
-    {
-      title: 'Generate posts instantly',
-      body: 'Transform your raw ideas into high-performing social media content with a single tap',
-    },
-    {
-      title: 'AI enhances your photos',
-      body: 'Upload any image and our AI will optimize it for Instagram and Facebook',
-    },
-    {
-      title: 'Connect and publish',
-      body: 'Connect your Instagram and Facebook accounts and post with one tap',
-    },
-  ] as const;
-
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.root}>
-        {/* Ambient glows */}
         <View style={styles.glow1} />
         <View style={styles.glow2} />
-        <View style={styles.glow3} />
 
-        {/* Skip (top right) */}
         <View style={styles.topBar}>
           <View style={styles.logoSection}>
             <View style={styles.logo}>
@@ -93,9 +209,6 @@ export default function OnboardingScreen() {
             </View>
             <Text style={styles.appName}>Quickpost</Text>
           </View>
-          <TouchableOpacity onPress={skip} style={styles.skipLink} testID="onboarding-skip-link">
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
         </View>
 
         <KeyboardAvoidingView
@@ -107,40 +220,58 @@ export default function OnboardingScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Dots indicator */}
             <View style={styles.dotsRow}>
-              {[1, 2, 3].map((n) => (
+              {dots.map((d, i) => (
                 <View
-                  key={n}
+                  key={`${d.key}-${i}`}
                   style={[
                     styles.dot,
-                    step === n && { backgroundColor: Colors.primary },
+                    d.state === 'done' && { backgroundColor: Colors.primary },
+                    d.state === 'current' && { backgroundColor: Colors.white },
+                    d.state === 'upcoming' && { backgroundColor: Colors.border },
                   ]}
                 />
               ))}
             </View>
 
-            {/* Slide content */}
-            <View style={styles.slideCard}>
-              <Text style={styles.slideTitle}>{slides[step - 1].title}</Text>
-              <Text style={styles.slideBody}>{slides[step - 1].body}</Text>
-            </View>
-
             {step === 1 && (
               <>
-                <View style={styles.sectionGap} />
+                <Text style={styles.screenTitle}>Business basics</Text>
+                <Text style={styles.screenSub}>Tell us who you are — it powers your AI captions.</Text>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>Business name *</Text>
+                  <TextInput
+                    value={businessName}
+                    onChangeText={setBusinessName}
+                    placeholder="e.g. The Tasty Fork"
+                    placeholderTextColor={Colors.textTertiary}
+                    style={styles.input}
+                  />
+                </View>
+
                 <Text style={styles.sectionLabel}>Business type</Text>
-                <BusinessTypeSelector
-                  variant="inline"
-                  value={bizSelection}
-                  onChange={setBizSelection}
-                />
+                <BusinessTypeSelector variant="inline" value={bizSelection} onChange={setBizSelection} />
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>City / area</Text>
+                  <TextInput
+                    value={city}
+                    onChangeText={setCity}
+                    placeholder="e.g. San Francisco"
+                    placeholderTextColor={Colors.textTertiary}
+                    style={styles.input}
+                  />
+                </View>
 
                 <View style={styles.footer}>
                   <PrimaryButton
-                    testID="onboarding-next-btn"
                     title="Next"
-                    onPress={() => setStep(2)}
+                    onPress={() => {
+                      if (!businessName.trim()) return;
+                      setStep(2);
+                    }}
+                    disabled={!businessName.trim()}
                     icon={<Ionicons name="arrow-forward" size={18} color={Colors.white} />}
                   />
                 </View>
@@ -149,115 +280,143 @@ export default function OnboardingScreen() {
 
             {step === 2 && (
               <>
-                <TouchableOpacity onPress={() => setStep(1)} style={styles.backRow} testID="onboarding-back-btn">
+                <TouchableOpacity
+                  onPress={() => {
+                    setStep(1);
+                    setFlow('undecided');
+                  }}
+                  style={styles.backRow}
+                >
                   <Ionicons name="chevron-back" size={18} color={Colors.primary} />
                   <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
 
-                <View style={styles.sectionGap} />
-                <View style={styles.formGroup}>
-                  <Text style={styles.inputLabel}>Business Name *</Text>
-                  <TextInput
-                    testID="onboarding-biz-name-input"
-                    value={businessName}
-                    onChangeText={setBusinessName}
-                    placeholder="e.g. The Tasty Fork"
-                    placeholderTextColor={Colors.textTertiary}
-                    style={styles.input}
-                    returnKeyType="next"
-                    autoFocus
-                  />
-                </View>
+                <Text style={styles.screenTitle}>Do you have a website?</Text>
+                <Text style={styles.screenSub}>We can build your brand profile automatically</Text>
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.inputLabel}>
-                    City <Text style={styles.optional}>(optional)</Text>
-                  </Text>
-                  <TextInput
-                    testID="onboarding-city-input"
-                    value={city}
-                    onChangeText={setCity}
-                    placeholder="e.g. San Francisco"
-                    placeholderTextColor={Colors.textTertiary}
-                    style={styles.input}
-                    returnKeyType="done"
-                    onSubmitEditing={businessName.trim() ? () => setStep(3) : undefined}
-                  />
-                </View>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.bigCard}
+                  onPress={() => {
+                    setFlow('website');
+                  }}
+                >
+                  <Text style={styles.bigCardEmoji}>🌐</Text>
+                  <Text style={styles.bigCardTitle}>Yes, scan my website</Text>
+                  <Text style={styles.bigCardSub}>Enter your URL and AI does the rest</Text>
+                </TouchableOpacity>
 
-                <View style={styles.infoCard}>
-                  <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
-                  <Text style={styles.infoText}>Connect Instagram & Facebook from Settings after you sign up.</Text>
-                </View>
+                {flow === 'website' && (
+                  <View style={styles.scanBlock}>
+                    <TextInput
+                      value={websiteUrlDraft}
+                      onChangeText={setWebsiteUrlDraft}
+                      placeholder="https://yourbusiness.com"
+                      placeholderTextColor={Colors.textTertiary}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                      style={styles.input}
+                    />
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={runWebsiteScan}
+                      disabled={!websiteUrlDraft.trim() || scanBusy}
+                    >
+                      <LinearGradient
+                        colors={GradientColors.purple}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.gradBtn, (!websiteUrlDraft.trim() || scanBusy) && { opacity: 0.5 }]}
+                      >
+                        {scanBusy ? (
+                          <ActivityIndicator color={Colors.background} />
+                        ) : (
+                          <Text style={styles.gradBtnText}>Scan & Continue</Text>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
+                <TouchableOpacity onPress={goManual} style={styles.manualLink}>
+                  <Text style={styles.manualLinkText}>No website yet → Set up manually</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {step === 3 && flow === 'manual' && (
+              <>
+                <TouchableOpacity onPress={() => setStep(2)} style={styles.backRow}>
+                  <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+                  <Text style={styles.backText}>Back</Text>
+                </TouchableOpacity>
+                <Text style={styles.screenTitle}>Pick your brand color</Text>
+                <Text style={styles.screenSub}>This helps AI match your style</Text>
+                <BrandColorPicker value={brandColor} onChange={setBrandColor} />
                 <View style={styles.footer}>
-                  <PrimaryButton
-                    testID="onboarding-next-btn-step2"
-                    title="Next"
-                    onPress={() => setStep(3)}
-                    disabled={!businessName.trim() || saving}
-                    loading={saving}
-                  />
+                  <PrimaryButton title="Next" onPress={() => setStep(4)} />
                 </View>
               </>
             )}
 
-            {step === 3 && (
+            {step === 4 && flow === 'manual' && (
               <>
-                <View style={styles.sectionGap} />
+                <TouchableOpacity onPress={() => setStep(3)} style={styles.backRow}>
+                  <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+                  <Text style={styles.backText}>Back</Text>
+                </TouchableOpacity>
+                <Text style={styles.screenTitle}>How would you describe your business?</Text>
+                <Text style={styles.screenSub}>AI will match this personality in every post</Text>
+                <BrandVibePicker value={brandVibe} onChange={setBrandVibe} />
+                <View style={styles.footer}>
+                  <PrimaryButton title="Next" onPress={() => setStep(5)} />
+                </View>
+              </>
+            )}
 
-                <View style={styles.illustrationCard}>
-                  <LinearGradient
-                    colors={GradientColors.purple}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.illustrationGradient}
-                  >
-                    <View style={styles.illustrationInner}>
-                      <Ionicons name="sparkles" size={30} color={Colors.background} />
-                      <Text style={styles.illustrationText}>Quickpost turns ideas into ready-to-post content.</Text>
+            {step === 5 && (
+              <>
+                <Text style={styles.screenTitle}>
+                  {flow === 'website' ? 'Review & confirm' : 'Review & confirm'}
+                </Text>
+                {flow === 'website' && serverAccount && (
+                  <View style={styles.reviewCard}>
+                    <Text style={styles.reviewOk}>✅ Website scanned successfully</Text>
+                    <Text style={styles.reviewLabel}>Here&apos;s what we found</Text>
+                    <Text style={styles.reviewBody}>{serverAccount.websiteSummary}</Text>
+                    <View style={styles.reviewRow}>
+                      {!!serverAccount.brandColor && (
+                        <View style={[styles.miniSwatch, { backgroundColor: serverAccount.brandColor }]} />
+                      )}
+                      <Text style={styles.reviewMeta}>
+                        Vibe: {serverAccount.brandVibe || 'warm'} · {businessName}
+                      </Text>
                     </View>
-                  </LinearGradient>
-                </View>
-
-                <View style={styles.sectionGap} />
-                <View style={styles.formGroup}>
-                  <Text style={styles.inputLabel}>Business Name *</Text>
-                  <TextInput
-                    testID="onboarding-biz-name-input-step3"
-                    value={businessName}
-                    onChangeText={setBusinessName}
-                    placeholder="e.g. The Tasty Fork"
-                    placeholderTextColor={Colors.textTertiary}
-                    style={styles.input}
-                    returnKeyType="done"
-                    autoFocus
-                    onSubmitEditing={businessName.trim() ? handleGetStarted : undefined}
-                  />
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.inputLabel}>
-                    City <Text style={styles.optional}>(optional)</Text>
-                  </Text>
-                  <TextInput
-                    testID="onboarding-city-input-step3"
-                    value={city}
-                    onChangeText={setCity}
-                    placeholder="e.g. San Francisco"
-                    placeholderTextColor={Colors.textTertiary}
-                    style={styles.input}
-                    returnKeyType="done"
-                  />
-                </View>
+                  </View>
+                )}
+                {flow === 'manual' && (
+                  <View style={styles.reviewCard}>
+                    <Text style={styles.reviewOk}>✅ Your brand profile is ready</Text>
+                    <Text style={styles.reviewBody}>{businessName}</Text>
+                    <View style={styles.reviewRow}>
+                      <View style={[styles.miniSwatch, { backgroundColor: brandColor }]} />
+                      <Text style={styles.reviewMeta}>Vibe: {brandVibe}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setStep(2)} style={styles.manualLink}>
+                      <Text style={styles.manualLinkText}>Add website later in Settings →</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <View style={styles.footer}>
                   <PrimaryButton
-                    testID="onboarding-get-started-btn"
-                    title={saving ? 'Saving…' : 'Get Started'}
-                    onPress={handleGetStarted}
-                    disabled={!businessName.trim() || saving}
+                    title={saving ? 'Saving…' : 'Start Creating Posts →'}
+                    onPress={() => {
+                      if (flow === 'website') void finishWebsite();
+                      else void finishManual();
+                    }}
                     loading={saving}
+                    disabled={saving}
                   />
                 </View>
               </>
@@ -275,42 +434,31 @@ const styles = StyleSheet.create({
   kav: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: Spacing.base, paddingBottom: 34 },
 
-  // Background glows
   glow1: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 999,
-    backgroundColor: Colors.tertiary,
-    opacity: 0.16,
-    left: -120,
-    top: 60,
-  },
-  glow2: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 999,
-    backgroundColor: Colors.primary,
-    opacity: 0.14,
-    right: -90,
-    top: 150,
-  },
-  glow3: {
     position: 'absolute',
     width: 280,
     height: 280,
     borderRadius: 999,
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.tertiary,
+    opacity: 0.14,
+    left: -100,
+    top: 40,
+  },
+  glow2: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
     opacity: 0.12,
-    left: -110,
-    bottom: -120,
+    right: -80,
+    top: 120,
   },
 
   topBar: {
     paddingHorizontal: Spacing.base,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -325,11 +473,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadows.primary,
   },
-  logoText: { color: Colors.background, fontWeight: '900', fontSize: 16, letterSpacing: 0.4 },
-  appName: { fontSize: 18, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -0.3 },
-
-  skipLink: { paddingHorizontal: 8, paddingVertical: 8 },
-  skipText: { color: Colors.textSecondary, fontWeight: '700' },
+  logoText: { color: Colors.background, fontWeight: '900', fontSize: 16 },
+  appName: { fontSize: 18, fontWeight: '900', color: Colors.textPrimary },
 
   dotsRow: {
     flexDirection: 'row',
@@ -343,43 +488,25 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: Colors.border,
   },
 
-  slideCard: {
-    borderRadius: BorderRadius.xl,
-    padding: 18,
-    backgroundColor: 'rgba(25,37,64,0.55)',
-    marginBottom: 10,
-  },
-  slideTitle: {
-    fontSize: 20,
+  screenTitle: {
+    fontSize: 22,
     fontWeight: '900',
-    letterSpacing: -0.6,
     color: Colors.textPrimary,
-    fontFamily: 'Manrope',
     marginBottom: 8,
+    fontFamily: 'Manrope',
   },
-  slideBody: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 19,
-    fontFamily: 'Inter',
-  },
+  screenSub: { fontSize: 14, color: Colors.textSecondary, marginBottom: 18, lineHeight: 20 },
 
-  sectionGap: { height: 10 },
+  formGroup: { marginBottom: Spacing.base },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '800',
     color: Colors.textSecondary,
-    marginTop: 8,
     marginBottom: 10,
+    marginTop: 8,
   },
-
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, marginBottom: 6 },
-  backText: { fontSize: 14, color: Colors.primary, fontWeight: '800' },
-
-  formGroup: { marginBottom: Spacing.base },
   inputLabel: { fontSize: 13, fontWeight: '800', color: Colors.textSecondary, marginBottom: 10 },
   input: {
     backgroundColor: Colors.paper,
@@ -390,34 +517,46 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     ...Shadows.sm,
   },
-  optional: { fontWeight: '400', color: Colors.textTertiary },
-  infoCard: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(186,158,255,0.14)',
-    borderRadius: BorderRadius.lg,
-    padding: 14,
-    marginBottom: Spacing.xl,
-  },
-  infoText: { flex: 1, fontSize: 13, color: Colors.primary, lineHeight: 18 },
-  illustrationCard: {
+
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  backText: { fontSize: 14, color: Colors.primary, fontWeight: '800' },
+
+  bigCard: {
+    backgroundColor: 'rgba(25,37,64,0.75)',
     borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
-    marginTop: 8,
-    backgroundColor: Colors.paper,
-    ...Shadows.md,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(186,158,255,0.35)',
   },
-  illustrationGradient: { padding: 16, minHeight: 120 },
-  illustrationInner: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  illustrationText: {
-    fontSize: 13,
-    color: Colors.background,
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 18,
-    fontFamily: 'Manrope',
+  bigCardEmoji: { fontSize: 36, marginBottom: 8 },
+  bigCardTitle: { fontSize: 18, fontWeight: '900', color: Colors.textPrimary, marginBottom: 6 },
+  bigCardSub: { fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
+
+  scanBlock: { gap: 12, marginBottom: 12 },
+  gradBtn: {
+    borderRadius: BorderRadius.full,
+    paddingVertical: 14,
+    alignItems: 'center',
   },
+  gradBtnText: { color: Colors.background, fontWeight: '900', fontSize: 15 },
+
+  manualLink: { alignItems: 'center', paddingVertical: 12 },
+  manualLinkText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
+
+  reviewCard: {
+    backgroundColor: 'rgba(25,37,64,0.55)',
+    borderRadius: BorderRadius.xl,
+    padding: 16,
+    marginBottom: 16,
+    gap: 10,
+  },
+  reviewOk: { fontSize: 15, fontWeight: '800', color: Colors.success },
+  reviewLabel: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  reviewBody: { fontSize: 15, color: Colors.textPrimary, lineHeight: 22 },
+  reviewRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  miniSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: Colors.white },
+  reviewMeta: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600' },
 
   footer: { paddingTop: 18, gap: 12, marginTop: 10, paddingBottom: 22 },
 });

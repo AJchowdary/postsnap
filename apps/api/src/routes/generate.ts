@@ -28,6 +28,12 @@ router.post(
       displayType: req.body.displayType,
       aiCategory: req.body.aiCategory,
       customDescription: req.body.customDescription,
+      brandColor: req.body.brandColor,
+      brandVibe: req.body.brandVibe,
+      dominantColors: req.body.dominantColors,
+      websiteSummary: req.body.websiteSummary,
+      city: req.body.city,
+      instagramHandle: req.body.instagramHandle,
     });
     const caption = result.instagram?.caption ?? result.facebook?.caption ?? '';
     return sendSuccess(res, { caption });
@@ -51,6 +57,11 @@ router.post(
       aiCategory: req.body.aiCategory,
       customDescription: req.body.customDescription,
       brandColor: req.body.brandColor ?? null,
+      brandVibe: req.body.brandVibe,
+      websiteSummary: req.body.websiteSummary,
+      dominantColors: req.body.dominantColors,
+      city: req.body.city,
+      instagramHandle: req.body.instagramHandle,
     });
     if (!processed) {
       return sendSuccess(res, {

@@ -1,10 +1,10 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { BusinessProfileSchema } from '../schemas/account';
-import { bootstrapAccount, getAccount, upsertBusinessProfile } from '../services/accountService';
+import { BusinessProfileSchema, ScanWebsiteSchema } from '../schemas/account';
+import { bootstrapAccount, getAccount, scanAndSaveWebsite, upsertBusinessProfile } from '../services/accountService';
 import { asyncHandler } from '../utils/asyncHandler';
-import { sendSuccess } from '../utils/apiResponse';
+import { sendFail, sendSuccess } from '../utils/apiResponse';
 
 const router = Router();
 
@@ -33,6 +33,19 @@ router.put(
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const profile = await upsertBusinessProfile(req.userId!, req.body);
     return sendSuccess(res, profile);
+  })
+);
+
+router.post(
+  '/scan-website',
+  authenticate,
+  validate(ScanWebsiteSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const out = await scanAndSaveWebsite(req.userId!, req.body.websiteUrl);
+    if (!out) {
+      return sendFail(res, 400, 'SCAN_FAILED', 'Could not scan website. Set up manually instead.');
+    }
+    return sendSuccess(res, { account: out.account, scan: out.scan });
   })
 );
 

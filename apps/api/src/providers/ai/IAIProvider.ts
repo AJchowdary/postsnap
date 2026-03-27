@@ -12,6 +12,12 @@ export interface CaptionParams {
   aiCategory?: string;
   /** Extra nuance for the model */
   customDescription?: string;
+  brandColor?: string;
+  brandVibe?: string;
+  dominantColors?: string[];
+  websiteSummary?: string;
+  city?: string;
+  instagramHandle?: string;
 }
 
 export type CaptionResult = {
@@ -34,6 +40,11 @@ export interface ImageParams {
   displayType?: string;
   aiCategory?: string;
   customDescription?: string;
+  brandVibe?: string;
+  websiteSummary?: string;
+  dominantColors?: string[];
+  city?: string;
+  instagramHandle?: string;
 }
 
 /** Result of My Photo pipeline: enhanced + optional in-image text, and clean enhanced only. */

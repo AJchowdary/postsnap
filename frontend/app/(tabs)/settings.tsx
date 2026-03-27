@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Switch, Alert, Linking, Platform, ActivityIndicator,
+  Switch, Alert, Linking, Platform, ActivityIndicator, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
-import { BrandStyle, Platform as SocialPlatform } from '../../src/types';
+import { BrandStyle, Platform as SocialPlatform, BrandVibe } from '../../src/types';
 import StatusChip from '../../src/components/StatusChip';
 import PrimaryButton from '../../src/components/PrimaryButton';
 import { BusinessTypeSelector, BusinessTypeSelection } from '../../src/components/BusinessTypeSelector';
@@ -20,7 +20,10 @@ import {
   mapConnectionsToSocialAccounts,
   getMetaOAuthLoginUrl,
   getMetaOAuthRedirectUrlForBrowser,
+  scanWebsite,
 } from '../../src/services/api';
+import BrandColorPicker from '../../src/components/BrandColorPicker';
+import BrandVibePicker from '../../src/components/BrandVibePicker';
 import { purchaseSubscription, restorePurchases, refreshSubscriptionFromBackend } from '../../src/services/iapService';
 
 const BRAND_STYLES: { id: BrandStyle; label: string; desc: string }[] = [
@@ -80,6 +83,25 @@ export default function SettingsScreen() {
   const [oauthBusyPlatform, setOauthBusyPlatform] = useState<SocialPlatform | null>(null);
   const [typeModalVisible, setTypeModalVisible] = useState(false);
 
+  const [brandColorDraft, setBrandColorDraft] = useState(businessProfile.brandColor || '#2A9D8F');
+  const [brandVibeDraft, setBrandVibeDraft] = useState<BrandVibe | undefined>(businessProfile.brandVibe);
+  const [websiteUrlDraft, setWebsiteUrlDraft] = useState(businessProfile.websiteUrl || '');
+  const [websiteSummaryDraft, setWebsiteSummaryDraft] = useState(businessProfile.websiteSummary || '');
+  const [igDraft, setIgDraft] = useState(businessProfile.instagramHandle || '');
+  const [fbDraft, setFbDraft] = useState(businessProfile.facebookPage || '');
+  const [colorModalOpen, setColorModalOpen] = useState(false);
+  const [vibeModalOpen, setVibeModalOpen] = useState(false);
+  const [scanBusy, setScanBusy] = useState(false);
+
+  useEffect(() => {
+    setBrandColorDraft(businessProfile.brandColor || '#2A9D8F');
+    setBrandVibeDraft(businessProfile.brandVibe);
+    setWebsiteUrlDraft(businessProfile.websiteUrl || '');
+    setWebsiteSummaryDraft(businessProfile.websiteSummary || '');
+    setIgDraft(businessProfile.instagramHandle || '');
+    setFbDraft(businessProfile.facebookPage || '');
+  }, [businessProfile]);
+
   useEffect(() => {
     if (!editingBusiness) return;
     setBizName(businessProfile.name);
@@ -134,6 +156,67 @@ export default function SettingsScreen() {
       showToast('Business info updated', 'success');
     } catch {
       showToast('Saved locally (offline)', 'info');
+    }
+  };
+
+  const saveBrandDna = async () => {
+    const profile = {
+      name: businessProfile.name,
+      type: businessProfile.type,
+      displayType: businessProfile.displayType,
+      customDescription: businessProfile.customDescription,
+      city: bizCity.trim() || undefined,
+      brandStyle: businessProfile.brandStyle,
+      useLogoOverlay: businessProfile.useLogoOverlay,
+      brandColor: brandColorDraft,
+      brandVibe: brandVibeDraft,
+      dominantColors: [brandColorDraft],
+      websiteUrl: websiteUrlDraft.trim() || undefined,
+      websiteSummary: websiteSummaryDraft.trim() || undefined,
+      instagramHandle: igDraft.trim() || undefined,
+      facebookPage: fbDraft.trim() || undefined,
+      brandDnaSource: businessProfile.brandDnaSource ?? 'manual',
+    };
+    setBusinessProfile(profile);
+    try {
+      await updateBusinessProfile(profile);
+      showToast('Brand profile saved', 'success');
+    } catch {
+      showToast('Saved locally (offline)', 'info');
+    }
+  };
+
+  const handleRescanWebsite = async () => {
+    if (!websiteUrlDraft.trim()) {
+      showToast('Add a website URL first', 'error');
+      return;
+    }
+    setScanBusy(true);
+    try {
+      const { account } = await scanWebsite(websiteUrlDraft.trim());
+      const a = account as Record<string, any>;
+      setBusinessProfile({
+        name: a.name || businessProfile.name,
+        type: a.type,
+        displayType: a.displayType,
+        customDescription: a.customDescription ?? '',
+        city: a.city,
+        brandColor: a.brandColor,
+        brandVibe: a.brandVibe,
+        dominantColors: a.dominantColors ?? [],
+        websiteUrl: a.websiteUrl,
+        websiteSummary: a.websiteSummary,
+        toneExample: a.toneExample,
+        instagramHandle: a.instagramHandle,
+        brandDnaSource: 'website',
+        brandStyle: businessProfile.brandStyle,
+        useLogoOverlay: businessProfile.useLogoOverlay,
+      });
+      showToast('Website rescanned', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Scan failed', 'error');
+    } finally {
+      setScanBusy(false);
     }
   };
 
@@ -365,6 +448,118 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* ---- Brand DNA ---- */}
+        <SectionHeader title="Brand DNA" />
+        <View style={styles.card}>
+          <Text style={styles.brandDnaHeader}>
+            {businessProfile.brandDnaSource === 'website' && '🌐 Brand DNA — Built from your website'}
+            {businessProfile.brandDnaSource === 'manual' && '✏️ Brand DNA — Set up manually'}
+            {businessProfile.brandDnaSource === 'hybrid' && '✨ Brand DNA — Website + Manual'}
+            {!businessProfile.brandDnaSource && 'Brand DNA'}
+          </Text>
+          {businessProfile.brandDnaSource === 'website' && !!businessProfile.websiteUrl && (
+            <View style={styles.brandRowLine}>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+              <Text style={styles.brandRowText} numberOfLines={2}>{businessProfile.websiteUrl}</Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.brandTapRow} onPress={() => setColorModalOpen(true)}>
+            <Text style={styles.brandTapLabel}>Brand color</Text>
+            <View style={[styles.brandMiniSwatch, { backgroundColor: brandColorDraft }]} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.brandTapRow} onPress={() => setVibeModalOpen(true)}>
+            <Text style={styles.brandTapLabel}>Vibe</Text>
+            <Text style={styles.brandTapValue}>{brandVibeDraft || 'warm'}</Text>
+          </TouchableOpacity>
+          {businessProfile.brandDnaSource === 'manual' && (
+            <Text style={styles.brandLink}>Add your website above to enhance AI results →</Text>
+          )}
+          <Text style={styles.inputLabel}>Website URL</Text>
+          <TextInput
+            value={websiteUrlDraft}
+            onChangeText={setWebsiteUrlDraft}
+            placeholder="https://"
+            placeholderTextColor={Colors.textTertiary}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+          <Text style={styles.inputLabel}>About (from scan or your notes)</Text>
+          <TextInput
+            value={websiteSummaryDraft}
+            onChangeText={setWebsiteSummaryDraft}
+            placeholder="Short summary for AI"
+            placeholderTextColor={Colors.textTertiary}
+            style={[styles.input, { minHeight: 72 }]}
+            multiline
+          />
+          <Text style={styles.inputLabel}>City</Text>
+          <TextInput
+            value={bizCity}
+            onChangeText={setBizCity}
+            placeholder="Your city"
+            placeholderTextColor={Colors.textTertiary}
+            style={styles.input}
+          />
+          <Text style={styles.inputLabel}>Instagram</Text>
+          <TextInput
+            value={igDraft ? `@${igDraft.replace(/^@/, '')}` : ''}
+            onChangeText={(t) => setIgDraft(t.replace(/^@/, ''))}
+            placeholder="@handle"
+            placeholderTextColor={Colors.textTertiary}
+            style={styles.input}
+          />
+          <Text style={styles.inputLabel}>Facebook page</Text>
+          <TextInput
+            value={fbDraft}
+            onChangeText={setFbDraft}
+            placeholder="Page name or URL"
+            placeholderTextColor={Colors.textTertiary}
+            style={styles.input}
+          />
+          {businessProfile.brandDnaSource === 'website' && (
+            <TouchableOpacity
+              onPress={handleRescanWebsite}
+              disabled={scanBusy}
+              style={[styles.outlineBtn, scanBusy && { opacity: 0.6 }]}
+            >
+              {scanBusy ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : (
+                <Text style={styles.outlineBtnText}>Rescan Website</Text>
+              )}
+            </TouchableOpacity>
+          )}
+          <View style={styles.brandSaveWrap}>
+            <PrimaryButton title="Save Brand Profile" onPress={saveBrandDna} />
+          </View>
+        </View>
+
+        <Modal visible={colorModalOpen} animationType="slide" transparent>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Brand color</Text>
+              <BrandColorPicker value={brandColorDraft} onChange={setBrandColorDraft} />
+              <TouchableOpacity onPress={() => setColorModalOpen(false)} style={styles.modalClose}>
+                <Text style={styles.modalCloseText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+        <Modal visible={vibeModalOpen} animationType="slide" transparent>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Brand vibe</Text>
+              <BrandVibePicker
+                value={brandVibeDraft || 'warm'}
+                onChange={(v) => setBrandVibeDraft(v)}
+              />
+              <TouchableOpacity onPress={() => setVibeModalOpen(false)} style={styles.modalClose}>
+                <Text style={styles.modalCloseText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* ---- Social Accounts ---- */}
         <SectionHeader title="Social Accounts" />
         <View style={styles.card}>
@@ -595,4 +790,55 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   signOutText: { color: '#ffd7e1', fontWeight: '800', fontSize: 15 },
+
+  brandDnaHeader: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  brandRowLine: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, marginBottom: 8 },
+  brandRowText: { flex: 1, fontSize: 12, color: Colors.success },
+  brandTapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  brandTapLabel: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600' },
+  brandTapValue: { fontSize: 14, color: Colors.textPrimary, fontWeight: '700' },
+  brandMiniSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: Colors.white },
+  brandLink: { fontSize: 13, color: Colors.primary, fontWeight: '700', paddingHorizontal: 14, marginBottom: 10 },
+  outlineBtn: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+  },
+  outlineBtnText: { color: Colors.primary, fontWeight: '800', fontSize: 14 },
+  brandSaveWrap: { padding: 16 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: Colors.surfaceContainer,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: 20,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  modalTitle: { ...Typography.h4, marginBottom: 8 },
+  modalClose: { alignItems: 'center', paddingVertical: 12 },
+  modalCloseText: { fontSize: 16, fontWeight: '800', color: Colors.primary },
 });
