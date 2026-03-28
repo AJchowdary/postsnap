@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
-import { generateCaption, generatePostImage, savePostToBackend, publishPostToBackend } from '../../src/services/api';
+import {
+  captureSignal,
+  generateCaption,
+  generateCaptionDetailed,
+  generatePostImage,
+  savePostToBackend,
+  publishPostToBackend,
+  GenerateCaptionQuality,
+  GenerateCaptionResponse,
+} from '../../src/services/api';
 import PrimaryButton from '../../src/components/PrimaryButton';
 import SecondaryButton from '../../src/components/SecondaryButton';
 import { SchedulePicker } from '../../src/components/SchedulePicker';
@@ -27,6 +36,7 @@ import { TEMPLATES_BY_TYPE, Platform as SocialPlatform, BusinessType, Template }
 const CREATE_BG = '#0d0d0d';
 const CREATE_CARD = '#141414';
 type TemplatePreview = { id: string; label: string; uri: string; mediaType: 'photo' | 'video' };
+type TopicSuggestion = { id: string; icon: string; title: string; subtitle: string; prompt: string };
 
 /** Raw base64 or full data URL from API */
 function imageDataUri(s: string | null | undefined): string | undefined {
@@ -98,6 +108,16 @@ const BUSINESS_TEMPLATE_MEDIA: Record<BusinessType, { uri: string; mediaType: 'p
   ],
 };
 
+const SPECIFICITY_ANGLES = ['offer', 'story', 'local', 'event'] as const;
+const CAPTION_QUALITY_GATE_THRESHOLD = 70;
+const STUDIO_STYLES = [
+  { id: 'clean-white', label: 'Clean White' },
+  { id: 'lifestyle', label: 'Lifestyle' },
+  { id: 'dark-dramatic', label: 'Dark Dramatic' },
+  { id: 'flat-lay', label: 'Flat Lay' },
+  { id: 'outdoor-natural', label: 'Outdoor Natural' },
+] as const;
+
 function getBusinessTemplatePreviews(type: BusinessType, templates: Template[]): TemplatePreview[] {
   const media = BUSINESS_TEMPLATE_MEDIA[type] || BUSINESS_TEMPLATE_MEDIA.restaurant;
   return templates
@@ -109,6 +129,43 @@ function getBusinessTemplatePreviews(type: BusinessType, templates: Template[]):
       uri: media[i % media.length].uri,
       mediaType: media[i % media.length].mediaType,
     }));
+}
+
+function getTopicSuggestions(type: BusinessType): TopicSuggestion[] {
+  switch (type) {
+    case 'restaurant':
+      return [
+        { id: 'seasonal', icon: '🌿', title: 'Seasonal Special', subtitle: 'Timely menu hook', prompt: 'Promote our seasonal special this week with a local angle and clear CTA.' },
+        { id: 'chef', icon: '👨‍🍳', title: 'Chef Story', subtitle: 'Behind the scenes', prompt: 'Share a behind-the-scenes kitchen moment and what makes this dish unique.' },
+        { id: 'review', icon: '⭐', title: 'Customer Love', subtitle: 'Social proof', prompt: 'Feature a recent customer favorite and invite people to try it today.' },
+      ];
+    case 'salon':
+      return [
+        { id: 'look', icon: '💇', title: 'New Look Reveal', subtitle: 'Transformation post', prompt: 'Showcase a transformation result and how it helps clients feel confident.' },
+        { id: 'book', icon: '📅', title: 'Book This Week', subtitle: 'Appointment CTA', prompt: 'Announce available appointment slots this week with urgency and warmth.' },
+        { id: 'tip', icon: '✨', title: 'Care Tip', subtitle: 'Expert authority', prompt: 'Share one practical hair/beauty care tip and invite clients for professional help.' },
+      ];
+    case 'retail':
+      return [
+        { id: 'arrival', icon: '🆕', title: 'New Arrival', subtitle: 'Fresh inventory', prompt: 'Announce a new arrival with style/lifestyle detail and stock urgency.' },
+        { id: 'bundle', icon: '📦', title: 'Bundle Offer', subtitle: 'Value message', prompt: 'Promote a bundle offer with concrete value and who it is perfect for.' },
+        { id: 'staffpick', icon: '🔥', title: 'Staff Pick', subtitle: 'Human recommendation', prompt: 'Highlight a team favorite product and why customers keep buying it.' },
+      ];
+    case 'gym':
+      return [
+        { id: 'member', icon: '💪', title: 'Member Win', subtitle: 'Motivation', prompt: 'Tell a short member progress story with a motivating call to action.' },
+        { id: 'class', icon: '🏋️', title: 'Class Spotlight', subtitle: 'Program promotion', prompt: 'Promote this week’s class schedule and the specific benefit of joining.' },
+        { id: 'challenge', icon: '🏆', title: 'Challenge Post', subtitle: 'Engagement driver', prompt: 'Launch a short fitness challenge and invite the community to join.' },
+      ];
+    case 'cafe':
+      return [
+        { id: 'brew', icon: '☕', title: 'Drink of the Week', subtitle: 'Seasonal flavor', prompt: 'Promote this week’s featured drink with sensory description and local vibe.' },
+        { id: 'morning', icon: '🌅', title: 'Morning Ritual', subtitle: 'Lifestyle angle', prompt: 'Create a cozy morning ritual post tied to our cafe experience.' },
+        { id: 'pastry', icon: '🥐', title: 'Pastry Pairing', subtitle: 'Cross-sell', prompt: 'Suggest a pastry + drink pairing and invite people in today.' },
+      ];
+    default:
+      return [];
+  }
 }
 
 export default function CreateScreen() {
@@ -133,6 +190,7 @@ export default function CreateScreen() {
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [processedImageWithOverlay, setProcessedImageWithOverlay] = useState<string | null>(null);
   const [processedImageClean, setProcessedImageClean] = useState<string | null>(null);
+  const [studioVariants, setStudioVariants] = useState<string[]>([]);
   const [processedImageChoice, setProcessedImageChoice] = useState<'with' | 'clean'>('with');
   const [platforms, setPlatforms] = useState<Record<string, boolean>>({
     instagram: !!socialAccounts.instagram?.connected,
@@ -142,6 +200,13 @@ export default function CreateScreen() {
   const [isPosting, setIsPosting] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [captionQuality, setCaptionQuality] = useState<GenerateCaptionQuality | null>(null);
+  const [captionRetry, setCaptionRetry] = useState<GenerateCaptionResponse['retry'] | null>(null);
+  const [hasGuidedRegenerate, setHasGuidedRegenerate] = useState(false);
+  const [studioStylePreference, setStudioStylePreference] =
+    useState<(typeof STUDIO_STYLES)[number]['id'] | null>(null);
+  const captionInputRef = useRef<TextInput>(null);
+  const captionAtFocusRef = useRef<string | null>(null);
 
   const genBiz = {
     businessName: businessProfile.name,
@@ -156,6 +221,11 @@ export default function CreateScreen() {
     websiteSummary: businessProfile.websiteSummary,
     city: businessProfile.city,
     instagramHandle: businessProfile.instagramHandle,
+    toneOfVoice: businessProfile.toneOfVoice,
+    contentPersona: businessProfile.contentPersona,
+    uniqueDifferentiator: businessProfile.uniqueDifferentiator,
+    visualStyle: businessProfile.visualStyle,
+    studioBgColor: businessProfile.studioBgColor,
   };
 
   const vibeEmoji = (v?: string) => {
@@ -180,6 +250,10 @@ export default function CreateScreen() {
   );
   const selectedTpl = templates.find((t) => t.id === selectedTemplate);
   const isBeforeAfter = selectedTpl?.beforeAfter;
+  const topicSuggestions = useMemo(
+    () => getTopicSuggestions(businessProfile.type),
+    [businessProfile.type]
+  );
 
   useEffect(() => {
     if (!currentEdit) return;
@@ -240,8 +314,8 @@ export default function CreateScreen() {
   };
 
   const handleGeneratePost = async () => {
-    if (!photo) {
-      showToast('Upload a photo first', 'error');
+    if (!photo && !description.trim()) {
+      showToast('Add a description or upload a photo first', 'error');
       return;
     }
     setIsGenerating(true);
@@ -249,35 +323,56 @@ export default function CreateScreen() {
       const photoToUse = isBeforeAfter ? (beforePhoto || photo) : photo;
       const effectiveTemplate = 'auto';
       const effectiveDescription = description.trim() || `Create a polished post for ${businessProfile.displayType}`;
-      const [cap, imgResult] = await Promise.all([
-        generateCaption({
+      const shownTopicIds = topicSuggestions.map((s) => s.id);
+      const topicMatch = topicSuggestions.find((s) => s.prompt.trim() === description.trim());
+      const selectedTopicId = topicMatch?.id ?? 'custom';
+      for (const id of shownTopicIds) {
+        if (id === selectedTopicId) continue;
+        void captureSignal({
+          signalType: 'topic_skip',
+          topic: id,
+          metadata: { selectedTopic: selectedTopicId, shownTopics: shownTopicIds },
+        }).catch(() => {});
+      }
+      const [capRes, imgResult] = await Promise.all([
+        generateCaptionDetailed({
           description: effectiveDescription,
           template: effectiveTemplate,
+          studioStylePreference: photoToUse ? studioStylePreference ?? undefined : undefined,
           ...genBiz,
         }),
-        photoToUse
-          ? generatePostImage({
-              photo: photoToUse,
-              template: effectiveTemplate,
-              description: effectiveDescription,
-              ...genBiz,
-            })
-          : Promise.resolve(null),
+        generatePostImage({
+          photo: photoToUse || undefined,
+          template: effectiveTemplate,
+          description: effectiveDescription,
+          studioStylePreference: photoToUse ? studioStylePreference ?? undefined : undefined,
+          ...genBiz,
+        }),
       ]);
-      setCaption(cap);
+      setCaption(capRes.caption);
+      setCaptionQuality(capRes.quality ?? null);
+      setCaptionRetry(capRes.retry ?? null);
+      setHasGuidedRegenerate(false);
       let savedProcessed: string | undefined;
       if (imgResult) {
         setProcessedImageWithOverlay(imgResult.withOverlay);
         setProcessedImageClean(imgResult.clean);
+        setStudioVariants(imgResult.variants ?? []);
         const pick = imgResult.withOverlay ?? imgResult.clean ?? null;
-        setProcessedImage(pick);
+        const studioPick = !pick && imgResult.variants && imgResult.variants.length > 0 ? imgResult.variants[0] : null;
+        setProcessedImage(pick ?? studioPick);
         setProcessedImageChoice(imgResult.withOverlay ? 'with' : 'clean');
-        savedProcessed = pick ?? undefined;
+        savedProcessed = (pick ?? studioPick) ?? undefined;
+        if (!pick && !studioPick) {
+          showToast('AI image enhancement failed. Using original photo preview.', 'info');
+        }
       } else {
         setProcessedImageWithOverlay(null);
         setProcessedImageClean(null);
+        setStudioVariants([]);
         setProcessedImage(null);
         savedProcessed = undefined;
+        showToast('AI image enhancement failed. Using original photo preview.', 'info');
       }
 
       // Auto-save draft
@@ -286,7 +381,7 @@ export default function CreateScreen() {
         template: effectiveTemplate,
         photo: photo || undefined,
         description: effectiveDescription,
-        caption: cap,
+        caption: capRes.caption,
         processedImage: savedProcessed,
         platforms: enabledPlatforms,
         status: 'draft',
@@ -319,10 +414,23 @@ export default function CreateScreen() {
       addPost(draft);
       setDraftId(draft.id);
     }
+    void captureSignal({
+      signalType: 'save_without_publish',
+      topic: description.trim() || undefined,
+      studioStyle: studioStylePreference ?? undefined,
+      metadata: {
+        postId: draft.id,
+        workflow: 'create',
+      },
+    }).catch(() => {});
     showToast('Draft saved!', 'success');
   };
 
   const handlePostNow = async () => {
+    if (isLowQualityBlocked) {
+      showToast('Run one specificity regenerate before posting this low-score caption.', 'info');
+      return;
+    }
     if (!checkEntitlement()) {
       setShowPaywall(true);
       return;
@@ -337,6 +445,18 @@ export default function CreateScreen() {
       const result = await publishPostToBackend(draftId, enabledPlatforms);
       if (result.success) {
         updatePost(draftId, { status: 'published', publishedAt: new Date().toISOString() });
+        void captureSignal({
+          signalType: 'publish',
+          topic: description.trim() || undefined,
+          angle: captionQuality?.tags?.[0] || undefined,
+          studioStyle: studioStylePreference ?? undefined,
+          metadata: {
+            postId: draftId,
+            platforms: enabledPlatforms,
+            qualityScore: captionQuality?.score,
+            workflow: 'create',
+          },
+        }).catch(() => {});
         showToast('Posted successfully! 🎉', 'success');
         resetForm();
       } else {
@@ -357,13 +477,25 @@ export default function CreateScreen() {
   const handleRegenerate = async () => {
     setIsGenerating(true);
     try {
-      const cap = await generateCaption({
+      const capRes = await generateCaptionDetailed({
         description,
         template: 'auto',
+        studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
         ...genBiz,
       });
-      setCaption(cap);
-      if (draftId) updatePost(draftId, { caption: cap });
+      setCaption(capRes.caption);
+      setCaptionQuality(capRes.quality ?? null);
+      setCaptionRetry(capRes.retry ?? null);
+      setHasGuidedRegenerate(false);
+      void captureSignal({
+        signalType: 'regenerate',
+        topic: description.trim() || undefined,
+        metadata: {
+          postId: draftId ?? undefined,
+          previousAngle: captionQuality?.tags?.[0],
+        },
+      }).catch(() => {});
+      if (draftId) updatePost(draftId, { caption: capRes.caption });
     } catch {
       showToast('Regeneration failed', 'error');
     } finally {
@@ -371,7 +503,43 @@ export default function CreateScreen() {
     }
   };
 
+  const handleRegenerateAngle = async (angle: (typeof SPECIFICITY_ANGLES)[number]) => {
+    if (!description.trim()) return;
+    setIsGenerating(true);
+    try {
+      const capRes = await generateCaptionDetailed({
+        description: `${description.trim()} (Angle: ${angle}. Be highly specific and concrete.)`,
+        template: 'auto',
+        studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
+        ...genBiz,
+      });
+      setCaption(capRes.caption);
+      setCaptionQuality(capRes.quality ?? null);
+      setCaptionRetry(capRes.retry ?? null);
+      setHasGuidedRegenerate(true);
+      void captureSignal({
+        signalType: 'regenerate',
+        topic: description.trim() || undefined,
+        angle,
+        metadata: {
+          postId: draftId ?? undefined,
+          previousAngle: angle,
+          reason: 'specificity_angle',
+        },
+      }).catch(() => {});
+      if (draftId) updatePost(draftId, { caption: capRes.caption });
+    } catch {
+      showToast('Could not regenerate with this angle', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleSchedulePost = async (scheduleDate: Date) => {
+    if (isLowQualityBlocked) {
+      showToast('Run one specificity regenerate before scheduling this low-score caption.', 'info');
+      return;
+    }
     if (!checkEntitlement()) { setShowPaywall(true); return; }
     setShowSchedulePicker(false);
     try {
@@ -409,9 +577,14 @@ export default function CreateScreen() {
     setBeforePhoto(null);
     setDescription('');
     setCaption('');
+    setCaptionQuality(null);
+    setCaptionRetry(null);
+    setHasGuidedRegenerate(false);
+    setStudioStylePreference(null);
     setProcessedImage(null);
     setProcessedImageWithOverlay(null);
     setProcessedImageClean(null);
+    setStudioVariants([]);
     setProcessedImageChoice('with');
     setDraftId(null);
     setPlatforms({
@@ -422,6 +595,21 @@ export default function CreateScreen() {
 
   const displayImage = processedImage || photo;
   const enabledCount = Object.values(platforms).filter(Boolean).length;
+  const isLowQualityBlocked =
+    !!captionQuality &&
+    captionQuality.score < CAPTION_QUALITY_GATE_THRESHOLD &&
+    !hasGuidedRegenerate;
+  const resultTags = useMemo(() => {
+    const tags = new Set<string>();
+    (captionQuality?.tags ?? []).forEach((t) => tags.add(t));
+    if (/\bspring|summer|fall|autumn|winter|holiday|festival|seasonal\b/i.test(description)) {
+      tags.add('Seasonal');
+    }
+    if (captionQuality && captionQuality.score >= 80) {
+      tags.add('On-brand');
+    }
+    return Array.from(tags).slice(0, 4);
+  }, [captionQuality, description]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -469,6 +657,23 @@ export default function CreateScreen() {
             <>
               <View style={[styles.section, styles.blockCard]}>
                 <Text style={styles.vibeTitle}>What&apos;s the vibe today?</Text>
+                <Text style={styles.topicLabel}>Quick topics</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.topicRow}>
+                  {topicSuggestions.map((s) => (
+                    <TouchableOpacity
+                      key={s.id}
+                      activeOpacity={0.85}
+                      onPress={() => setDescription(s.prompt)}
+                      style={styles.topicCard}
+                    >
+                      <Text style={styles.topicIcon}>{s.icon}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.topicTitle} numberOfLines={1}>{s.title}</Text>
+                        <Text style={styles.topicSubtitle} numberOfLines={1}>{s.subtitle}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
                 <TextInput
                   testID="description-input"
                   value={description}
@@ -481,6 +686,9 @@ export default function CreateScreen() {
                   multiline
                   textAlignVertical="top"
                 />
+                <Text style={styles.aiScratchHint}>
+                  Tip: You can generate a full post with AI even without uploading a photo.
+                </Text>
                 <View style={styles.vibeActions}>
                   <TouchableOpacity
                     testID="photo-library-btn"
@@ -504,7 +712,7 @@ export default function CreateScreen() {
                     testID="generate-post-btn"
                     onPress={handleGeneratePost}
                     activeOpacity={0.9}
-                    disabled={!photo || isGenerating}
+                    disabled={(!photo && !description.trim()) || isGenerating}
                     style={styles.generateMiniBtn}
                   >
                     {isGenerating ? (
@@ -519,6 +727,39 @@ export default function CreateScreen() {
               {!!photo && (
                 <View style={[styles.section, styles.blockCard]}>
                   <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photoPreview} />
+                  <Text style={styles.studioStyleLabel}>AI Photo Studio style</Text>
+                  <View style={styles.studioStyleRow}>
+                    {STUDIO_STYLES.map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        onPress={() => {
+                          const next = studioStylePreference === s.id ? null : s.id;
+                          setStudioStylePreference(next);
+                          if (next) {
+                            void captureSignal({
+                              signalType: 'studio_style_selected',
+                              studioStyle: next,
+                              topic: description.trim() || undefined,
+                              metadata: { context: 'create' },
+                            }).catch(() => {});
+                          }
+                        }}
+                        style={[
+                          styles.studioStyleChip,
+                          studioStylePreference === s.id && styles.studioStyleChipActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.studioStyleChipText,
+                            studioStylePreference === s.id && styles.studioStyleChipTextActive,
+                          ]}
+                        >
+                          {s.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
               )}
 
@@ -705,6 +946,31 @@ export default function CreateScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
+                {studioVariants.length > 1 && (
+                  <View style={styles.photoVariantRow}>
+                    {studioVariants.map((variant, idx) => (
+                      <TouchableOpacity
+                        key={`${variant}-${idx}`}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setProcessedImage(variant);
+                          void captureSignal({
+                            signalType: 'variant_selected',
+                            topic: description.trim() || undefined,
+                            metadata: { variantIndex: idx + 1, postId: draftId ?? undefined },
+                          }).catch(() => {});
+                        }}
+                        style={[
+                          styles.photoVariantThumb,
+                          processedImage === variant && styles.photoVariantThumbSelected,
+                        ]}
+                      >
+                        <Image source={{ uri: imageDataUri(variant) ?? '' }} style={styles.photoVariantImg} />
+                        <Text style={styles.photoVariantLabel}>Variant {idx + 1}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
                 <View style={styles.previewCard}>
                   {displayImage ? (
                     <Image
@@ -726,6 +992,15 @@ export default function CreateScreen() {
                     </View>
                   )}
                 </View>
+                {!!resultTags.length && (
+                  <View style={styles.resultTagsRow}>
+                    {resultTags.map((tag) => (
+                      <View key={tag} style={styles.resultTag}>
+                        <Text style={styles.resultTagText}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
               {/* Caption Editor */}
@@ -736,8 +1011,28 @@ export default function CreateScreen() {
                 </View>
                 <TextInput
                   testID="caption-input"
+                  ref={captionInputRef}
                   value={caption}
                   onChangeText={setCaption}
+                  onFocus={() => {
+                    captionAtFocusRef.current = caption;
+                  }}
+                  onBlur={() => {
+                    const start = captionAtFocusRef.current;
+                    captionAtFocusRef.current = null;
+                    if (start != null && start !== caption && draftId) {
+                      void captureSignal({
+                        signalType: 'edit_caption',
+                        topic: description.trim(),
+                        metadata: {
+                          postId: draftId,
+                          originalCaption: start,
+                          editedCaption: caption,
+                          editDelta: caption.length - start.length,
+                        },
+                      }).catch(() => {});
+                    }
+                  }}
                   style={styles.captionInput}
                   multiline
                   numberOfLines={5}
@@ -757,9 +1052,12 @@ export default function CreateScreen() {
                           const cap = await generateCaption({
                             description: `SHORT VERSION: ${description}`,
                             template: 'auto',
+                            studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
                             ...genBiz,
                           });
                           setCaption(cap);
+                          setCaptionQuality(null);
+                          setCaptionRetry(null);
                         } finally { setIsGenerating(false); }
                       }}
                       style={styles.quickActionBtn}
@@ -775,10 +1073,13 @@ export default function CreateScreen() {
                           const cap = await generateCaption({
                             description: `FUN & PLAYFUL VERSION: ${description}`,
                             template: 'auto',
+                            studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
                             ...genBiz,
                             brandStyle: 'bold',
                           });
                           setCaption(cap);
+                          setCaptionQuality(null);
+                          setCaptionRetry(null);
                         } finally { setIsGenerating(false); }
                       }}
                       style={styles.quickActionBtn}
@@ -787,6 +1088,75 @@ export default function CreateScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
+                <View style={styles.specificityRow}>
+                  <Text style={styles.specificityLabel}>Regenerate with more specificity:</Text>
+                  <View style={styles.specificityChips}>
+                    {SPECIFICITY_ANGLES.map((angle) => (
+                      <TouchableOpacity
+                        key={angle}
+                        onPress={() => void handleRegenerateAngle(angle)}
+                        style={styles.specificityChip}
+                      >
+                        <Text style={styles.specificityChipText}>{angle}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                {!!captionQuality && (
+                  <View style={styles.qualityBox}>
+                    <Text style={styles.qualityTitle}>Why this works</Text>
+                    <Text style={styles.qualityRationale}>{captionQuality.rationale}</Text>
+                    {!!captionRetry && (
+                      <Text style={styles.retryMetaText}>
+                        Generation path: {captionRetry.strategy} · attempts: {captionRetry.attempts}
+                        {captionRetry.reason ? ` · ${captionRetry.reason}` : ''}
+                      </Text>
+                    )}
+                    <View style={styles.qualityTags}>
+                      {captionQuality.tags.map((tag) => (
+                        <View key={tag} style={styles.qualityTag}>
+                          <Text style={styles.qualityTagText}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={styles.feedbackRow}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          void captureSignal({
+                            signalType: 'thumbs_up',
+                            topic: description.trim() || undefined,
+                            angle: captionQuality.tags?.[0],
+                            metadata: { postId: draftId ?? undefined, context: 'result_card' },
+                          }).catch(() => {})
+                        }
+                        style={styles.feedbackChip}
+                      >
+                        <Text style={styles.feedbackChipText}>👍 Helpful</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() =>
+                          void captureSignal({
+                            signalType: 'thumbs_down',
+                            topic: description.trim() || undefined,
+                            metadata: { postId: draftId ?? undefined, context: 'result_card' },
+                          }).catch(() => {})
+                        }
+                        style={styles.feedbackChip}
+                      >
+                        <Text style={styles.feedbackChipText}>👎 Needs work</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+                {isLowQualityBlocked && (
+                  <View style={styles.qualityGateBox}>
+                    <Text style={styles.qualityGateTitle}>Quality Gate Active</Text>
+                    <Text style={styles.qualityGateText}>
+                      This caption scored {captionQuality?.score ?? 0}/100. Run one specificity regenerate
+                      (offer/story/local/event) to unlock Post and Schedule.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Buttons */}
@@ -796,7 +1166,7 @@ export default function CreateScreen() {
                   title={`Confirm & Post${enabledCount > 0 ? ` (${enabledCount})` : ''}`}
                   onPress={handlePostNow}
                   loading={isPosting}
-                  disabled={enabledCount === 0 || !caption}
+                  disabled={enabledCount === 0 || !caption || isLowQualityBlocked}
                   icon={<Ionicons name="paper-plane" size={18} color={Colors.white} />}
                 />
                 <TouchableOpacity
@@ -804,6 +1174,10 @@ export default function CreateScreen() {
                   onPress={() => {
                     if (!checkEntitlement()) { setShowPaywall(true); return; }
                     if (!caption) { showToast('Generate or write a caption first', 'error'); return; }
+                    if (isLowQualityBlocked) {
+                      showToast('Use one specificity regenerate first to improve this caption.', 'info');
+                      return;
+                    }
                     setShowSchedulePicker(true);
                   }}
                   activeOpacity={0.8}
@@ -819,6 +1193,14 @@ export default function CreateScreen() {
                     onPress={handleRegenerate}
                     loading={isGenerating}
                     icon={<Ionicons name="refresh" size={16} color={Colors.textSecondary} />}
+                  />
+                  <SecondaryButton
+                    testID="edit-caption-btn"
+                    title="Edit"
+                    onPress={() => {
+                      captionInputRef.current?.focus();
+                    }}
+                    icon={<Ionicons name="create-outline" size={16} color={Colors.textSecondary} />}
                   />
                   <SecondaryButton
                     testID="save-draft-btn-step2"
@@ -906,6 +1288,23 @@ const styles = StyleSheet.create({
   sectionHeaderTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
   viewAllText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
   vibeTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10 },
+  topicLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 },
+  topicRow: { gap: 8, paddingBottom: 10 },
+  topicCard: {
+    width: 200,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#101522',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  topicIcon: { fontSize: 18 },
+  topicTitle: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
+  topicSubtitle: { fontSize: 11, color: Colors.textTertiary, marginTop: 2 },
   vibeInput: {
     backgroundColor: '#101522',
     borderRadius: BorderRadius.lg,
@@ -914,6 +1313,12 @@ const styles = StyleSheet.create({
     minHeight: 84,
     color: Colors.textPrimary,
     marginBottom: 10,
+  },
+  aiScratchHint: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: -2,
+    marginBottom: 8,
   },
   vibeActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   uploadChip: {
@@ -1043,6 +1448,32 @@ const styles = StyleSheet.create({
   photoPickerCompact: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainerHighest },
   photoPreviewWrap: { position: 'relative' },
   photoPreview: { width: '100%', height: 200, borderRadius: BorderRadius.lg, backgroundColor: Colors.subtle },
+  studioStyleLabel: {
+    marginTop: 10,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '700',
+  },
+  studioStyleRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  studioStyleChip: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#101522',
+  },
+  studioStyleChipActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  studioStyleChipText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
+  studioStyleChipTextActive: { color: Colors.primary },
   photoRemove: { position: 'absolute', top: 8, right: 8, backgroundColor: Colors.white, borderRadius: 12 },
   input: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary, ...Shadows.sm },
   promptInput: {
@@ -1108,10 +1539,77 @@ const styles = StyleSheet.create({
   previewPlaceholderText: { ...Typography.bodySmall, color: Colors.textTertiary },
   aiTag: { position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primaryLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: BorderRadius.full },
   aiTagText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
+  resultTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  resultTag: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(82,183,136,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(82,183,136,0.35)',
+  },
+  resultTagText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700' },
   captionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
   captionInput: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 14, color: Colors.textPrimary, lineHeight: 22, minHeight: 120, ...Shadows.sm },
   captionFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   quickActions: { flexDirection: 'row', gap: 8 },
   quickActionBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight },
   quickActionText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
+  specificityRow: { marginTop: 10 },
+  specificityLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 6 },
+  specificityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  specificityChip: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(186,158,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(186,158,255,0.35)',
+  },
+  specificityChipText: { fontSize: 10, color: Colors.primary, fontWeight: '700', textTransform: 'capitalize' },
+  qualityBox: {
+    marginTop: 10,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(82,183,136,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(82,183,136,0.35)',
+    padding: 10,
+  },
+  qualityTitle: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  qualityRationale: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginBottom: 8 },
+  retryMetaText: { fontSize: 10, color: Colors.textTertiary, marginBottom: 8 },
+  qualityTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  qualityTag: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: Colors.primaryLight,
+  },
+  qualityTagText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
+  feedbackRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  feedbackChip: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  feedbackChipText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700' },
+  qualityGateBox: {
+    marginTop: 8,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(244,162,97,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,162,97,0.35)',
+    padding: 10,
+  },
+  qualityGateTitle: { fontSize: 11, color: '#F4A261', fontWeight: '800', marginBottom: 4 },
+  qualityGateText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
 });

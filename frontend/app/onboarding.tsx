@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, BorderRadius, Shadows, GradientColors } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
 import PrimaryButton from '../src/components/PrimaryButton';
-import { scanWebsite, updateBusinessProfile } from '../src/services/api';
+import { scanWebsite, trackAnalyticsEvent, updateBusinessProfile } from '../src/services/api';
 import { BusinessTypeSelector, BusinessTypeSelection } from '../src/components/BusinessTypeSelector';
 import BrandColorPicker from '../src/components/BrandColorPicker';
 import BrandVibePicker from '../src/components/BrandVibePicker';
-import type { BrandVibe } from '../src/types';
+import type { BrandVibe, BusinessType } from '../src/types';
+import { buildManualOnboardingProfilePayload } from '../src/constants/categoryDefaults';
 
 type Flow = 'undecided' | 'manual' | 'website';
 
@@ -85,8 +86,13 @@ export default function OnboardingScreen() {
 
   const [saving, setSaving] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
+  const [scanStatus, setScanStatus] = useState('');
 
   const dots = useMemo(() => progressDots(step, flow), [step, flow]);
+
+  useEffect(() => {
+    void trackAnalyticsEvent({ event: 'ONBOARDING_STARTED', properties: { flow: 'entry' } }).catch(() => {});
+  }, []);
 
   const goManual = () => {
     setFlow('manual');
@@ -97,15 +103,32 @@ export default function OnboardingScreen() {
     const u = websiteUrlDraft.trim();
     if (!u) return;
     setScanBusy(true);
+    setScanStatus('Analyzing your brand... 🔍');
     try {
       const { account } = await scanWebsite(u);
-      setServerAccount(account as Record<string, any>);
+      const acc = account as Record<string, any>;
+      setServerAccount(acc);
+      if (!businessName.trim() && typeof acc.name === 'string' && acc.name.trim()) {
+        setBusinessName(acc.name);
+      }
+      if (!city.trim() && typeof acc.city === 'string' && acc.city.trim()) {
+        setCity(acc.city);
+      }
+      if (typeof acc.displayType === 'string' && acc.displayType.trim()) {
+        setBizSelection((prev) => ({
+          type: ((acc.type as BusinessType) || prev.type),
+          displayType: acc.displayType,
+          customDescription:
+            typeof acc.customDescription === 'string' ? acc.customDescription : prev.customDescription,
+        }));
+      }
       setFlow('website');
       setStep(5);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Could not scan website. Try manual setup.', 'error');
     } finally {
       setScanBusy(false);
+      setScanStatus('');
     }
   };
 
@@ -117,8 +140,8 @@ export default function OnboardingScreen() {
       await updateBusinessProfile({
         name: businessName.trim(),
         type: (acc.type || bizSelection.type) as string,
-        displayType: bizSelection.displayType,
-        customDescription: bizSelection.customDescription,
+        displayType: (acc.displayType as string) || bizSelection.displayType,
+        customDescription: (acc.customDescription as string) || bizSelection.customDescription,
         city: city.trim() || undefined,
         brandColor: acc.brandColor || brandColor,
         brandVibe: acc.brandVibe || 'warm',
@@ -128,6 +151,11 @@ export default function OnboardingScreen() {
         toneExample: acc.toneExample,
         instagramHandle: acc.instagramHandle,
         brandDnaSource: 'website',
+        confidenceOverall: typeof acc.confidenceOverall === 'number' ? acc.confidenceOverall : 0.9,
+        enrichmentVersion: typeof acc.enrichmentVersion === 'number' ? acc.enrichmentVersion : 2,
+        toneOfVoice: (acc.toneOfVoice as any) || 'professional',
+        coreServices: Array.isArray(acc.coreServices) ? acc.coreServices : [],
+        preferredCaptionLength: (acc.preferredCaptionLength as any) || 'medium',
         brandStyle: 'clean',
         useLogoOverlay: false,
       });
@@ -136,11 +164,15 @@ export default function OnboardingScreen() {
     } finally {
       setSaving(false);
     }
+    void trackAnalyticsEvent({
+      event: 'ONBOARDING_COMPLETED',
+      properties: { path: 'website' },
+    }).catch(() => {});
     setBusinessProfile({
       name: businessName.trim(),
       type: (serverAccount?.type || bizSelection.type) as any,
-      displayType: bizSelection.displayType,
-      customDescription: bizSelection.customDescription,
+      displayType: (serverAccount?.displayType as string) || bizSelection.displayType,
+      customDescription: (serverAccount?.customDescription as string) || bizSelection.customDescription,
       city: city.trim() || undefined,
       brandColor: serverAccount?.brandColor,
       brandVibe: serverAccount?.brandVibe,
@@ -150,6 +182,11 @@ export default function OnboardingScreen() {
       toneExample: serverAccount?.toneExample,
       instagramHandle: serverAccount?.instagramHandle,
       brandDnaSource: 'website',
+      confidenceOverall: typeof serverAccount?.confidenceOverall === 'number' ? serverAccount.confidenceOverall : 0.9,
+      enrichmentVersion: typeof serverAccount?.enrichmentVersion === 'number' ? serverAccount.enrichmentVersion : 2,
+      toneOfVoice: (serverAccount?.toneOfVoice as any) || 'professional',
+      coreServices: Array.isArray(serverAccount?.coreServices) ? serverAccount?.coreServices : [],
+      preferredCaptionLength: (serverAccount?.preferredCaptionLength as any) || 'medium',
       brandStyle: 'clean',
       useLogoOverlay: false,
     });
@@ -160,26 +197,7 @@ export default function OnboardingScreen() {
   const finishManual = async () => {
     if (!businessName.trim()) return;
     setSaving(true);
-    try {
-      await updateBusinessProfile({
-        name: businessName.trim(),
-        type: bizSelection.type,
-        displayType: bizSelection.displayType,
-        customDescription: bizSelection.customDescription,
-        city: city.trim() || undefined,
-        brandColor,
-        brandVibe,
-        dominantColors: [brandColor],
-        brandDnaSource: 'manual',
-        brandStyle: 'clean',
-        useLogoOverlay: false,
-      });
-    } catch {
-      // proceed
-    } finally {
-      setSaving(false);
-    }
-    setBusinessProfile({
+    const manualPayload = buildManualOnboardingProfilePayload({
       name: businessName.trim(),
       type: bizSelection.type,
       displayType: bizSelection.displayType,
@@ -188,7 +206,38 @@ export default function OnboardingScreen() {
       brandColor,
       brandVibe,
       dominantColors: [brandColor],
+    });
+    try {
+      await updateBusinessProfile(manualPayload);
+    } catch {
+      // proceed
+    } finally {
+      setSaving(false);
+    }
+    void trackAnalyticsEvent({
+      event: 'ONBOARDING_COMPLETED',
+      properties: { path: 'manual' },
+    }).catch(() => {});
+    setBusinessProfile({
+      name: manualPayload.name,
+      type: manualPayload.type,
+      displayType: manualPayload.displayType,
+      customDescription: manualPayload.customDescription,
+      city: manualPayload.city,
+      brandColor: manualPayload.brandColor,
+      brandVibe: manualPayload.brandVibe,
+      dominantColors: manualPayload.dominantColors,
       brandDnaSource: 'manual',
+      confidenceOverall: manualPayload.confidenceOverall,
+      enrichmentVersion: manualPayload.enrichmentVersion,
+      toneOfVoice: manualPayload.toneOfVoice,
+      contentPersona: manualPayload.contentPersona,
+      pricePositioning: manualPayload.pricePositioning,
+      coreServices: manualPayload.coreServices,
+      visualStyle: manualPayload.visualStyle,
+      studioStylePreference: manualPayload.studioStylePreference,
+      preferredCaptionLength: manualPayload.preferredCaptionLength,
+      brainFieldConfidence: manualPayload.brainFieldConfidence,
       brandStyle: 'clean',
       useLogoOverlay: false,
     });
@@ -335,6 +384,7 @@ export default function OnboardingScreen() {
                         )}
                       </LinearGradient>
                     </TouchableOpacity>
+                    {!!scanStatus && <Text style={styles.scanStatus}>{scanStatus}</Text>}
                   </View>
                 )}
 
@@ -540,6 +590,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gradBtnText: { color: Colors.background, fontWeight: '900', fontSize: 15 },
+  scanStatus: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center' },
 
   manualLink: { alignItems: 'center', paddingVertical: 12 },
   manualLinkText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },

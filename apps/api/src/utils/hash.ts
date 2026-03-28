@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 
 /**
  * Deterministic hash for generation cache/dedupe.
- * hash = sha256(original_image_path + template_id + context_text + brand_style + brand_color + overlay_default_on + logo_url + overlay_text + model_quality)
+ * Includes studio + Brand Brain fields that affect caption/image output (worker + interactive flows).
  */
 export function generationHash(params: {
   originalImagePath: string | null;
@@ -14,6 +14,10 @@ export function generationHash(params: {
   logoUrl: string | null;
   overlayText: string | null;
   modelQuality: string;
+  /** Studio preference when a source image exists; empty when no photo (matches Create flow). */
+  studioStylePreference?: string | null;
+  /** Serialized Brand Brain slice passed into AI (tone, persona, palette, etc.). */
+  brandBrainFingerprint?: string | null;
 }): string {
   const parts = [
     params.originalImagePath ?? '',
@@ -25,8 +29,32 @@ export function generationHash(params: {
     params.logoUrl ?? '',
     params.overlayText ?? '',
     params.modelQuality,
+    params.studioStylePreference ?? '',
+    params.brandBrainFingerprint ?? '',
   ];
   return createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
+/** Stable string for cache invalidation when Brand Brain / studio inputs change. */
+export function brandBrainGenerationFingerprint(parts: {
+  studioStylePreference?: string | null;
+  toneOfVoice?: string | null;
+  contentPersona?: string | null;
+  uniqueDifferentiator?: string | null;
+  visualStyle?: string | null;
+  studioBgColor?: string | null;
+  dominantColors?: string[] | null;
+}): string {
+  const dom = (parts.dominantColors ?? []).map((c) => c.trim().toLowerCase()).join(',');
+  return [
+    parts.studioStylePreference ?? '',
+    (parts.toneOfVoice ?? '').trim(),
+    (parts.contentPersona ?? '').trim(),
+    (parts.uniqueDifferentiator ?? '').trim(),
+    (parts.visualStyle ?? '').trim(),
+    (parts.studioBgColor ?? '').trim(),
+    dom,
+  ].join('\x1e');
 }
 
 /**

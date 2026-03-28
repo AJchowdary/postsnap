@@ -53,6 +53,17 @@ function extractMetaDescription(html: string): string {
   return m2?.[1]?.trim() || '';
 }
 
+function extractOgDescription(html: string): string {
+  const m = html.match(
+    /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']*)["'][^>]*>/i
+  );
+  if (m?.[1]) return m[1].trim();
+  const m2 = html.match(
+    /<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:description["'][^>]*>/i
+  );
+  return m2?.[1]?.trim() || '';
+}
+
 function extractH1(html: string): string {
   const m = html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
   return m?.[1]?.replace(/<[^>]+>/g, '')?.trim() || '';
@@ -75,6 +86,51 @@ function extractHexColors(html: string): string[] {
     if (found.size >= 12) break;
   }
   return [...found];
+}
+
+function inferBusinessType(text: string): WebsiteScanAiResult['businessType'] {
+  const t = text.toLowerCase();
+  if (/(menu|chef|dine|restaurant|food)/.test(t)) return 'restaurant';
+  if (/(salon|spa|hair|beauty|nail|grooming)/.test(t)) return 'salon';
+  if (/(retail|shop|store|boutique|product|catalog)/.test(t)) return 'retail';
+  if (/(gym|fitness|workout|trainer|strength)/.test(t)) return 'gym';
+  if (/(cafe|coffee|espresso|latte|barista)/.test(t)) return 'cafe';
+  return 'other';
+}
+
+function inferVibe(text: string): WebsiteScanAiResult['suggestedVibe'] {
+  const t = text.toLowerCase();
+  if (/(premium|expert|trusted|professional|certified)/.test(t)) return 'professional';
+  if (/(limited|sale|hurry|bold|exclusive|drop)/.test(t)) return 'bold';
+  return 'warm';
+}
+
+function heuristicResult(params: {
+  title: string;
+  metaDescription: string;
+  bodyText: string;
+  hexFromPage: string[];
+}): WebsiteScanResult {
+  const merged = [params.title, params.metaDescription, params.bodyText]
+    .filter(Boolean)
+    .join('. ')
+    .trim();
+  const bt = inferBusinessType(merged);
+  const vibe = inferVibe(merged);
+  const suggestedColor = params.hexFromPage[0] || '#2A9D8F';
+  return {
+    brandSummary:
+      (params.metaDescription || merged || 'Local business serving the community.').slice(0, 180),
+    suggestedVibe: vibe,
+    suggestedColor,
+    suggestedColors: params.hexFromPage.slice(0, 3).length
+      ? params.hexFromPage.slice(0, 3)
+      : [suggestedColor],
+    businessType: bt,
+    city: null,
+    instagramHandle: null,
+    tone: vibe === 'professional' ? 'Clear and polished.' : vibe === 'bold' ? 'Energetic and direct.' : 'Friendly and welcoming.',
+  };
 }
 
 function extractJsonObject(raw: string): Record<string, unknown> | null {
@@ -143,36 +199,56 @@ export async function scrapeAndAnalyzeWebsite(url: string): Promise<WebsiteScanR
 
   let html = '';
   try {
-    const controller = new AbortController();
-    const to = setTimeout(() => controller.abort(), 10_000);
-    const res = await fetch(normalized, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'QuickpostBot/1.0 (+https://quickpost.app; brand profile scan)',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-      redirect: 'follow',
-    });
-    clearTimeout(to);
-    if (!res.ok) return null;
-    const ct = res.headers.get('content-type') || '';
-    if (ct && !ct.includes('text/html') && !ct.includes('application/xhtml')) {
-      return null;
+    const attempts = [normalized];
+    const u = new URL(normalized);
+    if (!u.hostname.startsWith('www.')) {
+      const ww = new URL(normalized);
+      ww.hostname = `www.${ww.hostname}`;
+      attempts.push(ww.href);
     }
-    const text = await res.text();
-    html = text.slice(0, 2_000_000);
-  } catch {
+    let fetched = false;
+    for (const target of attempts) {
+      try {
+        const controller = new AbortController();
+        const to = setTimeout(() => controller.abort(), 10_000);
+        const res = await fetch(target, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (compatible; QuickpostBot/1.0; +https://quickpost.app)',
+            Accept: 'text/html,application/xhtml+xml',
+          },
+          redirect: 'follow',
+        });
+        clearTimeout(to);
+        if (!res.ok) continue;
+        const ct = res.headers.get('content-type') || '';
+        if (ct && !ct.includes('text/html') && !ct.includes('application/xhtml')) {
+          continue;
+        }
+        const text = await res.text();
+        html = text.slice(0, 2_000_000);
+        fetched = true;
+        break;
+      } catch {
+        continue;
+      }
+    }
+    if (!fetched) return null;
+  } catch (e) {
+    console.warn('[website-scan] fetch failed', e);
     return null;
   }
 
   const title = extractTitle(html);
-  const metaDescription = extractMetaDescription(html);
+  const metaDescription = extractMetaDescription(html) || extractOgDescription(html);
   const bodyText = stripTags(html).slice(0, 500);
   const hexFromPage = extractHexColors(html);
   const h1 = extractH1(html);
 
-  if (!config.openaiApiKey) return null;
+  if (!config.openaiApiKey) {
+    return heuristicResult({ title, metaDescription, bodyText, hexFromPage });
+  }
 
   try {
     const { default: OpenAI } = await import('openai');
@@ -216,9 +292,12 @@ Body text: ${bodyText}`;
     } catch {
       parsed = extractJsonObject(raw);
     }
-    if (!parsed) return null;
-    return mapAiRow(parsed);
-  } catch {
-    return null;
+    if (!parsed) {
+      return heuristicResult({ title, metaDescription, bodyText, hexFromPage });
+    }
+    return mapAiRow(parsed) || heuristicResult({ title, metaDescription, bodyText, hexFromPage });
+  } catch (e) {
+    console.warn('[website-scan] ai analyze failed', e);
+    return heuristicResult({ title, metaDescription, bodyText, hexFromPage });
   }
 }

@@ -1,4 +1,4 @@
-# In-App Purchase (IAP) Setup — PostSnap
+# In-App Purchase (IAP) Setup — Quickpost
 
 This document describes how to configure App Store and Google Play subscription products and where to set product IDs in the app. **Do not unlock subscription client-side; backend verification is required.**
 
@@ -9,10 +9,10 @@ This document describes how to configure App Store and Google Play subscription 
 ### 1.1 Create subscription product (auto-renewable)
 
 1. In [App Store Connect](https://appstoreconnect.apple.com), open your app → **Subscriptions** (or create a subscription group first).
-2. Create a **Subscription Group** (e.g. "PostSnap Pro").
+2. Create a **Subscription Group** (e.g. "Quickpost Pro").
 3. Inside the group, create a **Subscription**:
-   - **Reference name:** e.g. "PostSnap Pro Monthly"
-   - **Product ID:** choose a unique ID (e.g. `com.yourapp.postsnap.pro.monthly`). This becomes **IOS_SUBSCRIPTION_PRODUCT_ID** in app config.
+   - **Reference name:** e.g. "Quickpost Pro Monthly"
+   - **Product ID:** choose a unique ID (e.g. `com.yourapp.quickpost.pro.monthly`). This becomes **IOS_SUBSCRIPTION_PRODUCT_ID** in app config.
 4. Add a **Subscription Price** (e.g. $12/month).
 5. **Optional (annual):** Create a second subscription in the same group (e.g. `com.yourapp.postsnap.pro.annual`) and set a discounted price; mark as "Recommended" if desired.
 
@@ -29,7 +29,7 @@ This document describes how to configure App Store and Google Play subscription 
 
 ### 1.4 Record product ID
 
-- **IOS_SUBSCRIPTION_PRODUCT_ID** = the Product ID you created (e.g. `com.yourapp.postsnap.pro.monthly`).
+- **IOS_SUBSCRIPTION_PRODUCT_ID** = the Product ID you created (e.g. `com.yourapp.quickpost.pro.monthly`).
 - This value must match the ID used in the app (e.g. `EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID` or app config) and the backend allowlist.
 
 ---
@@ -40,7 +40,7 @@ This document describes how to configure App Store and Google Play subscription 
 
 1. In [Google Play Console](https://play.google.com/console), open your app → **Monetize** → **Subscriptions**.
 2. **Create subscription**:
-   - **Product ID:** e.g. `postsnap_pro_monthly` (this becomes **ANDROID_SUBSCRIPTION_PRODUCT_ID**).
+   - **Product ID:** e.g. `quickpost_pro_monthly` (this becomes **ANDROID_SUBSCRIPTION_PRODUCT_ID**).
    - **Name** and **Description** for the store listing.
 
 ### 2.2 Base plan and offers
@@ -56,8 +56,8 @@ This document describes how to configure App Store and Google Play subscription 
 
 ### 2.4 Record product ID
 
-- **ANDROID_SUBSCRIPTION_PRODUCT_ID** = the subscription Product ID (e.g. `postsnap_pro_monthly`).
-- **Package name** = your app’s package name (e.g. `com.yourapp.postsnap`). Required for server-side verification.
+- **ANDROID_SUBSCRIPTION_PRODUCT_ID** = the subscription Product ID (e.g. `quickpost_pro_monthly`).
+- **Package name** = your app’s package name (e.g. `com.yourapp.quickpost`). Required for server-side verification.
 
 ---
 

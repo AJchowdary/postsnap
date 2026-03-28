@@ -51,6 +51,9 @@ router.post(
       context_text: body.description,
       platforms: body.platforms,
       status: body.status,
+      caption: body.caption,
+      photo: body.photo ?? undefined,
+      processedImage: body.processedImage ?? undefined,
     });
     return sendSuccess(res, result, 201);
   })

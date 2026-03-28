@@ -2,6 +2,16 @@ export type BusinessType = 'restaurant' | 'salon' | 'retail' | 'gym' | 'cafe';
 export type BrandVibe = 'professional' | 'bold' | 'warm';
 export type BrandDnaSource = 'website' | 'manual' | 'hybrid';
 export type BrandStyle = 'clean' | 'bold' | 'minimal';
+export type ToneOfVoice = 'casual' | 'professional' | 'conversational' | 'inspiring' | 'bold';
+export type PricePositioning = 'budget' | 'mid' | 'premium' | 'luxury';
+export type VisualStyle = 'photo-real' | 'illustrated' | 'bold-graphic' | 'lifestyle';
+export type StudioStyle =
+  | 'clean-white'
+  | 'lifestyle'
+  | 'dark-dramatic'
+  | 'flat-lay'
+  | 'outdoor-natural';
+export type PreferredCaptionLength = 'short' | 'medium' | 'long';
 export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed';
 export type Platform = 'instagram' | 'facebook';
 export type SubscriptionStatus = 'trial' | 'subscribed' | 'expired';
@@ -26,6 +36,34 @@ export interface BusinessProfile {
   instagramHandle?: string;
   facebookPage?: string;
   brandDnaSource?: BrandDnaSource;
+  businessSubcategory?: string;
+  neighborhood?: string;
+  tagline?: string;
+  toneOfVoice?: ToneOfVoice;
+  contentPersona?: string;
+  coreServices?: string[];
+  heroProduct?: string;
+  pricePositioning?: PricePositioning;
+  uniqueDifferentiator?: string;
+  visualStyle?: VisualStyle;
+  photoStyleExamples?: string[];
+  studioStylePreference?: StudioStyle;
+  studioBgColor?: string;
+  seasonalContext?: string;
+  localEvents?: string[];
+  lastPostTopics?: string[];
+  topPerformingAngles?: string[];
+  preferredCaptionLength?: PreferredCaptionLength;
+  preferredPostingDays?: string[];
+  photoStudioHistory?: Array<Record<string, unknown>>;
+  confidenceOverall?: number;
+  enrichmentVersion?: number;
+  /** Flywheel: topics to deprioritize (from enrichment) */
+  avoidedTopics?: string[];
+  /** Per-field confidence 0–1 for LLM-enriched Brand Brain fields */
+  brainFieldConfidence?: Record<string, number>;
+  /** Total capture_signal events (server) */
+  signalCount?: number;
   brandStyle: BrandStyle;
   useLogoOverlay: boolean;
 }
@@ -52,6 +90,12 @@ export interface Subscription {
   price: string;
 }
 
+/** Storage paths for platform-specific crops (server); signed URLs not stored. */
+export type PostExportAssetsPayload = {
+  instagram?: { '1_1'?: string; '4_5'?: string };
+  facebook?: { '16_9'?: string; '1_1'?: string };
+};
+
 export interface Post {
   id: string;
   template: string;
@@ -59,6 +103,7 @@ export interface Post {
   description: string;
   caption: string;
   processedImage?: string;
+  exportAssets?: PostExportAssetsPayload;
   platforms: Platform[];
   status: PostStatus;
   createdAt: string;

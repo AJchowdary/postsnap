@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { ConnectSocialSchema } from '../schemas/account';
-import { getSocialAccounts, connectSocial, disconnectSocial } from '../services/socialService';
+import { connectSocial, disconnectSocial } from '../services/socialService';
 import {
   getMetaLoginUrl,
   handleMetaCallback,
@@ -52,11 +52,7 @@ function getNextStepsForReason(reason: string, code: string): string[] {
 
 const router = Router();
 
-router.get('/', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const accounts = await getSocialAccounts(req.userId!);
-  return sendSuccess(res, accounts);
-}));
-
+/** Legacy: store a handle without Meta OAuth (manual / stub). For Meta, use GET /meta/login-url and GET /connections. */
 router.post('/connect', authenticate, validate(ConnectSocialSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
   const result = await connectSocial(req.userId!, req.body);
   return sendSuccess(res, result);
@@ -126,6 +122,7 @@ ${code ? `<p><strong>Code:</strong> ${escapeHtml(code)}</p>` : ''}
   res.setHeader('Content-Type', 'text/html').send(html);
 });
 
+/** Canonical list of linked Meta accounts: token status, reconnect flags, page / IG IDs (use this instead of any removed list route). */
 router.get('/connections', authenticate, asyncHandler(async (req: AuthRequest, res: Response) => {
   const connections = await getMetaConnections(req.userId!);
   return sendSuccess(res, connections);

@@ -66,6 +66,8 @@ export const config = {
   runWorkerInProcess: process.env.RUN_WORKER_IN_PROCESS === 'true',
   /** When true and schedulingEnabled, API process runs the schedule processor (default false; do not run in prod API). */
   runSchedulerInProcess: process.env.RUN_SCHEDULER_IN_PROCESS === 'true',
+  /** Weekly Monday 06:00 UTC seasonal Brand Brain refresh; enable on worker process (default on when unset). */
+  runSeasonalContextWorker: process.env.RUN_SEASONAL_CONTEXT_WORKER !== 'false',
   // Meta OAuth (Step 4). In production, required for social connect.
   metaAppId: optional('META_APP_ID', ''),
   metaAppSecret: optional('META_APP_SECRET', ''),
@@ -95,6 +97,8 @@ export const config = {
   googleServiceAccountKeyPath: optional('GOOGLE_SERVICE_ACCOUNT_KEY_PATH', ''),
   /** If false, publish jobs are rejected with a clear error (kill switch). Default true. */
   publishEnabled: process.env.PUBLISH_ENABLED !== 'false',
+  /** Optional shared secret for GET /api/v1/admin/metrics (Bearer or X-Admin-Key). */
+  adminMetricsKey: optional('ADMIN_METRICS_KEY', ''),
 };
 
 /** Fail startup in production if required env is missing. Clear error messages. */

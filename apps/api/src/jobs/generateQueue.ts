@@ -5,7 +5,11 @@
 import { getDb } from '../db';
 import { getAIProvider } from '../providers/ai';
 import { logger } from '../utils/logger';
-import { generationHash, isGenerationCacheHit } from '../utils/hash';
+import {
+  brandBrainGenerationFingerprint,
+  generationHash,
+  isGenerationCacheHit,
+} from '../utils/hash';
 import {
   getPostForWorker,
   getAccountForWorker,
@@ -13,7 +17,19 @@ import {
   countCompletedGenerationJobsToday,
 } from '../services/postsService';
 import { getOverlayText } from '../providers/ai/prompts';
-import { createSignedReadUrl, createSignedReadUrlWithTTL, uploadProcessedImage } from '../services/storageService';
+import { trackEvent } from '../services/analyticsEvents';
+import {
+  createSignedReadUrl,
+  createSignedReadUrlWithTTL,
+  decodeImageInputToBuffer,
+  uploadProcessedImageFromBuffer,
+} from '../services/storageService';
+import {
+  ensurePostExportAssetsIfNeeded,
+  generateAndUploadPostExportAssets,
+  getPublishStoragePathForPlatform,
+  type PostExportAssets,
+} from '../services/postExportAssetsService';
 import { getSupabase } from '../db/supabaseClient';
 import { redisClient } from '../lib/redis';
 import { config } from '../config';
@@ -51,6 +67,24 @@ interface JobRecord {
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [5000, 30000, 120000];
+
+const STUDIO_STYLE_VALUES = [
+  'clean-white',
+  'lifestyle',
+  'dark-dramatic',
+  'flat-lay',
+  'outdoor-natural',
+] as const;
+
+function parseStudioStylePreference(
+  raw: unknown,
+  hasSourcePhoto: boolean
+): (typeof STUDIO_STYLE_VALUES)[number] | undefined {
+  if (!hasSourcePhoto || raw == null || typeof raw !== 'string') return undefined;
+  return (STUDIO_STYLE_VALUES as readonly string[]).includes(raw)
+    ? (raw as (typeof STUDIO_STYLE_VALUES)[number])
+    : undefined;
+}
 
 /** Distributed lock TTL so a dead worker’s key expires (Postgres `claim_next_job` is still authoritative). */
 const JOB_LOCK_TTL_SEC = 30 * 60;
@@ -163,8 +197,8 @@ async function processPublishJob(job: JobRecord): Promise<void> {
     });
     return;
   }
-  const imagePath = post.processedImagePath ?? post.originalImagePath;
-  if (!imagePath) {
+  const hasBaseImage = !!(post.processedImagePath ?? post.originalImagePath);
+  if (!hasBaseImage) {
     const noImageMsg = 'No image available';
     for (const platform of payload.platforms) {
       await db.insertOne('post_publish_results', {
@@ -188,19 +222,24 @@ async function processPublishJob(job: JobRecord): Promise<void> {
     });
     return;
   }
+
+  let exportAssets: PostExportAssets | null = post.exportAssets ?? null;
+  try {
+    const ensured = await ensurePostExportAssetsIfNeeded(
+      {
+        id: post.id,
+        exportAssets: post.exportAssets,
+        processedImagePath: post.processedImagePath ?? null,
+      },
+      payload.accountId
+    );
+    if (ensured) exportAssets = ensured;
+  } catch (err: any) {
+    logger.warn('Publish: export asset build failed', { postId: post.id, error: err?.message });
+  }
+
   const caption =
     (post.captionJson?.instagram?.caption ?? post.captionJson?.facebook?.caption ?? '').slice(0, 2000);
-  let imageUrl: string;
-  try {
-    imageUrl = await createSignedReadUrlWithTTL(imagePath, PUBLISH_SIGNED_URL_TTL_SEC);
-  } catch (err: any) {
-    await db.updateOne('jobs', job.id, {
-      status: 'error',
-      last_error: err.message ?? 'Failed to generate image URL',
-      updated_at: now,
-    });
-    return;
-  }
   const existingResults = await db.findMany<{ platform: string; status: string }>(
     'post_publish_results',
     { post_id: payload.postId }
@@ -217,6 +256,22 @@ async function processPublishJob(job: JobRecord): Promise<void> {
 
   for (const platform of toPublish) {
     try {
+      const storagePath = getPublishStoragePathForPlatform(
+        {
+          exportAssets,
+          processedImagePath: post.processedImagePath ?? null,
+          originalImagePath: post.originalImagePath ?? null,
+        },
+        platform
+      );
+      if (!storagePath) throw new Error('No image path for platform');
+      let imageUrl: string;
+      try {
+        imageUrl = await createSignedReadUrlWithTTL(storagePath, PUBLISH_SIGNED_URL_TTL_SEC);
+      } catch (urlErr: any) {
+        throw new Error(urlErr?.message ?? 'Failed to generate image URL');
+      }
+
       const conn = await getMetaConnectionOrThrow(payload.ownerUserId, platform);
       if (platform === 'facebook') {
         if (!conn.metaPageId) throw new Error('Page not linked');
@@ -235,6 +290,15 @@ async function processPublishJob(job: JobRecord): Promise<void> {
           created_at: now,
         });
         posted.push('facebook');
+        void trackEvent({
+          name: 'POST_PUBLISHED',
+          accountId: payload.accountId,
+          postId: payload.postId,
+          properties: {
+            platform: 'facebook',
+            qualityScore: post.qualityScore ?? null,
+          },
+        });
       } else {
         if (!conn.igBusinessId) throw new Error('Instagram not linked');
         const result = await postToInstagram({
@@ -252,6 +316,15 @@ async function processPublishJob(job: JobRecord): Promise<void> {
           created_at: now,
         });
         posted.push('instagram');
+        void trackEvent({
+          name: 'POST_PUBLISHED',
+          accountId: payload.accountId,
+          postId: payload.postId,
+          properties: {
+            platform: 'instagram',
+            qualityScore: post.qualityScore ?? null,
+          },
+        });
       }
     } catch (err: any) {
       const transient = err?.transient === true || isTransientPublishError(err?.status, err?.data);
@@ -340,6 +413,28 @@ async function processJob(job: JobRecord): Promise<void> {
   const brandColor = profile?.brandColor ?? profile?.brand_color ?? null;
   const overlayDefaultOn = profile?.overlayDefaultOn ?? profile?.overlay_default_on ?? false;
   const logoUrl = profile?.logoUrl ?? profile?.logo_url ?? null;
+  const hasSourcePhoto = !!post.originalImagePath;
+  const studioStylePreference = parseStudioStylePreference(
+    profile?.studioStylePreference ?? profile?.studio_style_preference,
+    hasSourcePhoto
+  );
+  const dominantColors = Array.isArray(profile?.dominantColors)
+    ? (profile.dominantColors as string[])
+    : Array.isArray(profile?.dominant_colors)
+      ? (profile.dominant_colors as string[])
+      : [];
+  const toneOfVoice = (profile?.toneOfVoice ?? profile?.tone_of_voice) as string | undefined;
+  const contentPersona = (profile?.contentPersona ?? profile?.content_persona) as string | undefined;
+  const uniqueDifferentiator = (profile?.uniqueDifferentiator ??
+    profile?.unique_differentiator) as string | undefined;
+  const visualStyle = (profile?.visualStyle ?? profile?.visual_style) as string | undefined;
+  const studioBgColor = (profile?.studioBgColor ?? profile?.studio_bg_color) as string | undefined;
+  const coreServices = Array.isArray(profile?.coreServices)
+    ? (profile.coreServices as string[])
+    : Array.isArray(profile?.core_services)
+      ? (profile.core_services as string[])
+      : [];
+  const heroProduct = (profile?.heroProduct ?? profile?.hero_product) as string | undefined;
 
   const sub = await db.findOne<{ status: string }>('subscriptions', {
     account_id: payload.accountId,
@@ -382,16 +477,44 @@ async function processJob(job: JobRecord): Promise<void> {
     logoUrl,
     overlayText,
     modelQuality,
+    studioStylePreference: studioStylePreference ?? null,
+    brandBrainFingerprint: brandBrainGenerationFingerprint({
+      studioStylePreference: studioStylePreference ?? null,
+      toneOfVoice: toneOfVoice ?? null,
+      contentPersona: contentPersona ?? null,
+      uniqueDifferentiator: uniqueDifferentiator ?? null,
+      visualStyle: visualStyle ?? null,
+      studioBgColor: studioBgColor ?? null,
+      dominantColors: dominantColors.length ? dominantColors : null,
+    }),
   });
 
   if (isGenerationCacheHit(post, hash)) {
     logger.info(`Job ${job.id} skipped (cache hit) for post ${post.id}`);
     const now = new Date().toISOString();
+    try {
+      await ensurePostExportAssetsIfNeeded(
+        {
+          id: post.id,
+          exportAssets: post.exportAssets,
+          processedImagePath: post.processedImagePath ?? null,
+        },
+        payload.accountId
+      );
+    } catch (e: any) {
+      logger.warn('Cache-hit export backfill failed', { postId: post.id, error: e?.message });
+    }
     await db.updateOne('posts', post.id, { status: 'ready', updated_at: now });
     await db.updateOne('jobs', job.id, {
       status: 'done',
       result: { cached: true },
       updated_at: now,
+    });
+    void trackEvent({
+      name: 'POST_GENERATED',
+      accountId: payload.accountId,
+      postId: post.id,
+      properties: { cached: true, source: 'worker' },
     });
     return;
   }
@@ -411,14 +534,26 @@ async function processJob(job: JobRecord): Promise<void> {
       customDescription: profile?.customDescription ?? profile?.custom_description ?? '',
       brandColor: profile?.brandColor ?? profile?.brand_color,
       brandVibe: profile?.brandVibe ?? profile?.brand_vibe,
-      dominantColors: profile?.dominantColors ?? profile?.dominant_colors,
+      dominantColors: dominantColors.length ? dominantColors : undefined,
       websiteSummary: profile?.websiteSummary ?? profile?.website_summary,
       city: profile?.city,
+      neighborhood: profile?.neighborhood ?? undefined,
       instagramHandle: profile?.instagramHandle ?? profile?.instagram_handle,
       platform: 'Instagram & Facebook',
+      studioStylePreference,
+      toneOfVoice,
+      contentPersona,
+      uniqueDifferentiator,
+      visualStyle,
+      studioBgColor,
+      brandColors: dominantColors.length ? dominantColors : undefined,
+      coreServices: coreServices.length ? coreServices : undefined,
+      heroProduct: heroProduct ?? undefined,
+      detectionContext: { accountId: payload.accountId, postId: post.id, source: 'worker' },
     });
 
     let processedImagePath: string | null = null;
+    let exportAssetsPayload: PostExportAssets | null = null;
     if (post.originalImagePath) {
       try {
         const imageUrl = await createSignedReadUrl(post.originalImagePath);
@@ -438,18 +573,35 @@ async function processJob(job: JobRecord): Promise<void> {
           customDescription: profile?.customDescription ?? profile?.custom_description ?? '',
           brandVibe: profile?.brandVibe ?? profile?.brand_vibe,
           websiteSummary: profile?.websiteSummary ?? profile?.website_summary,
-          dominantColors: profile?.dominantColors ?? profile?.dominant_colors,
+          dominantColors: dominantColors.length ? dominantColors : undefined,
           city: profile?.city,
           instagramHandle: profile?.instagramHandle ?? profile?.instagram_handle,
+          studioStylePreference,
+          toneOfVoice,
+          contentPersona,
+          uniqueDifferentiator,
+          visualStyle,
+          studioBgColor,
+          brandColors: dominantColors.length ? dominantColors : undefined,
         });
         const processedDataUrlOrUrl =
           processedResult?.withOverlay ?? processedResult?.clean ?? null;
         if (processedDataUrlOrUrl) {
-          processedImagePath = await uploadProcessedImage(
+          const masterBuf = await decodeImageInputToBuffer(processedDataUrlOrUrl);
+          processedImagePath = await uploadProcessedImageFromBuffer(
             payload.accountId,
             post.id,
-            processedDataUrlOrUrl
+            masterBuf
           );
+          try {
+            exportAssetsPayload = await generateAndUploadPostExportAssets(
+              payload.accountId,
+              post.id,
+              masterBuf
+            );
+          } catch (ex: any) {
+            logger.warn(`Export assets failed for post ${post.id}`, { error: ex.message });
+          }
         }
       } catch (imgErr: any) {
         logger.warn(`Image generation failed for post ${post.id}, keeping captions`, {
@@ -461,16 +613,30 @@ async function processJob(job: JobRecord): Promise<void> {
     await db.updateOne('posts', post.id, {
       caption_json: captionResult,
       processed_image_path: processedImagePath,
+      export_assets: exportAssetsPayload,
       last_generated_hash: hash,
       regen_count: (post.regenCount ?? 0) + 1,
       status: 'ready',
       updated_at: now,
+      quality_score: captionResult.meta?.qualityScore ?? null,
+      quality_dimensions: captionResult.meta?.qualityDimensions ?? null,
     });
 
     await db.updateOne('jobs', job.id, {
       status: 'done',
       result: { caption: captionResult, processedImagePath },
       updated_at: now,
+    });
+    void trackEvent({
+      name: 'POST_GENERATED',
+      accountId: payload.accountId,
+      postId: post.id,
+      properties: {
+        premiumQuality: !!payload.premiumQuality,
+        regen: (post.regenCount ?? 0) > 0,
+        qualityScore: captionResult.meta?.qualityScore ?? null,
+        source: 'worker',
+      },
     });
     logger.info(`Job ${job.id} completed for post ${post.id}`);
   } catch (err: any) {

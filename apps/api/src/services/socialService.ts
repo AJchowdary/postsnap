@@ -11,20 +11,6 @@ interface SocialRecord {
   connectedAt?: string;
 }
 
-export async function getSocialAccounts(ownerUserId: string) {
-  const db = await getDb();
-  const accountId = await requireAccountForUser(ownerUserId);
-  const rows = await db.findMany<SocialRecord>('social_connections', { account_id: accountId });
-  return {
-    instagram: rows.find((r) => r.platform === 'instagram')
-      ? { platform: 'instagram', handle: rows.find((r) => r.platform === 'instagram')!.handleOrPage, connected: true }
-      : null,
-    facebook: rows.find((r) => r.platform === 'facebook')
-      ? { platform: 'facebook', handle: rows.find((r) => r.platform === 'facebook')!.handleOrPage, connected: true }
-      : null,
-  };
-}
-
 export async function connectSocial(ownerUserId: string, input: ConnectSocialInput) {
   const db = await getDb();
   const accountId = await requireAccountForUser(ownerUserId);

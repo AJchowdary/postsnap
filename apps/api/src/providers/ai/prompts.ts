@@ -107,6 +107,64 @@ Instructions:
 Keep composition intact; enhance quality only.`;
 }
 
+const STUDIO_STYLE_HINTS: Record<
+  'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural',
+  string
+> = {
+  'clean-white': 'minimal seamless off-white background, product-forward, no distractions',
+  lifestyle: 'real-world contextual background, warm human feel, authentic setting',
+  'dark-dramatic': 'high contrast moody scene, deep charcoal backdrop, premium dramatic lighting',
+  'flat-lay': 'top-down editorial composition, textured neutral surface, clean arrangement',
+  'outdoor-natural': 'natural light environment, organic textures, approachable airy mood',
+};
+
+export function buildPhotoStudioIsolationPrompt(params: {
+  businessType: string;
+  userDescription: string;
+}): string {
+  return `Isolate the main subject from this image while preserving true subject identity.
+Business type: ${params.businessType}
+Post description: ${params.userDescription}
+
+Rules:
+- Preserve shape, texture, color, logos, and key details of the main subject.
+- Remove distracting background elements and keep clean subject edges.
+- Keep realistic shadow/reflection where it improves realism.
+- Do not add text, badges, or new objects.
+- Keep output square and high quality.`;
+}
+
+export function buildPhotoStudioStyledPrompt(params: {
+  businessType: string;
+  userDescription: string;
+  style: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  brandColor?: string | null;
+  studioBgColor?: string | null;
+  visualStyle?: string | null;
+  brandColors?: string[] | null;
+}): string {
+  const styleHint = STUDIO_STYLE_HINTS[params.style];
+  const palette =
+    params.brandColors && params.brandColors.length
+      ? params.brandColors.slice(0, 8).join(', ')
+      : '';
+  return `Transform this isolated subject into a studio-quality marketing scene.
+Business type: ${params.businessType}
+Post description: ${params.userDescription}
+Style preset: ${params.style} (${styleHint})
+Brand accent color: ${params.brandColor ?? 'none'}
+${params.studioBgColor?.trim() ? `Preferred backdrop / studio base: ${params.studioBgColor.trim()}` : ''}
+${params.visualStyle?.trim() ? `Brand visual style: ${params.visualStyle.trim()}` : ''}
+${palette ? `Brand palette hints: ${palette}` : ''}
+
+Rules:
+- Keep subject identity unchanged.
+- Build a polished background consistent with the style preset.
+- Ensure lighting consistency between subject and background.
+- Use subtle brand color harmony only when natural.
+- No text, no logos, no watermark, no landmarks.`;
+}
+
 export const IMAGE_EDIT_USER_PROMPT = (params: {
   stylePreset: string;
   brandColor: string | null;

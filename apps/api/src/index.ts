@@ -5,6 +5,7 @@ import { logger } from './utils/logger';
 import { getDb } from './db';
 import { startWorker } from './jobs/generateQueue';
 import { startScheduler } from './jobs/scheduleProcessor';
+import { startSeasonalContextScheduler } from './jobs/seasonalContextWorker';
 
 initSentry({
   environment: config.nodeEnv,
@@ -24,6 +25,10 @@ async function main() {
 
     if (config.runWorkerInProcess) {
       startWorker();
+      if (config.runSeasonalContextWorker) {
+        startSeasonalContextScheduler();
+        logger.info('Seasonal context scheduler started (Mon 06:00 UTC).');
+      }
       if (config.runSchedulerInProcess && config.schedulingEnabled) {
         startScheduler();
       } else {

@@ -51,6 +51,55 @@ export async function getProcessedPath(accountId: string, postId: string): Promi
   return getUploadPath(accountId, postId, 'processed');
 }
 
+export function getExportAssetStoragePath(accountId: string, postId: string, slot: string): string {
+  return `account/${accountId}/posts/${postId}/export/${slot}.jpg`;
+}
+
+/** Decode data URL or fetch http(s) image into a buffer. */
+export async function decodeImageInputToBuffer(imageDataUrlOrUrl: string): Promise<Buffer> {
+  if (imageDataUrlOrUrl.startsWith('data:')) {
+    const base64 = imageDataUrlOrUrl.replace(/^data:image\/\w+;base64,/, '');
+    return Buffer.from(base64, 'base64');
+  }
+  if (imageDataUrlOrUrl.startsWith('http')) {
+    const res = await fetch(imageDataUrlOrUrl);
+    if (!res.ok) throw new Error(`Fetch image failed: ${res.status}`);
+    return Buffer.from(await res.arrayBuffer());
+  }
+  throw new Error('Invalid image input: expected data URL or http(s) URL');
+}
+
+export async function downloadStorageObject(storagePath: string): Promise<Buffer> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage.from(BUCKET).download(storagePath);
+  if (error) throw new Error(`Storage download: ${error.message}`);
+  const ab = await data.arrayBuffer();
+  return Buffer.from(ab);
+}
+
+export async function uploadStorageObject(
+  storagePath: string,
+  buf: Buffer,
+  contentType: string
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.storage.from(BUCKET).upload(storagePath, buf, {
+    contentType,
+    upsert: true,
+  });
+  if (error) throw new Error(`Storage upload: ${error.message}`);
+}
+
+export async function uploadProcessedImageFromBuffer(
+  accountId: string,
+  postId: string,
+  buf: Buffer
+): Promise<string> {
+  const path = getUploadPath(accountId, postId, 'processed');
+  await uploadStorageObject(path, buf, 'image/png');
+  return path;
+}
+
 /**
  * Upload processed image bytes to storage. Input: data URL (data:image/...;base64,...) or HTTP URL.
  * Returns storage path for the uploaded file.
@@ -60,23 +109,6 @@ export async function uploadProcessedImage(
   postId: string,
   imageDataUrlOrUrl: string
 ): Promise<string> {
-  const supabase = getSupabase();
-  const path = getUploadPath(accountId, postId, 'processed');
-  let buf: Buffer;
-  if (imageDataUrlOrUrl.startsWith('data:')) {
-    const base64 = imageDataUrlOrUrl.replace(/^data:image\/\w+;base64,/, '');
-    buf = Buffer.from(base64, 'base64');
-  } else if (imageDataUrlOrUrl.startsWith('http')) {
-    const res = await fetch(imageDataUrlOrUrl);
-    if (!res.ok) throw new Error(`Fetch image failed: ${res.status}`);
-    buf = Buffer.from(await res.arrayBuffer());
-  } else {
-    throw new Error('Invalid image input: expected data URL or http(s) URL');
-  }
-  const { error } = await supabase.storage.from(BUCKET).upload(path, buf, {
-    contentType: 'image/png',
-    upsert: true,
-  });
-  if (error) throw new Error(`Storage upload: ${error.message}`);
-  return path;
+  const buf = await decodeImageInputToBuffer(imageDataUrlOrUrl);
+  return uploadProcessedImageFromBuffer(accountId, postId, buf);
 }

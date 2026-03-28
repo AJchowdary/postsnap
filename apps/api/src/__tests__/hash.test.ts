@@ -45,6 +45,26 @@ describe('Generation hash', () => {
     };
     expect(generationHash(base)).not.toBe(generationHash({ ...base, modelQuality: 'premium' }));
   });
+  it('different studioStylePreference produces different hash', () => {
+    const base = {
+      originalImagePath: 'x.jpg',
+      templateId: 'auto',
+      contextText: 'Test',
+      brandStyle: 'clean',
+      brandColor: null,
+      overlayDefaultOn: false,
+      logoUrl: null,
+      overlayText: null,
+      modelQuality: 'default',
+      studioStylePreference: null as string | null,
+      brandBrainFingerprint: null as string | null,
+    };
+    expect(
+      generationHash({ ...base, studioStylePreference: 'clean-white', brandBrainFingerprint: 'a' })
+    ).not.toBe(
+      generationHash({ ...base, studioStylePreference: 'lifestyle', brandBrainFingerprint: 'a' })
+    );
+  });
 });
 
 describe('isGenerationCacheHit', () => {

@@ -16,11 +16,25 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
-import { generateCaption, generatePostImage, publishPostToBackend, savePostToBackend } from '../src/services/api';
+import {
+  captureSignal,
+  generateCaption,
+  generatePostImage,
+  publishPostToBackend,
+  savePostToBackend,
+} from '../src/services/api';
 import { SchedulePicker } from '../src/components/SchedulePicker';
-import { Platform as SocialPlatform, TEMPLATES_BY_TYPE } from '../src/types';
+import { Platform as SocialPlatform, TEMPLATES_BY_TYPE, StudioStyle } from '../src/types';
 
 const CARD = '#141414';
+
+const STUDIO_STYLES: { id: StudioStyle; label: string }[] = [
+  { id: 'clean-white', label: 'Clean White' },
+  { id: 'lifestyle', label: 'Lifestyle' },
+  { id: 'dark-dramatic', label: 'Dark Dramatic' },
+  { id: 'flat-lay', label: 'Flat Lay' },
+  { id: 'outdoor-natural', label: 'Outdoor Natural' },
+];
 
 function imageDataUri(s: string | null | undefined): string | undefined {
   if (!s) return undefined;
@@ -79,6 +93,8 @@ export default function TemplateWorkflowScreen() {
   }, [businessProfile.type, selectedTemplateId, templates]);
 
   const [photo, setPhoto] = useState<string | null>(null);
+  const [studioStylePreference, setStudioStylePreference] = useState<StudioStyle | null>(null);
+  const [studioVariants, setStudioVariants] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [caption, setCaption] = useState('');
   const [processedImage, setProcessedImage] = useState<string | null>(null);
@@ -162,22 +178,45 @@ export default function TemplateWorkflowScreen() {
         websiteSummary: businessProfile.websiteSummary,
         city: businessProfile.city,
         instagramHandle: businessProfile.instagramHandle,
+        toneOfVoice: businessProfile.toneOfVoice,
+        contentPersona: businessProfile.contentPersona,
+        uniqueDifferentiator: businessProfile.uniqueDifferentiator,
+        visualStyle: businessProfile.visualStyle,
+        studioBgColor: businessProfile.studioBgColor,
       };
+      const studioStyleForGen = photo ? studioStylePreference ?? undefined : undefined;
       const [cap, img] = await Promise.all([
-        generateCaption({ description: description.trim(), template: selectedTemplateId, ...genBiz }),
-        photo
-          ? generatePostImage({
-              photo,
-              template: selectedTemplateId,
-              description: description.trim(),
-              ...genBiz,
-            })
-          : Promise.resolve(null),
+        generateCaption({
+          description: description.trim(),
+          template: selectedTemplateId,
+          studioStylePreference: studioStyleForGen,
+          ...genBiz,
+        }),
+        generatePostImage({
+          photo: photo || undefined,
+          template: selectedTemplateId,
+          description: description.trim(),
+          studioStylePreference: studioStyleForGen,
+          ...genBiz,
+        }),
       ]);
-      const chosenImage = img?.withOverlay ?? img?.clean ?? templatePreview;
+      const variants = img?.variants ?? [];
+      setStudioVariants(variants);
+      const pick = img?.withOverlay ?? img?.clean ?? null;
+      const studioPick =
+        !pick && variants.length > 0 ? variants[0] : null;
+      const chosenImage = pick ?? studioPick ?? templatePreview;
+      if (!img?.withOverlay && !img?.clean && !variants.length) {
+        showToast('AI image enhancement failed. Using template preview.', 'info');
+      }
       setCaption(cap);
       setProcessedImage(chosenImage);
-      await runSaveDraft({ overrideCaption: cap, overrideImage: chosenImage });
+      const saved = await runSaveDraft({ overrideCaption: cap, overrideImage: chosenImage });
+      void captureSignal({
+        signalType: 'regenerate',
+        topic: description.trim(),
+        metadata: { postId: saved.id, workflow: 'template', reason: 'template_preview_generate' },
+      }).catch(() => {});
       showToast('Preview generated', 'success');
     } catch {
       showToast('Could not generate preview', 'error');
@@ -203,6 +242,16 @@ export default function TemplateWorkflowScreen() {
       const result = await publishPostToBackend(draftId, enabledPlatforms);
       if (result.success) {
         updatePost(draftId, { status: 'published', publishedAt: new Date().toISOString() });
+        void captureSignal({
+          signalType: 'publish',
+          topic: description.trim() || undefined,
+          studioStyle: studioStylePreference ?? undefined,
+          metadata: {
+            postId: draftId,
+            platforms: enabledPlatforms,
+            workflow: 'template',
+          },
+        }).catch(() => {});
         showToast('Posted successfully', 'success');
       } else {
         showToast(result.message || 'Could not post', 'error');
@@ -269,6 +318,43 @@ export default function TemplateWorkflowScreen() {
             </TouchableOpacity>
           </View>
           {!!photo && <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photoPreview} />}
+          {!!photo && (
+            <View style={styles.studioBlock}>
+              <Text style={styles.studioStyleLabel}>AI Photo Studio style</Text>
+              <View style={styles.studioStyleRow}>
+                {STUDIO_STYLES.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    onPress={() => {
+                      const next = studioStylePreference === s.id ? null : s.id;
+                      setStudioStylePreference(next);
+                      if (next) {
+                        void captureSignal({
+                          signalType: 'studio_style_selected',
+                          studioStyle: next,
+                          topic: description.trim() || undefined,
+                          metadata: { context: 'template' },
+                        }).catch(() => {});
+                      }
+                    }}
+                    style={[
+                      styles.studioStyleChip,
+                      studioStylePreference === s.id && styles.studioStyleChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.studioStyleChipText,
+                        studioStylePreference === s.id && styles.studioStyleChipTextActive,
+                      ]}
+                    >
+                      {s.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
           <Text style={styles.inputLabel}>What is this post about? *</Text>
           <TextInput
             value={description}
@@ -278,6 +364,9 @@ export default function TemplateWorkflowScreen() {
             style={styles.input}
             multiline
           />
+          <Text style={styles.tipText}>
+            Tip: You can generate a full post with AI even without uploading a photo.
+          </Text>
 
           <TouchableOpacity onPress={handleGenerate} style={styles.generateBtn} disabled={isGenerating}>
             {isGenerating ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.generateText}>Generate Preview</Text>}
@@ -287,6 +376,35 @@ export default function TemplateWorkflowScreen() {
         {!!caption && (
           <View style={styles.card}>
             <Text style={styles.inputLabel}>Generated Preview</Text>
+            {studioVariants.length > 1 && (
+              <View style={styles.photoVariantRow}>
+                {studioVariants.map((variant, idx) => (
+                  <TouchableOpacity
+                    key={`studio-variant-${idx}`}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setProcessedImage(variant);
+                      void captureSignal({
+                        signalType: 'variant_selected',
+                        topic: description.trim() || undefined,
+                        metadata: { variantIndex: idx + 1, postId: draftId ?? undefined },
+                      }).catch(() => {});
+                    }}
+                    style={[
+                      styles.photoVariantThumb,
+                      processedImage === variant && styles.photoVariantThumbSelected,
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: imageDataUri(variant) ?? '' }}
+                      style={styles.photoVariantImg}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.photoVariantLabel}>Variant {idx + 1}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             {!!processedImage && (
               <Image
                 source={{ uri: imageDataUri(processedImage) || processedImage }}
@@ -309,14 +427,20 @@ export default function TemplateWorkflowScreen() {
             </View>
 
             <TouchableOpacity onPress={handlePostNow} style={styles.primaryBtn} disabled={isPosting || enabledCount === 0}>
-              {isPosting ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.primaryBtnText}>Post Now ({enabledCount})</Text>}
+              {isPosting ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.primaryBtnText}>Confirm & Post ({enabledCount})</Text>}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowSchedulePicker(true)} style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>Schedule</Text>
+              <Text style={styles.secondaryBtnText}>Confirm & Schedule</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={async () => {
                 const saved = await runSaveDraft();
+                void captureSignal({
+                  signalType: 'save_without_publish',
+                  topic: description.trim() || undefined,
+                  studioStyle: studioStylePreference ?? undefined,
+                  metadata: { postId: saved.id, workflow: 'template' },
+                }).catch(() => {});
                 setCurrentEdit(saved);
                 router.push('/(tabs)/create');
               }}
@@ -362,10 +486,66 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
+  tipText: { fontSize: 12, color: Colors.textTertiary, marginTop: -2, marginBottom: 12 },
   photoRow: { marginBottom: 10 },
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
   uploadText: { color: Colors.primary, fontWeight: '700' },
   photoPreview: { width: '100%', height: 180, borderRadius: BorderRadius.md, marginBottom: 10 },
+  studioBlock: { marginBottom: 12 },
+  studioStyleLabel: {
+    marginTop: 4,
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '700',
+  },
+  studioStyleRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  studioStyleChip: {
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#101522',
+  },
+  studioStyleChipActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  studioStyleChipText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
+  studioStyleChipTextActive: { color: Colors.primary },
+  photoVariantRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: Spacing.md,
+  },
+  photoVariantThumb: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: CARD,
+  },
+  photoVariantThumbSelected: {
+    borderColor: Colors.primary,
+  },
+  photoVariantImg: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#222',
+  },
+  photoVariantLabel: {
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    paddingVertical: 6,
+  },
   generateBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 12, alignItems: 'center' },
   generateText: { color: Colors.white, fontWeight: '800' },
   generatedImage: { width: '100%', height: 220, borderRadius: BorderRadius.md, marginBottom: 10 },

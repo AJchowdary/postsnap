@@ -17,6 +17,11 @@ export type CaptionPromptParams = {
   templateStyle: string;
   platform: string;
   userDescription: string;
+  toneOfVoice?: string;
+  contentPersona?: string;
+  uniqueDifferentiator?: string;
+  visualStyle?: string;
+  studioStylePreference?: string;
 };
 
 export const CAPTION_SYSTEM_PROMPT = `You are a social media content expert. Follow the user instructions exactly. Output ONLY valid JSON with no markdown fences or extra text.`;
@@ -70,6 +75,11 @@ ${params.brandColor ? `Brand color: ${params.brandColor}` : ''}
 ${dom ? `Palette hints: ${dom}` : ''}
 ${params.websiteSummary?.trim() ? `About this business: ${params.websiteSummary.trim()}` : ''}
 ${params.instagramHandle?.trim() ? `Instagram: ${params.instagramHandle.trim()}` : ''}
+${params.toneOfVoice?.trim() ? `Tone of voice: ${params.toneOfVoice.trim()}` : ''}
+${params.contentPersona?.trim() ? `Content persona: ${params.contentPersona.trim()}` : ''}
+${params.uniqueDifferentiator?.trim() ? `Differentiator: ${params.uniqueDifferentiator.trim()}` : ''}
+${params.visualStyle?.trim() ? `Visual style anchor: ${params.visualStyle.trim()}` : ''}
+${params.studioStylePreference?.trim() ? `Studio style (if post uses Photo Studio): ${params.studioStylePreference.trim()}` : ''}
 
 POST:
 Platform: ${params.platform || 'instagram'}

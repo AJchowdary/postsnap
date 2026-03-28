@@ -18,11 +18,41 @@ export interface CaptionParams {
   websiteSummary?: string;
   city?: string;
   instagramHandle?: string;
+  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  /** Brand Brain — folded into brief + legacy caption prompts */
+  toneOfVoice?: string;
+  contentPersona?: string;
+  uniqueDifferentiator?: string;
+  visualStyle?: string;
+  studioBgColor?: string;
+  /** Palette (dominant / secondary); complements brandColor */
+  brandColors?: string[];
+  /** Brand Brain — generic caption detector */
+  coreServices?: string[];
+  heroProduct?: string;
+  /** Optional audit logging for generic detection */
+  detectionContext?: { accountId?: string; postId?: string; source?: 'api' | 'worker' };
+  neighborhood?: string;
 }
 
 export type CaptionResult = {
   instagram: { caption: string; hashtags: string[] };
   facebook: { caption: string; hashtags: string[] };
+  meta?: {
+    attempts: number;
+    strategy: 'brief-primary' | 'brief-retry' | 'legacy-fallback';
+    reason?: string;
+    qualityScore?: number;
+    qualityDimensions?: {
+      localSpecificity: number;
+      businessSpecificity: number;
+      voiceMatch: number;
+      engagementHook: number;
+      nonGenericLanguage: number;
+    };
+    qualityVerdict?: 'deliver' | 'retry-partial' | 'retry-full';
+    qualityRetryCount?: number;
+  };
 };
 
 export interface ImageParams {
@@ -45,12 +75,20 @@ export interface ImageParams {
   dominantColors?: string[];
   city?: string;
   instagramHandle?: string;
+  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  toneOfVoice?: string;
+  contentPersona?: string;
+  uniqueDifferentiator?: string;
+  visualStyle?: string;
+  studioBgColor?: string;
+  brandColors?: string[];
 }
 
 /** Result of My Photo pipeline: enhanced + optional in-image text, and clean enhanced only. */
 export type ProcessImageResult = {
   withOverlay: string | null;
   clean: string | null;
+  variants?: string[];
 };
 
 export interface IAIProvider {

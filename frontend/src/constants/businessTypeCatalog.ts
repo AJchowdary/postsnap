@@ -1,5 +1,7 @@
 import type { BusinessType } from '../types';
 
+export { defaultDisplayForBusinessType } from './categoryDefaults';
+
 export type CatalogItem = {
   id: string;
   emoji: string;
@@ -107,17 +109,6 @@ export function inferAiCategoryFromText(input: string): BusinessType {
     if (r.re.test(s)) return r.category;
   }
   return 'retail';
-}
-
-export function defaultDisplayForBusinessType(t: BusinessType): string {
-  const map: Record<BusinessType, string> = {
-    restaurant: 'Restaurant',
-    salon: 'Salon & Beauty',
-    retail: 'Retail Store',
-    gym: 'Gym & Fitness',
-    cafe: 'Cafe & Coffee Shop',
-  };
-  return map[t];
 }
 
 export function inferCustomDescriptionHint(typed: string, aiCategory: BusinessType): string {

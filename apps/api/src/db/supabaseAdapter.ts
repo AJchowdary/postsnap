@@ -13,6 +13,8 @@ const TABLE_TEMPLATES = 'templates';
 const TABLE_POSTS = 'posts';
 const TABLE_POST_PUBLISH_RESULTS = 'post_publish_results';
 const TABLE_JOBS = 'jobs';
+const TABLE_DETECTION_LOGS = 'detection_logs';
+const TABLE_ANALYTICS_EVENTS = 'analytics_events';
 
 function toSnake(s: string): string {
   return s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
@@ -50,6 +52,8 @@ export class SupabaseAdapter implements IDatabase {
       posts: TABLE_POSTS,
       post_publish_results: TABLE_POST_PUBLISH_RESULTS,
       jobs: TABLE_JOBS,
+      detection_logs: TABLE_DETECTION_LOGS,
+      analytics_events: TABLE_ANALYTICS_EVENTS,
     };
     return map[collection] ?? collection;
   }

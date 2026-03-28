@@ -60,6 +60,17 @@ export const GenerateCaptionSchema = z.object({
   websiteSummary: z.string().max(2000).optional(),
   city: z.string().max(120).optional(),
   instagramHandle: z.string().max(120).optional(),
+  studioStylePreference: z
+    .enum(['clean-white', 'lifestyle', 'dark-dramatic', 'flat-lay', 'outdoor-natural'])
+    .optional(),
+  toneOfVoice: z.string().max(80).optional(),
+  contentPersona: z.string().max(200).optional(),
+  uniqueDifferentiator: z.string().max(300).optional(),
+  visualStyle: z.string().max(80).optional(),
+  studioBgColor: z.string().max(32).optional(),
+  coreServices: z.array(z.string().max(120)).max(20).optional(),
+  heroProduct: z.string().max(120).optional(),
+  neighborhood: z.string().max(120).optional(),
 });
 
 export const GenerateImageSchema = z.object({
@@ -81,6 +92,14 @@ export const GenerateImageSchema = z.object({
   dominantColors: z.array(z.string().max(16)).max(12).optional(),
   city: z.string().max(120).optional(),
   instagramHandle: z.string().max(120).optional(),
+  studioStylePreference: z
+    .enum(['clean-white', 'lifestyle', 'dark-dramatic', 'flat-lay', 'outdoor-natural'])
+    .optional(),
+  toneOfVoice: z.string().max(80).optional(),
+  contentPersona: z.string().max(200).optional(),
+  uniqueDifferentiator: z.string().max(300).optional(),
+  visualStyle: z.string().max(80).optional(),
+  studioBgColor: z.string().max(32).optional(),
 });
 
 export type CreatePostInput = z.infer<typeof CreatePostBodySchema>;

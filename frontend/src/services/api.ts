@@ -224,6 +224,53 @@ export const scanWebsite = async (
   });
 };
 
+export type SignalPayload = {
+  signalType:
+    | 'publish'
+    | 'regenerate'
+    | 'edit_caption'
+    | 'studio_style_selected'
+    | 'variant_selected'
+    | 'thumbs_up'
+    | 'thumbs_down'
+    | 'save_without_publish'
+    | 'topic_skip';
+  topic?: string;
+  angle?: string;
+  studioStyle?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  metadata?: Record<string, unknown>;
+};
+
+export const captureSignal = async (payload: SignalPayload): Promise<{ account: Record<string, unknown> }> => {
+  return apiCall('/account/signal', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
+export type AnalyticsEventName =
+  | 'ONBOARDING_STARTED'
+  | 'ONBOARDING_COMPLETED'
+  | 'POST_GENERATED'
+  | 'POST_PUBLISHED'
+  | 'POST_REGENERATED'
+  | 'POST_EDITED'
+  | 'STUDIO_USED'
+  | 'BRAND_BRAIN_ENRICHED'
+  | 'QUALITY_RETRY_TRIGGERED'
+  | 'GENERIC_DETECTED';
+
+export const trackAnalyticsEvent = async (payload: {
+  event: AnalyticsEventName;
+  postId?: string;
+  properties?: Record<string, unknown>;
+}): Promise<{ ok: boolean }> => {
+  return apiCall('/account/analytics-event', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
 export const updateBusinessProfile = async (profile: {
   name: string;
   type: string;
@@ -241,6 +288,29 @@ export const updateBusinessProfile = async (profile: {
   instagramHandle?: string;
   facebookPage?: string;
   brandDnaSource?: 'website' | 'manual' | 'hybrid';
+  businessSubcategory?: string;
+  neighborhood?: string;
+  tagline?: string;
+  toneOfVoice?: 'casual' | 'professional' | 'conversational' | 'inspiring' | 'bold';
+  contentPersona?: string;
+  coreServices?: string[];
+  heroProduct?: string;
+  pricePositioning?: 'budget' | 'mid' | 'premium' | 'luxury';
+  uniqueDifferentiator?: string;
+  visualStyle?: 'photo-real' | 'illustrated' | 'bold-graphic' | 'lifestyle';
+  photoStyleExamples?: string[];
+  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  studioBgColor?: string;
+  seasonalContext?: string;
+  localEvents?: string[];
+  lastPostTopics?: string[];
+  topPerformingAngles?: string[];
+  preferredCaptionLength?: 'short' | 'medium' | 'long';
+  preferredPostingDays?: string[];
+  photoStudioHistory?: Array<Record<string, unknown>>;
+  confidenceOverall?: number;
+  enrichmentVersion?: number;
+  brainFieldConfidence?: Record<string, number>;
 }): Promise<any> => {
   return apiCall('/account/profile', {
     method: 'PUT',
@@ -264,10 +334,45 @@ export interface GenerateCaptionParams {
   websiteSummary?: string;
   city?: string;
   instagramHandle?: string;
+  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  toneOfVoice?: string;
+  contentPersona?: string;
+  uniqueDifferentiator?: string;
+  visualStyle?: string;
+  studioBgColor?: string;
 }
 
+export type GenerateCaptionQuality = {
+  score: number;
+  tags: string[];
+  rationale: string;
+};
+
+export type GenerateCaptionResponse = {
+  caption: string;
+  quality?: GenerateCaptionQuality;
+  retry?: {
+    attempts: number;
+    strategy: 'brief-primary' | 'brief-retry' | 'legacy-fallback';
+    reason?: string | null;
+  } | null;
+};
+
+export const generateCaptionDetailed = async (
+  params: GenerateCaptionParams
+): Promise<GenerateCaptionResponse> => {
+  const data = await apiCall<GenerateCaptionResponse>('/generate/caption', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+  if (!data.caption?.trim()) {
+    throw new Error('Caption generation returned empty content.');
+  }
+  return data;
+};
+
 export interface GenerateImageParams {
-  photo: string;
+  photo?: string;
   template: string;
   businessName: string;
   businessType: string;
@@ -282,24 +387,24 @@ export interface GenerateImageParams {
   dominantColors?: string[];
   city?: string;
   instagramHandle?: string;
+  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  toneOfVoice?: string;
+  contentPersona?: string;
+  uniqueDifferentiator?: string;
+  visualStyle?: string;
+  studioBgColor?: string;
 }
 
 export const generateCaption = async (params: GenerateCaptionParams): Promise<string> => {
-  try {
-    const data = await apiCall<{ caption: string }>('/generate/caption', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    return data.caption || fallbackCaption(params);
-  } catch {
-    return fallbackCaption(params);
-  }
+  const data = await generateCaptionDetailed(params);
+  return data.caption;
 };
 
 export type GenerateImageResult = {
   processed_image: string | null;
   withOverlay: string | null;
   clean: string | null;
+  variants?: string[];
 };
 
 export const generatePostImage = async (
@@ -310,6 +415,7 @@ export const generatePostImage = async (
       processed_image: string | null;
       processed_image_with_overlay: string | null;
       processed_image_clean: string | null;
+      processed_image_variants?: string[];
     }>('/generate/image', {
       method: 'POST',
       body: JSON.stringify(params),
@@ -318,6 +424,7 @@ export const generatePostImage = async (
       processed_image: data.processed_image,
       withOverlay: data.processed_image_with_overlay,
       clean: data.processed_image_clean,
+      variants: data.processed_image_variants ?? [],
     };
   } catch {
     return null;
@@ -326,26 +433,22 @@ export const generatePostImage = async (
 
 // ---- Posts ----
 export const savePostToBackend = async (post: Partial<Post>): Promise<Post> => {
-  try {
-    const data = await apiCall<any>('/posts', {
-      method: 'POST',
-      body: JSON.stringify({
-        template: post.template || 'auto',
-        photo: post.photo,
-        description: post.description || '',
-        caption: post.caption || '',
-        processedImage: post.processedImage,
-        platforms: post.platforms || [],
-        status: post.status || 'draft',
-        postId: post.id,
-        scheduledAt: post.scheduledAt ?? null,
-      }),
-    });
-    const inner = data?.post ?? data;
-    return normalizePost(inner, post);
-  } catch {
-    return localPost(post);
-  }
+  const data = await apiCall<any>('/posts', {
+    method: 'POST',
+    body: JSON.stringify({
+      template: post.template || 'auto',
+      photo: post.photo,
+      description: post.description || '',
+      caption: post.caption || '',
+      processedImage: post.processedImage,
+      platforms: post.platforms || [],
+      status: post.status || 'draft',
+      postId: post.id,
+      scheduledAt: post.scheduledAt ?? null,
+    }),
+  });
+  const inner = data?.post ?? data;
+  return normalizePost(inner, post);
 };
 
 export const publishPostToBackend = async (
@@ -529,46 +632,24 @@ export const restoreSubscriptionPurchase = async (body: {
 };
 
 // ---- Helpers ----
-function fallbackCaption(params: GenerateCaptionParams): string {
-  const emojis: Record<string, string> = {
-    restaurant: '🍽️',
-    salon: '💅',
-    retail: '🛍️',
-    gym: '💪',
-    cafe: '☕',
-  };
-  const emoji = emojis[params.businessType] || '✨';
-  return `${emoji} ${params.description}! Visit us today. #local #smallbusiness #${params.businessType}`;
-}
-
 function normalizePost(data: any, original: Partial<Post>): Post {
+  const processed =
+    data.processedImageUrl ||
+    data.processed_image_url ||
+    data.processedImage ||
+    data.processed_image ||
+    original.processedImage;
   return {
     id: data.id || data._id || Date.now().toString(),
     template: data.template || original.template || 'auto',
     photo: data.photo ?? original.photo,
     description: data.description || original.description || '',
     caption: data.caption || original.caption || '',
-    processedImage: data.processedImage ?? data.processed_image ?? original.processedImage,
+    processedImage: processed,
     platforms: data.platforms || original.platforms || [],
     status: data.status || original.status || 'draft',
     createdAt: data.createdAt || data.created_at || new Date().toISOString(),
     publishedAt: data.publishedAt || data.published_at || original.publishedAt,
     scheduledAt: data.scheduledAt || data.scheduled_at || original.scheduledAt,
-  };
-}
-
-function localPost(post: Partial<Post>): Post {
-  return {
-    id: Date.now().toString(),
-    template: post.template || 'auto',
-    photo: post.photo,
-    description: post.description || '',
-    caption: post.caption || '',
-    processedImage: post.processedImage,
-    platforms: post.platforms || [],
-    status: post.status || 'draft',
-    createdAt: new Date().toISOString(),
-    publishedAt: post.publishedAt,
-    scheduledAt: post.scheduledAt,
   };
 }

@@ -7,6 +7,8 @@
 import { initSentry, captureException } from '../utils/sentry';
 import { getDb } from '../db';
 import { startWorker } from './generateQueue';
+import { startSeasonalContextScheduler } from './seasonalContextWorker';
+import { startScheduler } from './scheduleProcessor';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
@@ -19,6 +21,16 @@ async function main() {
   logger.info('[worker] starting...');
   await getDb();
   startWorker();
+  if (config.runSeasonalContextWorker) {
+    startSeasonalContextScheduler();
+    logger.info('[worker] seasonal context scheduler (Mon 06:00 UTC) enabled');
+  } else {
+    logger.info('[worker] seasonal context scheduler disabled (RUN_SEASONAL_CONTEXT_WORKER=false)');
+  }
+  if (config.runSchedulerInProcess && config.schedulingEnabled) {
+    startScheduler();
+    logger.info('[worker] schedule processor enabled (30s interval)');
+  }
 }
 
 main().catch((err) => {

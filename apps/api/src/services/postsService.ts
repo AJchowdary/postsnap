@@ -1,15 +1,21 @@
 import { getDb } from '../db';
 import { getSupabase } from '../db/supabaseClient';
-import { getAIProvider } from '../providers/ai';
 import { CreatePostInput, PublishPostInput } from '../schemas/posts';
 import { NotFoundError, ServiceUnavailableError, ValidationError } from '../utils/errors';
 import { MockSubscriptionProvider, checkPublishEligible } from '../providers/subscription/mockSubscriptionProvider';
 import { enqueueGeneration, enqueuePublishJob, GenerationJob } from '../jobs/generateQueue';
-import { createSignedUploadUrl, createSignedReadUrl, getUploadPath } from './storageService';
-import { generationHash } from '../utils/hash';
+import {
+  createSignedUploadUrl,
+  createSignedReadUrl,
+  decodeImageInputToBuffer,
+  getUploadPath,
+  uploadProcessedImage,
+  uploadStorageObject,
+} from './storageService';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { requireAccountForUser } from './accountService';
+import type { PostExportAssets } from './postExportAssetsService';
 
 const subscription = new MockSubscriptionProvider();
 
@@ -17,6 +23,67 @@ function toSafeDbMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : '';
   // Drop adapter prefixes; keep the underlying Supabase message.
   return msg.replace(/^Supabase (insertOne|updateOne) posts:\s*/i, '') || 'Database error';
+}
+
+/** Plain caption from client → same JSON shape as worker/OpenAI (for Meta publish). */
+function buildCaptionJsonFromPlainCaption(caption: string | undefined | null): Record<string, { caption: string; hashtags: string[] }> | null {
+  const t = (caption ?? '').trim().slice(0, 2200);
+  if (!t) return null;
+  const tags = [...new Set((t.match(/#[\w\u0080-\uFFFF]+/g) ?? []))].slice(0, 30);
+  return {
+    instagram: { caption: t, hashtags: tags },
+    facebook: { caption: t, hashtags: tags.slice(0, 5) },
+  };
+}
+
+/** Upload client-supplied base64/data-URL images to storage; returns snake_case DB patch keys. */
+async function uploadClientImagesToStorage(
+  accountId: string,
+  postId: string,
+  input: Pick<CreatePostInput, 'photo' | 'processedImage'>
+): Promise<{ processed_image_path?: string; original_image_path?: string }> {
+  const patch: { processed_image_path?: string; original_image_path?: string } = {};
+  const proc = input.processedImage?.trim();
+  if (proc) {
+    try {
+      patch.processed_image_path = await uploadProcessedImage(accountId, postId, proc);
+    } catch (e) {
+      logger.warn('Post image upload (processed) failed', {
+        postId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      throw new ValidationError(
+        e instanceof Error ? e.message : 'Could not upload processed image. Try again or use a smaller image.'
+      );
+    }
+  }
+  const ph = input.photo?.trim();
+  if (ph) {
+    try {
+      let buf: Buffer;
+      if (ph.startsWith('data:')) {
+        buf = await decodeImageInputToBuffer(ph);
+      } else {
+        buf = Buffer.from(ph, 'base64');
+      }
+      if (buf.length > 12 * 1024 * 1024) {
+        throw new ValidationError('Photo exceeds 12MB after decode');
+      }
+      const path = getUploadPath(accountId, postId, 'original');
+      await uploadStorageObject(path, buf, 'image/jpeg');
+      patch.original_image_path = path;
+    } catch (e) {
+      if (e instanceof ValidationError) throw e;
+      logger.warn('Post image upload (original) failed', {
+        postId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      throw new ValidationError(
+        e instanceof Error ? e.message : 'Could not upload photo. Use JPEG or PNG, or try a smaller file.'
+      );
+    }
+  }
+  return patch;
 }
 
 interface PostRecord {
@@ -27,7 +94,10 @@ interface PostRecord {
   contextText: string;
   originalImagePath?: string | null;
   processedImagePath?: string | null;
+  exportAssets?: PostExportAssets | null;
   captionJson?: Record<string, { caption: string; hashtags: string[] }> | null;
+  qualityScore?: number | null;
+  qualityDimensions?: Record<string, number> | null;
   publishTargets?: string[] | null;
   regenCount: number;
   lastGeneratedHash?: string | null;
@@ -45,6 +115,7 @@ function postToLegacy(post: PostRecord): Record<string, any> {
     description: post.contextText,
     caption,
     processedImage: post.processedImagePath,
+    exportAssets: post.exportAssets ?? undefined,
     photo: post.originalImagePath,
     platforms: post.publishTargets ?? [],
     status: post.status,
@@ -53,6 +124,8 @@ function postToLegacy(post: PostRecord): Record<string, any> {
     publishedAt: post.publishedAt,
   };
   if (post.captionJson) out.captionJson = post.captionJson;
+  if (post.qualityScore != null) out.qualityScore = post.qualityScore;
+  if (post.qualityDimensions) out.qualityDimensions = post.qualityDimensions;
   return out;
 }
 
@@ -89,7 +162,7 @@ export async function getPost(ownerUserId: string, postId: string) {
   return withSignedUrls(postToLegacy(post), post);
 }
 
-/** Create post (no base64). Returns post + uploadUrl for client to upload image. v1: no scheduling. */
+/** Create post. Returns post + optional signed upload URL for direct original upload. v1: no scheduling. */
 export async function createPost(ownerUserId: string, input: {
   template_id?: string;
   context_text?: string;
@@ -97,12 +170,16 @@ export async function createPost(ownerUserId: string, input: {
   template?: string;
   platforms?: string[];
   status?: string;
+  caption?: string;
+  photo?: string | null;
+  processedImage?: string | null;
 }) {
   const db = await getDb();
   const accountId = await requireAccountForUser(ownerUserId);
   const now = new Date().toISOString();
   const templateId = input.template_id ?? input.template ?? 'auto';
   const contextText = (input.context_text ?? input.description ?? '').slice(0, 500);
+  const captionJson = buildCaptionJsonFromPlainCaption(input.caption ?? '');
 
   const payload = {
     account_id: accountId,
@@ -111,7 +188,7 @@ export async function createPost(ownerUserId: string, input: {
     context_text: contextText,
     original_image_path: null,
     processed_image_path: null,
-    caption_json: null,
+    caption_json: captionJson,
     publish_targets: input.platforms ?? [],
     regen_count: 0,
     last_generated_hash: null,
@@ -123,6 +200,20 @@ export async function createPost(ownerUserId: string, input: {
     post = await db.insertOne<PostRecord>('posts', payload);
   } catch (err) {
     throw new ValidationError(toSafeDbMessage(err));
+  }
+
+  const imagePatch = await uploadClientImagesToStorage(accountId, post.id, {
+    photo: input.photo ?? undefined,
+    processedImage: input.processedImage ?? undefined,
+  });
+  if (Object.keys(imagePatch).length > 0) {
+    try {
+      await db.updateOne('posts', post.id, { ...imagePatch, updated_at: now });
+      const refreshed = await db.findOne<PostRecord>('posts', { _id: post.id });
+      if (refreshed) post = refreshed;
+    } catch (err) {
+      throw new ValidationError(toSafeDbMessage(err));
+    }
   }
 
   let uploadUrl: string | null = null;
@@ -137,31 +228,40 @@ export async function createPost(ownerUserId: string, input: {
       error: err instanceof Error ? err.message : 'unknown',
     });
   }
-  return { post: postToLegacy(post), uploadUrl, uploadPath };
+  const legacy = postToLegacy(post);
+  return { post: await withSignedUrls(legacy, post), uploadUrl, uploadPath };
 }
 
-/** Legacy: save post (accepts description/template; no base64 stored). */
+/** Save post: persists caption_json and uploads photo/processed images for publish worker. */
 export async function savePost(ownerUserId: string, input: CreatePostInput) {
   const accountId = await requireAccountForUser(ownerUserId);
   const db = await getDb();
   const now = new Date().toISOString();
+  const captionJson = buildCaptionJsonFromPlainCaption(input.caption ?? '');
 
   if (input.postId) {
     const existing = await db.findOne<PostRecord>('posts', { _id: input.postId });
     if (existing && existing.accountId === accountId) {
+      const imagePatch = await uploadClientImagesToStorage(accountId, existing.id, {
+        photo: input.photo ?? undefined,
+        processedImage: input.processedImage ?? undefined,
+      });
       try {
         await db.updateOne('posts', existing.id, {
           context_text: input.description?.slice(0, 500) ?? existing.contextText,
           template_id: input.template ?? existing.templateId,
           publish_targets: input.platforms,
           status: input.status,
+          caption_json: captionJson,
+          ...imagePatch,
           updated_at: now,
         });
       } catch (err) {
         throw new ValidationError(toSafeDbMessage(err));
       }
       const updated = await db.findOne<PostRecord>('posts', { _id: existing.id });
-      return postToLegacy(updated!);
+      const p = updated!;
+      return withSignedUrls(postToLegacy(p), p);
     }
   }
 
@@ -172,7 +272,7 @@ export async function savePost(ownerUserId: string, input: CreatePostInput) {
     context_text: (input.description ?? '').slice(0, 500),
     original_image_path: null,
     processed_image_path: null,
-    caption_json: null,
+    caption_json: captionJson,
     publish_targets: input.platforms ?? [],
     regen_count: 0,
     created_at: now,
@@ -184,7 +284,22 @@ export async function savePost(ownerUserId: string, input: CreatePostInput) {
   } catch (err) {
     throw new ValidationError(toSafeDbMessage(err));
   }
-  return postToLegacy(inserted);
+
+  const imagePatch = await uploadClientImagesToStorage(accountId, inserted.id, {
+    photo: input.photo ?? undefined,
+    processedImage: input.processedImage ?? undefined,
+  });
+  if (Object.keys(imagePatch).length > 0) {
+    try {
+      await db.updateOne('posts', inserted.id, { ...imagePatch, updated_at: now });
+      const refreshed = await db.findOne<PostRecord>('posts', { _id: inserted.id });
+      if (refreshed) inserted = refreshed;
+    } catch (err) {
+      throw new ValidationError(toSafeDbMessage(err));
+    }
+  }
+
+  return withSignedUrls(postToLegacy(inserted), inserted);
 }
 
 export async function markUploadComplete(ownerUserId: string, postId: string, storagePath: string) {
