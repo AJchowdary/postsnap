@@ -611,19 +611,30 @@ HARD RULES:
 - No watermark, no gibberish text.
 - ${aspectHint}`;
 
-        const response = await client.images.generate({
-          model: params.premiumQuality ? 'gpt-image-1' : 'gpt-image-1-mini',
-          prompt,
-          size: outSize,
-          quality: 'auto',
-          n: 1,
-        });
-        const first = response.data?.[0];
-        if (first?.b64_json) {
-          return { withOverlay: `data:image/png;base64,${first.b64_json}`, clean: null };
-        }
-        if (first?.url) {
-          return { withOverlay: first.url, clean: null };
+        const preferredModel = params.premiumQuality ? IMAGE_MODEL_PREMIUM : IMAGE_MODEL_DEFAULT;
+        const modelCandidates = Array.from(new Set([preferredModel, 'gpt-image-1'].filter(Boolean)));
+
+        for (const model of modelCandidates) {
+          try {
+            const response = await client.images.generate({
+              model,
+              prompt,
+              size: outSize,
+              quality: 'auto',
+              n: 1,
+            });
+            const first = response.data?.[0];
+            if (first?.b64_json) {
+              return { withOverlay: `data:image/png;base64,${first.b64_json}`, clean: null };
+            }
+            if (first?.url) {
+              return { withOverlay: first.url, clean: null };
+            }
+          } catch (err) {
+            // Try next candidate model; keep server alive even if one model is unavailable.
+            const reason = err instanceof Error ? err.message : 'unknown';
+            console.warn(`[openai.image.generate] model=${model} failed: ${reason}`);
+          }
         }
         return null;
       } catch {
