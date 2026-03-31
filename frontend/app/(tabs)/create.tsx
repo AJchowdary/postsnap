@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -144,13 +145,16 @@ function isPersistedPostId(id: string | undefined): boolean {
   return !!id && !id.startsWith(TEMP_POST_PREFIX);
 }
 
-function imageUnavailableMessage(meta?: { aiProvider?: string; openaiConfigured?: boolean }): string {
+function imageUnavailableMessage(meta?: { aiProvider?: string; openaiConfigured?: boolean; imageError?: string | null }): string {
   if (!meta) return 'No AI image available right now.';
   if (meta.aiProvider === 'mock') {
     return 'Image generation is unavailable because the backend is using mock AI.';
   }
   if (meta.openaiConfigured === false) {
     return 'Image generation is unavailable because OpenAI is not configured on the backend.';
+  }
+  if (meta.imageError === 'NO_IMAGE_OUTPUT') {
+    return 'No image came back for this idea. Try adding a photo or making the offer text more specific.';
   }
   return 'No AI image was returned for this prompt. Try a more specific idea or add a source photo.';
 }
@@ -343,37 +347,52 @@ export default function CreateScreen() {
   }, [generatedPost?.id, previewRegenerating, previewVisible]);
 
   const pickPhotoFromLibrary = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo library access to pick photos.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: ASPECT_FOUR_FIVE,
-      quality: 0.72,
-      base64: true,
-    });
-    if (!result.canceled && result.assets[0]?.base64) {
-      setSelectedPhoto(result.assets[0].base64);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow photo library access to pick photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: ASPECT_FOUR_FIVE,
+        quality: 0.72,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]?.base64) {
+        setSelectedPhoto(result.assets[0].base64);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not open photo library.';
+      Alert.alert('Photo library unavailable', msg);
     }
   }, []);
 
   const takePhotoWithCamera = useCallback(async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow camera access to take photos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: ASPECT_FOUR_FIVE,
-      quality: 0.72,
-      base64: true,
-    });
-    if (!result.canceled && result.assets[0]?.base64) {
-      setSelectedPhoto(result.assets[0].base64);
+    try {
+      // iOS simulator does not provide a real camera feed.
+      if (Platform.OS === 'ios' && !Constants.isDevice) {
+        Alert.alert('Camera unavailable', 'Camera is not available on iOS simulator. Use Choose Photo instead.');
+        return;
+      }
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow camera access to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: ASPECT_FOUR_FIVE,
+        quality: 0.72,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]?.base64) {
+        setSelectedPhoto(result.assets[0].base64);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not open camera.';
+      Alert.alert('Camera unavailable', msg);
     }
   }, []);
 

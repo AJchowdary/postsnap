@@ -63,8 +63,8 @@ function parseThreeOptionsFormat(parsed: Record<string, unknown>): CaptionResult
   const cta = byType.cta ?? '';
   if (!hook && !story && !cta) return null;
 
-  // Prefer the narrative option when available; fallback to hook/cta.
-  const full = (story || hook || cta).slice(0, MAX_CAPTION_LEN);
+  // Prefer concise offer-forward copy first; fallback to CTA/story.
+  const full = (hook || cta || story).slice(0, MAX_CAPTION_LEN);
 
   const allForTags = `${hook} ${story} ${cta}`;
   let tags = extractHashtagsFromText(allForTags);

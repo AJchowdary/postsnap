@@ -146,6 +146,7 @@ router.post(
         processed_image_with_overlay: null,
         processed_image_clean: null,
         processed_image_variants: [],
+        image_error: 'NO_IMAGE_OUTPUT',
         aiProvider: config.aiProvider,
         openaiConfigured: Boolean(config.openaiApiKey?.trim()),
       });
@@ -156,6 +157,7 @@ router.post(
       processed_image_with_overlay: processed.withOverlay,
       processed_image_clean: processed.clean,
       processed_image_variants: processed.variants ?? [],
+      image_error: null,
       aiProvider: config.aiProvider,
       openaiConfigured: Boolean(config.openaiApiKey?.trim()),
     });

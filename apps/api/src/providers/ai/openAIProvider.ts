@@ -613,6 +613,7 @@ HARD RULES:
 
         const preferredModel = params.premiumQuality ? IMAGE_MODEL_PREMIUM : IMAGE_MODEL_DEFAULT;
         const modelCandidates = Array.from(new Set([preferredModel, 'gpt-image-1'].filter(Boolean)));
+        let lastFailureReason: string | null = null;
 
         for (const model of modelCandidates) {
           try {
@@ -633,12 +634,17 @@ HARD RULES:
           } catch (err) {
             // Try next candidate model; keep server alive even if one model is unavailable.
             const reason = err instanceof Error ? err.message : 'unknown';
+            lastFailureReason = reason;
             console.warn(`[openai.image.generate] model=${model} failed: ${reason}`);
           }
         }
+        if (lastFailureReason) {
+          throw new Error(`OpenAI image generation failed: ${lastFailureReason}`);
+        }
         return null;
-      } catch {
-        return null;
+      } catch (err) {
+        if (err instanceof Error) throw err;
+        throw new Error('OpenAI image generation failed.');
       }
     }
 

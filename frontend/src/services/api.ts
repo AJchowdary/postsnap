@@ -75,6 +75,10 @@ function resolveApiBaseUrl(): string {
 }
 
 const BASE_URL = resolveApiBaseUrl();
+const DEVICE_BASE_URL = stripTrailingSlash(
+  process.env.EXPO_PUBLIC_API_BASE_URL_DEVICE || process.env.EXPO_PUBLIC_API_BASE_URL_PRODUCTION || ''
+);
+const API_BASE_URL_CANDIDATES = Array.from(new Set([BASE_URL, DEVICE_BASE_URL].filter(Boolean)));
 const AUTH_TOKEN_KEY = '@quickpost_token';
 
 /**
@@ -142,29 +146,46 @@ async function apiCall<T>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const url = `${BASE_URL}${API_PREFIX}${path}`;
-  let response: Response;
-  try {
-    if (options?.signal) {
-      response = await fetch(url, { ...options, headers });
-    } else {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      try {
-        response = await fetch(url, { ...options, headers, signal: controller.signal });
-      } finally {
-        clearTimeout(timeoutId);
+  let response: Response | null = null;
+  let lastFetchError: unknown = null;
+  let attemptedUrl = '';
+  for (const base of API_BASE_URL_CANDIDATES) {
+    const url = `${base}${API_PREFIX}${path}`;
+    attemptedUrl = url;
+    try {
+      if (options?.signal) {
+        response = await fetch(url, { ...options, headers });
+      } else {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          response = await fetch(url, { ...options, headers, signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
       }
-    }
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      // Caller-provided signal (e.g. user cancelled scan) — do not treat as timeout.
-      if (options?.signal?.aborted) {
-        throw new Error('Request cancelled');
+      lastFetchError = null;
+      break;
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        // Caller-provided signal (e.g. user cancelled scan) — do not treat as timeout.
+        if (options?.signal?.aborted) {
+          throw new Error('Request cancelled');
+        }
+        throw new Error(`Request timeout after ${FETCH_TIMEOUT_MS / 1000}s (check API URL and network)`);
       }
-      throw new Error(`Request timeout after ${FETCH_TIMEOUT_MS / 1000}s (check API URL and network)`);
+      lastFetchError = e;
+      continue;
     }
-    throw e;
+  }
+  if (!response) {
+    const msg = lastFetchError instanceof Error ? lastFetchError.message : 'Unknown network error';
+    if (/network request failed/i.test(msg)) {
+      throw new Error(
+        `Network request failed. Check internet connection and API availability (${API_BASE_URL_CANDIDATES.join(' or ')}).`
+      );
+    }
+    throw new Error(`Request failed before reaching API (${attemptedUrl || BASE_URL}): ${msg}`);
   }
 
   if (response.status === 401) {
@@ -525,6 +546,7 @@ export type GenerateImageResult = {
   withOverlay: string | null;
   clean: string | null;
   variants?: string[];
+  imageError?: string | null;
   aiProvider?: string;
   openaiConfigured?: boolean;
 };
@@ -538,6 +560,7 @@ export const generatePostImage = async (
       processed_image_with_overlay: string | null;
       processed_image_clean: string | null;
       processed_image_variants?: string[];
+      image_error?: string | null;
       aiProvider?: string;
       openaiConfigured?: boolean;
     }>('/generate/image', {
@@ -549,11 +572,13 @@ export const generatePostImage = async (
       withOverlay: data.processed_image_with_overlay,
       clean: data.processed_image_clean,
       variants: data.processed_image_variants ?? [],
+      imageError: data.image_error ?? null,
       aiProvider: (data as { aiProvider?: string }).aiProvider,
       openaiConfigured: (data as { openaiConfigured?: boolean }).openaiConfigured,
     };
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof Error) throw err;
+    throw new Error('Image generation request failed.');
   }
 };
 
