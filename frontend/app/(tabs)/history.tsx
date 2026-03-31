@@ -113,7 +113,11 @@ export default function HistoryScreen() {
         onPress: async () => {
           try {
             await deletePostFromBackend(post.id);
+            // Optimistic remove first for immediate UX
             deletePost(post.id);
+            // Then resync from backend so stale rows do not reappear.
+            const backendPosts = await fetchPostsFromBackend();
+            setPosts(backendPosts);
             setSelectedPost(null);
             showToast('Post deleted', 'info');
           } catch (err: any) {
@@ -122,7 +126,7 @@ export default function HistoryScreen() {
         },
       },
     ]);
-  }, [deletePost, showToast]);
+  }, [deletePost, setPosts, showToast]);
 
   const handleRepost = (post: Post) => {
     setCurrentEdit({ template: post.template, photo: post.photo, description: post.description });

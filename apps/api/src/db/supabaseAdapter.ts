@@ -42,6 +42,14 @@ function mapKeysToSnake(obj: Record<string, any>): Record<string, any> {
   return out;
 }
 
+function extractMissingColumn(errorMessage: string): string | null {
+  // PostgREST schema-cache style:
+  // "Could not find the 'campaign_id' column of 'posts' in the schema cache"
+  const m = errorMessage.match(/Could not find the '([^']+)' column/i);
+  if (m?.[1]) return m[1];
+  return null;
+}
+
 export class SupabaseAdapter implements IDatabase {
   private table(collection: string): string {
     const map: Record<string, string> = {
@@ -166,9 +174,28 @@ export class SupabaseAdapter implements IDatabase {
     const supabase = getSupabase();
     const table = this.table(collection);
     const row = mapKeysToSnake(data);
+    const payload: Record<string, any> = { ...row };
 
-    const { data: inserted, error } = await supabase.from(table).insert(row).select('*').single();
-    if (error) throw new Error(`Supabase insertOne ${table}: ${error.message}`);
+    let inserted: any = null;
+    let lastError: Error | null = null;
+    for (let i = 0; i < 4; i += 1) {
+      const { data: out, error } = await supabase.from(table).insert(payload).select('*').single();
+      if (!error) {
+        inserted = out;
+        lastError = null;
+        break;
+      }
+      const missing = extractMissingColumn(error.message || '');
+      if (missing && Object.prototype.hasOwnProperty.call(payload, missing)) {
+        delete payload[missing];
+        continue;
+      }
+      lastError = new Error(`Supabase insertOne ${table}: ${error.message}`);
+      break;
+    }
+    if (lastError || !inserted) {
+      throw lastError ?? new Error(`Supabase insertOne ${table}: unknown error`);
+    }
     const out = mapKeysToCamel(inserted as Record<string, any>);
     if (table === TABLE_ACCOUNTS && out.ownerUserId) (out as any).userId = out.ownerUserId;
     return out as T;
@@ -182,8 +209,24 @@ export class SupabaseAdapter implements IDatabase {
 
     const withUpdated =
       table === TABLE_NOTIFICATIONS ? row : { ...row, updated_at: new Date().toISOString() };
-    const { error } = await supabase.from(table).update(withUpdated).eq(pk, id);
-    if (error) throw new Error(`Supabase updateOne ${table}: ${error.message}`);
+    const payload: Record<string, any> = { ...withUpdated };
+
+    let lastError: Error | null = null;
+    for (let i = 0; i < 4; i += 1) {
+      const { error } = await supabase.from(table).update(payload).eq(pk, id);
+      if (!error) {
+        lastError = null;
+        break;
+      }
+      const missing = extractMissingColumn(error.message || '');
+      if (missing && Object.prototype.hasOwnProperty.call(payload, missing)) {
+        delete payload[missing];
+        continue;
+      }
+      lastError = new Error(`Supabase updateOne ${table}: ${error.message}`);
+      break;
+    }
+    if (lastError) throw lastError;
   }
 
   async upsertOne(
@@ -200,8 +243,24 @@ export class SupabaseAdapter implements IDatabase {
         : table === TABLE_SOCIAL_CONNECTIONS
           ? 'account_id,platform'
           : 'id';
-    const { error } = await supabase.from(table).upsert(row, { onConflict: conflictKey });
-    if (error) throw new Error(`Supabase upsertOne ${table}: ${error.message}`);
+
+    const payload: Record<string, any> = { ...row };
+    let lastError: Error | null = null;
+    for (let i = 0; i < 4; i += 1) {
+      const { error } = await supabase.from(table).upsert(payload, { onConflict: conflictKey });
+      if (!error) {
+        lastError = null;
+        break;
+      }
+      const missing = extractMissingColumn(error.message || '');
+      if (missing && Object.prototype.hasOwnProperty.call(payload, missing)) {
+        delete payload[missing];
+        continue;
+      }
+      lastError = new Error(`Supabase upsertOne ${table}: ${error.message}`);
+      break;
+    }
+    if (lastError) throw lastError;
   }
 
   async deleteOne(collection: string, id: string): Promise<void> {

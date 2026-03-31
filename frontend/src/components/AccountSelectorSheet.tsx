@@ -23,8 +23,9 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onPost: (selectedAccountIds: string[], platforms: string[]) => Promise<void>;
+  onSaveDraft?: () => Promise<void>;
+  onDraftSaved?: () => void;
   onPosted?: () => void;
-  postId: string;
 };
 
 type RowPlatform = 'instagram' | 'facebook';
@@ -46,8 +47,9 @@ export default function AccountSelectorSheet({
   visible,
   onClose,
   onPost,
+  onSaveDraft,
+  onDraftSaved,
   onPosted,
-  postId,
 }: Props) {
   const router = useRouter();
   const socialAccounts = useAppStore((s) => s.socialAccounts);
@@ -56,12 +58,6 @@ export default function AccountSelectorSheet({
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (visible && !postId.trim()) {
-      onClose();
-    }
-  }, [visible, postId, onClose]);
 
   const rows = useMemo(() => {
     const out: { platform: RowPlatform; account: SocialAccount }[] = [];
@@ -104,7 +100,7 @@ export default function AccountSelectorSheet({
   }, []);
 
   const selectedList = useMemo(() => Array.from(selected), [selected]);
-  const canSubmit = selectedList.length > 0 && !!postId.trim() && !posted;
+  const canSubmit = selectedList.length > 0 && !posted;
 
   const goSettings = useCallback(() => {
     onClose();
@@ -134,6 +130,25 @@ export default function AccountSelectorSheet({
     }
   }, [canSubmit, onClose, onPost, onPosted, posting, posted, selectedList]);
 
+  const onSave = useCallback(async () => {
+    if (!onSaveDraft || posting || posted) return;
+    setError(null);
+    setPosting(true);
+    try {
+      await onSaveDraft();
+      setPosting(false);
+      onDraftSaved?.();
+      onClose();
+    } catch (e) {
+      setPosting(false);
+      if (e instanceof Error && e.message === 'PAYWALL') {
+        onClose();
+        return;
+      }
+      setError('Failed to save draft. Please try again.');
+    }
+  }, [onClose, onDraftSaved, onSaveDraft, posted, posting]);
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -148,7 +163,9 @@ export default function AccountSelectorSheet({
           <View style={styles.handle} />
 
           <Text style={styles.sheetTitle}>Post to…</Text>
-          <Text style={styles.sheetSubtitle}>Choose which accounts to post to</Text>
+          <Text style={styles.sheetSubtitle}>
+            Choose accounts to post now, or save as a draft for later
+          </Text>
 
           <ScrollView
             style={styles.listScroll}
@@ -223,31 +240,41 @@ export default function AccountSelectorSheet({
                 <Text style={styles.successText}>Posted successfully!</Text>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[
-                  styles.continueOuter,
-                  !posting && !canSubmit && styles.continueDisabled,
-                ]}
-                onPress={() => void onContinue()}
-                disabled={!canSubmit || posting}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={GradientColors.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.continueGradient}
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.saveDraftBtn, posting && styles.continueDisabled]}
+                  onPress={() => void onSave()}
+                  disabled={posting}
+                  activeOpacity={0.9}
                 >
-                  {posting ? (
-                    <>
-                      <ActivityIndicator color={Colors.textOnPrimary} />
-                      <Text style={styles.continueLabel}>Posting…</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.continueLabel}>Continue to Post</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                  <Text style={styles.saveDraftLabel}>Save as Draft</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.continueOuter,
+                    !posting && !canSubmit && styles.continueDisabled,
+                  ]}
+                  onPress={() => void onContinue()}
+                  disabled={!canSubmit || posting}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={GradientColors.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.continueGradient}
+                  >
+                    {posting ? (
+                      <>
+                        <ActivityIndicator color={Colors.textOnPrimary} />
+                        <Text style={styles.continueLabel}>Working…</Text>
+                      </>
+                    ) : (
+                      <Text style={styles.continueLabel}>Continue to Post</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             )}
 
             {!posting && !posted ? (
@@ -397,7 +424,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  saveDraftBtn: {
+    height: 52,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveDraftLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
   continueOuter: {
+    flex: 1,
     borderRadius: 26,
     overflow: 'hidden',
   },

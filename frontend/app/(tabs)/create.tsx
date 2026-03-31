@@ -20,7 +20,6 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors, Spacing, BorderRadius, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import {
-  captureSignal,
   editCaptionWithAI,
   generateCaptionDetailed,
   generatePostImage,
@@ -37,6 +36,7 @@ const ASPECT_FOUR_FIVE: [number, number] = [4, 5];
 const IDEA_MAX = 280;
 const WARN_LEN = 260;
 const SCROLL_TO_INPUT_Y = 200;
+const TEMP_POST_PREFIX = 'temp-';
 
 const AI_QUICK_CHIPS = [
   'Improve the style',
@@ -140,6 +140,10 @@ function safeStudioStyle(
   return v;
 }
 
+function isPersistedPostId(id: string | undefined): boolean {
+  return !!id && !id.startsWith(TEMP_POST_PREFIX);
+}
+
 function SkeletonChip() {
   const pulse = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
@@ -212,6 +216,7 @@ export default function CreateScreen() {
   const [previewRegenerating, setPreviewRegenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [captionAiProvider, setCaptionAiProvider] = useState<string | null>(null);
+  const [imageEnhancing, setImageEnhancing] = useState(false);
   const panelAnim = useRef(new Animated.Value(0)).current;
   const aiChatSlideAnim = useRef(new Animated.Value(0)).current;
   const pendingScrollToPreviewRef = useRef(false);
@@ -283,6 +288,7 @@ export default function CreateScreen() {
       setPreviewRegenerating(false);
       setGenerateError(null);
       setCaptionAiProvider(null);
+      setImageEnhancing(false);
       setAiChatVisible(false);
       panelAnim.setValue(0);
       setCurrentEdit(null);
@@ -385,14 +391,38 @@ export default function CreateScreen() {
   }, [panelAnim]);
 
   const handlePreviewPostPress = useCallback(() => {
-    if (previewRegenerating || !generatedPost?.id) return;
+    if (previewRegenerating || !generatedPost) return;
     setAccountSelectorVisible(true);
-  }, [generatedPost?.id, previewRegenerating]);
+  }, [generatedPost, previewRegenerating]);
+
+  const persistPostDraft = useCallback(
+    async (post: Post, platforms: SocialPlatform[]): Promise<Post> => {
+      const saved = await savePostToBackend({
+        id: isPersistedPostId(post.id) ? post.id : undefined,
+        template: post.template,
+        description: post.description,
+        caption: post.caption,
+        photo: post.photo,
+        processedImage: post.processedImage,
+        platforms,
+        status: 'draft',
+      });
+
+      if (isPersistedPostId(post.id)) {
+        updatePost(saved.id, saved);
+      } else {
+        addPost(saved);
+      }
+      setGeneratedPost(saved);
+      return saved;
+    },
+    [addPost, updatePost]
+  );
 
   const handlePublishFromSheet = useCallback(
     async (_accountIds: string[], platforms: string[]) => {
       const post = generatedPostRef.current;
-      if (!post?.id) {
+      if (!post) {
         throw new Error('No post to publish');
       }
 
@@ -407,19 +437,10 @@ export default function CreateScreen() {
         throw new Error('No platforms');
       }
 
-      await savePostToBackend({
-        id: post.id,
-        template: post.template,
-        description: post.description,
-        caption: post.caption,
-        photo: post.photo,
-        processedImage: post.processedImage,
-        platforms: plats,
-        status: 'draft',
-      });
+      const saved = await persistPostDraft(post, plats);
 
       try {
-        const result = await publishPostToBackend(post.id, plats);
+        const result = await publishPostToBackend(saved.id, plats);
         if (!result.success) {
           throw new Error(result.message || 'Failed to post');
         }
@@ -433,15 +454,21 @@ export default function CreateScreen() {
         throw e instanceof Error ? e : new Error('Failed to post');
       }
 
-      updatePost(post.id, {
+      updatePost(saved.id, {
         status: 'published',
         publishedAt: new Date().toISOString(),
-        caption: post.caption,
+        caption: saved.caption,
         platforms: plats,
       });
     },
-    [checkEntitlement, setPaywallSuccessCallback, setShowPaywall, updatePost]
+    [checkEntitlement, persistPostDraft, setPaywallSuccessCallback, setShowPaywall, updatePost]
   );
+
+  const handleSaveDraftFromSheet = useCallback(async () => {
+    const post = generatedPostRef.current;
+    if (!post) throw new Error('No post to save');
+    await persistPostDraft(post, post.platforms.length ? post.platforms : ['instagram', 'facebook']);
+  }, [persistPostDraft]);
 
   const onAccountSheetPosted = useCallback(() => {
     showToast('Your post is live! 🎉', 'success');
@@ -457,6 +484,11 @@ export default function CreateScreen() {
     setAccountSelectorVisible(false);
     router.replace('/(tabs)/home' as any);
   }, [panelAnim, router, setCurrentEdit, showToast]);
+
+  const onAccountSheetDrafted = useCallback(() => {
+    setAccountSelectorVisible(false);
+    showToast('Saved to drafts', 'success');
+  }, [showToast]);
 
   const previewHashtags = useMemo(
     () => (generatedPost ? extractHashtagsFromCaption(generatedPost.caption) : []),
@@ -542,7 +574,9 @@ export default function CreateScreen() {
       const nextCaption = mergeCaptionAndHashtags(msg.apply.caption, msg.apply.tags);
       const id = generatedPostRef.current.id;
       setGeneratedPost((p) => (p ? { ...p, caption: nextCaption } : null));
-      updatePost(id, { caption: nextCaption });
+      if (isPersistedPostId(id)) {
+        updatePost(id, { caption: nextCaption });
+      }
       setAppliedMsgId(msg.id);
       setTimeout(() => setAppliedMsgId(null), 1200);
       scrollMainToPreviewTop();
@@ -573,55 +607,20 @@ export default function CreateScreen() {
         ...genBiz,
       });
       setCaptionAiProvider(cap.aiProvider ?? null);
-
-      let processed: string | undefined;
-      if (selectedPhoto) {
-        const img = await generatePostImage({
-          photo: selectedPhoto,
-          template: 'auto',
-          description: text,
-          aspectPreset: 'story',
-          ...genBiz,
-        });
-        processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
-        if (!processed) {
-          showToast('Image enhancement skipped — caption saved.', 'info');
-        }
-      } else {
-        const img = await generatePostImage({
-          template: 'auto',
-          description: text,
-          aspectPreset: 'story',
-          ...genBiz,
-        });
-        processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
-        if (!processed) {
-          showToast('No AI image for this post (needs OpenAI + image models). Caption saved.', 'info');
-        }
-      }
-
-      const post = await savePostToBackend({
+      const post: Post = {
+        id: `${TEMP_POST_PREFIX}${Date.now()}`,
         template: 'auto',
         description: text,
         caption: cap.caption,
         photo: selectedPhoto ?? undefined,
-        processedImage: processed,
+        processedImage: undefined,
         platforms: ['instagram', 'facebook'],
         status: 'draft',
-      });
-      addPost(post);
-
-      void captureSignal({
-        signalType: 'save_without_publish',
-        topic: text.slice(0, 120),
-        metadata: { postId: post.id, workflow: 'create_v2' },
-      }).catch(() => {});
+        createdAt: new Date().toISOString(),
+      };
 
       setPreviewRegenerating(false);
-      // For preview UX: if we just generated a processed image (data URL or http URL),
-      // use it directly so the preview doesn't depend on signed storage URLs.
-      const previewPost = processed ? { ...post, processedImage: processed } : post;
-      setGeneratedPost(previewPost);
+      setGeneratedPost(post);
       setPreviewVisible(true);
       pendingScrollToPreviewRef.current = true;
       if (!hadPreview) {
@@ -635,7 +634,33 @@ export default function CreateScreen() {
       } else {
         panelAnim.setValue(1);
       }
+
+      // Generate image after preview is already visible so user isn't blocked.
+      setImageEnhancing(true);
+      void (async () => {
+        try {
+          const img = await generatePostImage({
+            ...(selectedPhoto ? { photo: selectedPhoto } : {}),
+            template: 'auto',
+            description: text,
+            aspectPreset: 'story',
+            ...genBiz,
+          });
+          const processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
+          if (!processed) {
+            showToast('No AI image available right now.', 'info');
+            return;
+          }
+          setGeneratedPost((curr) => (curr && curr.id === post.id ? { ...curr, processedImage: processed } : curr));
+        } catch (err) {
+          const msg = err instanceof Error && err.message ? err.message : 'Image generation failed';
+          showToast(msg, 'error');
+        } finally {
+          setImageEnhancing(false);
+        }
+      })();
     } catch (e) {
+      setImageEnhancing(false);
       setPreviewRegenerating(false);
       setPreviewVisible(false);
       const msg =
@@ -846,8 +871,11 @@ export default function CreateScreen() {
                 <View style={styles.previewHeader}>
                   <View style={styles.previewHeaderLeft}>
                     <Text style={styles.previewHeaderTitle}>Preview</Text>
-                    {captionAiProvider ? (
-                      <Text style={styles.previewAiProviderLabel}>AI: {captionAiProvider}</Text>
+                    {captionAiProvider || imageEnhancing ? (
+                      <Text style={styles.previewAiProviderLabel}>
+                        {captionAiProvider ? `AI: ${captionAiProvider}` : 'AI'}
+                        {imageEnhancing ? ' • Enhancing image...' : ''}
+                      </Text>
                     ) : null}
                   </View>
                   <TouchableOpacity
@@ -1032,13 +1060,13 @@ export default function CreateScreen() {
                     onPress={handlePreviewPostPress}
                     activeOpacity={0.9}
                     style={styles.previewPostBtnOuter}
-                    disabled={!generatedPost.id}
+                    disabled={previewRegenerating}
                   >
                     <LinearGradient
                       colors={GradientColors.primary}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={[styles.previewPostBtnGrad, !generatedPost.id && styles.previewPostBtnGradDisabled]}
+                      style={[styles.previewPostBtnGrad, previewRegenerating && styles.previewPostBtnGradDisabled]}
                     >
                       <Text style={styles.previewPostBtnText}>Post →</Text>
                     </LinearGradient>
@@ -1054,8 +1082,9 @@ export default function CreateScreen() {
         visible={accountSelectorVisible}
         onClose={() => setAccountSelectorVisible(false)}
         onPost={handlePublishFromSheet}
+        onSaveDraft={handleSaveDraftFromSheet}
+        onDraftSaved={onAccountSheetDrafted}
         onPosted={onAccountSheetPosted}
-        postId={generatedPost?.id ?? ''}
       />
     </SafeAreaView>
   );
