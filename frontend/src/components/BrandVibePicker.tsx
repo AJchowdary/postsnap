@@ -66,11 +66,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
   },
   cardIdle: {
-    backgroundColor: '#141f38',
+    backgroundColor: Colors.inputBackground,
     borderLeftColor: 'transparent',
   },
   cardSelected: {
-    backgroundColor: 'rgba(186,158,255,0.1)',
+    backgroundColor: Colors.primaryLight,
     borderLeftColor: Colors.primary,
   },
   emoji: { fontSize: 48, lineHeight: 52 },

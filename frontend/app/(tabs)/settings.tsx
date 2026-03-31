@@ -21,7 +21,13 @@ import {
   getMetaOAuthLoginUrl,
   getMetaOAuthRedirectUrlForBrowser,
   scanWebsite,
+  getMyAccount,
+  setPushNotificationsEnabledApi,
+  savePushToken,
+  fetchDraftsFromBackend,
+  DRAFT_LIMIT,
 } from '../../src/services/api';
+import { registerForPushNotifications } from '../../src/services/notifications';
 import BrandColorPicker from '../../src/components/BrandColorPicker';
 import BrandVibePicker from '../../src/components/BrandVibePicker';
 import { purchaseSubscription, restorePurchases, refreshSubscriptionFromBackend } from '../../src/services/iapService';
@@ -83,7 +89,7 @@ export default function SettingsScreen() {
   const [oauthBusyPlatform, setOauthBusyPlatform] = useState<SocialPlatform | null>(null);
   const [typeModalVisible, setTypeModalVisible] = useState(false);
 
-  const [brandColorDraft, setBrandColorDraft] = useState(businessProfile.brandColor || '#2A9D8F');
+  const [brandColorDraft, setBrandColorDraft] = useState(businessProfile.brandColor || Colors.accent);
   const [brandVibeDraft, setBrandVibeDraft] = useState<BrandVibe | undefined>(businessProfile.brandVibe);
   const [websiteUrlDraft, setWebsiteUrlDraft] = useState(businessProfile.websiteUrl || '');
   const [websiteSummaryDraft, setWebsiteSummaryDraft] = useState(businessProfile.websiteSummary || '');
@@ -92,9 +98,13 @@ export default function SettingsScreen() {
   const [colorModalOpen, setColorModalOpen] = useState(false);
   const [vibeModalOpen, setVibeModalOpen] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
+  const [draftMeta, setDraftMeta] = useState<{ count: number; limit: number }>({
+    count: 0,
+    limit: DRAFT_LIMIT,
+  });
 
   useEffect(() => {
-    setBrandColorDraft(businessProfile.brandColor || '#2A9D8F');
+    setBrandColorDraft(businessProfile.brandColor || Colors.accent);
     setBrandVibeDraft(businessProfile.brandVibe);
     setWebsiteUrlDraft(businessProfile.websiteUrl || '');
     setWebsiteSummaryDraft(businessProfile.websiteSummary || '');
@@ -136,6 +146,36 @@ export default function SettingsScreen() {
         cancelled = true;
       };
     }, [setSocialAccounts])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const acc = await getMyAccount();
+          if (cancelled || !acc || typeof acc.pushNotificationsEnabled !== 'boolean') return;
+          setBusinessProfile({ pushNotificationsEnabled: acc.pushNotificationsEnabled });
+        } catch {
+          /* offline */
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [setBusinessProfile])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void fetchDraftsFromBackend().then((d) => {
+        if (!cancelled) setDraftMeta({ count: d.count, limit: d.limit });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
   );
 
   const saveBusiness = async () => {
@@ -289,6 +329,27 @@ export default function SettingsScreen() {
     }
   };
 
+  const pushEnabled = businessProfile.pushNotificationsEnabled !== false;
+
+  const handlePushToggle = async (enabled: boolean) => {
+    const prev = businessProfile.pushNotificationsEnabled !== false;
+    setBusinessProfile({ pushNotificationsEnabled: enabled });
+    try {
+      const { account } = await setPushNotificationsEnabledApi(enabled);
+      const a = account as { pushNotificationsEnabled?: boolean };
+      if (typeof a.pushNotificationsEnabled === 'boolean') {
+        setBusinessProfile({ pushNotificationsEnabled: a.pushNotificationsEnabled });
+      }
+      if (enabled) {
+        const token = await registerForPushNotifications();
+        if (token) await savePushToken(token);
+      }
+    } catch {
+      setBusinessProfile({ pushNotificationsEnabled: prev });
+      showToast('Could not update push notifications', 'error');
+    }
+  };
+
   const performLogout = async () => {
     await clearAuth();
     router.replace('/auth?mode=login');
@@ -334,6 +395,57 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        <SectionHeader title="Your posts" />
+        <View style={styles.card}>
+          <SettingsRow
+            testID="settings-post-history"
+            icon="time-outline"
+            iconBg={Colors.secondary}
+            label="Post history"
+            sublabel="Drafts, published, and past posts"
+            onPress={() => router.push('/(tabs)/history')}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            testID="settings-drafts"
+            icon="document-text-outline"
+            iconBg={Colors.primary}
+            label="Drafts"
+            sublabel={`${draftMeta.count} of ${draftMeta.limit} slots used`}
+            onPress={() => router.push('/(tabs)/drafts')}
+            rightEl={
+              <View style={styles.draftRowRight}>
+                {draftMeta.count > 0 ? (
+                  <View style={styles.draftBadge}>
+                    <Text style={styles.draftBadgeText}>{draftMeta.count}</Text>
+                  </View>
+                ) : null}
+                <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+              </View>
+            }
+          />
+        </View>
+
+        <SectionHeader title="Notifications" />
+        <View style={styles.card}>
+          <View style={styles.settingsRow}>
+            <View style={[styles.rowIcon, { backgroundColor: Colors.accent }]}>
+              <Ionicons name="notifications-outline" size={16} color={Colors.white} />
+            </View>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Push Notifications</Text>
+              <Text style={styles.rowSublabel}>Alerts for publishing and Brand DNA</Text>
+            </View>
+            <Switch
+              testID="push-notifications-switch"
+              value={pushEnabled}
+              onValueChange={(v) => void handlePushToggle(v)}
+              trackColor={{ false: Colors.border, true: Colors.primaryMid }}
+              thumbColor={pushEnabled ? Colors.primary : Colors.white}
+            />
+          </View>
+        </View>
+
         {/* ---- Business Profile ---- */}
         <SectionHeader title="Business Profile" />
         <View style={styles.card}>
@@ -350,14 +462,14 @@ export default function SettingsScreen() {
               <View style={styles.divider} />
               <SettingsRow
                 icon="color-palette-outline"
-                iconBg="#8b5cf6"
+                iconBg={Colors.primaryDark}
                 label="Brand Style"
                 sublabel={brandStyle.charAt(0).toUpperCase() + brandStyle.slice(1)}
                 onPress={() => setEditingBusiness(true)}
               />
               <View style={styles.divider} />
               <View style={styles.settingsRow}>
-                <View style={[styles.rowIcon, { backgroundColor: '#0ea5e9' }]}>
+                <View style={[styles.rowIcon, { backgroundColor: Colors.info }]}>
                   <Ionicons name="layers-outline" size={16} color={Colors.white} />
                 </View>
                 <View style={styles.rowContent}>
@@ -450,6 +562,13 @@ export default function SettingsScreen() {
 
         {/* ---- Brand DNA ---- */}
         <SectionHeader title="Brand DNA" />
+        <SettingsRow
+          icon="sparkles"
+          iconBg={Colors.primary}
+          label="Brand DNA dashboard"
+          sublabel="Logo, colors, tone, and reference images"
+          onPress={() => router.push('/brand-dna')}
+        />
         <View style={styles.card}>
           <Text style={styles.brandDnaHeader}>
             {businessProfile.brandDnaSource === 'website' && '🌐 Brand DNA — Built from your website'}
@@ -675,7 +794,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <SettingsRow
             icon="help-circle-outline"
-            iconBg="#64748b"
+            iconBg={Colors.textMuted}
             label="Help & Support"
             onPress={() => showToast('Support: hello@quickpost.app', 'info')}
             testID="settings-help-row"
@@ -683,7 +802,7 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <SettingsRow
             icon="chatbubble-ellipses-outline"
-            iconBg="#64748b"
+            iconBg={Colors.textMuted}
             label="Send Feedback"
             onPress={() => Linking.openURL('mailto:hello@quickpost.app?subject=Quickpost%20Feedback')}
             testID="settings-feedback-row"
@@ -691,7 +810,7 @@ export default function SettingsScreen() {
         </View>
 
         <TouchableOpacity testID="settings-logout-row" onPress={handleLogout} style={styles.signOutBtn} activeOpacity={0.85}>
-          <Ionicons name="log-out-outline" size={18} color="#ffd7e1" />
+          <Ionicons name="log-out-outline" size={18} color={Colors.error} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
@@ -730,6 +849,17 @@ const styles = StyleSheet.create({
   sectionHeader: { paddingHorizontal: Spacing.base, marginBottom: Spacing.sm, marginTop: Spacing.lg, ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.8 },
   card: { marginHorizontal: Spacing.base, backgroundColor: Colors.surfaceContainer, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
   divider: { height: 1, backgroundColor: Colors.border, marginLeft: 56 },
+  draftRowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  draftBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  draftBadgeText: { fontSize: 12, fontWeight: '800', color: Colors.primary },
   settingsRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   rowIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   rowContent: { flex: 1 },
@@ -763,7 +893,7 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' },
   cancelBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
   saveBtn: { flex: 1, paddingVertical: 12, borderRadius: BorderRadius.full, backgroundColor: Colors.primary, alignItems: 'center' },
-  saveBtnText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  saveBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textOnPrimary },
   connectBtn: { minWidth: 88, paddingHorizontal: 12, paddingVertical: 7, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   connectBtnDisabled: { opacity: 0.6 },
   connectBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
@@ -785,11 +915,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(236,99,140,0.28)',
+    backgroundColor: Colors.errorLight,
     borderRadius: BorderRadius.full,
     paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: Colors.errorBorderMuted,
   },
-  signOutText: { color: '#ffd7e1', fontWeight: '800', fontSize: 15 },
+  signOutText: { color: Colors.error, fontWeight: '800', fontSize: 15 },
 
   brandDnaHeader: {
     fontSize: 14,
@@ -827,7 +959,7 @@ const styles = StyleSheet.create({
   brandSaveWrap: { padding: 16 },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: Colors.overlay55,
     justifyContent: 'flex-end',
   },
   modalCard: {

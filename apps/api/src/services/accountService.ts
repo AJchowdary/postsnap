@@ -1,10 +1,12 @@
 import { getDb } from '../db';
-import { NotFoundError } from '../utils/errors';
+import { getSupabase } from '../db/supabaseClient';
+import { NotFoundError, ValidationError } from '../utils/errors';
 import { BusinessProfileInput, CaptureSignalInput } from '../schemas/account';
 import { scrapeAndAnalyzeWebsite } from './websiteScraperService';
 import { enrichBrandBrain } from './brandBrainEnrichmentService';
 import { trackEvent } from './analyticsEvents';
 import { logger } from '../utils/logger';
+import { parseHttpOrHttpsWebsiteUrl } from '../utils/websiteUrl';
 
 function defaultDisplayType(type: string): string {
   const m: Record<string, string> = {
@@ -23,6 +25,8 @@ interface AccountRecord {
   userId?: string;
   businessType: string;
   createdAt: string;
+  pushToken?: string | null;
+  pushNotificationsEnabled?: boolean | null;
 }
 
 interface BusinessProfileRecord {
@@ -75,15 +79,7 @@ interface BusinessProfileRecord {
 const TRIAL_DAYS = 14;
 
 function normalizeWebsiteInput(raw: string): string | null {
-  const t = raw.trim();
-  if (!t) return null;
-  try {
-    const u = new URL(t.startsWith('http://') || t.startsWith('https://') ? t : `https://${t}`);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-    return u.href;
-  } catch {
-    return null;
-  }
+  return parseHttpOrHttpsWebsiteUrl(raw);
 }
 
 function dedupeRecent(items: string[], max = 20): string[] {
@@ -234,6 +230,7 @@ function formatAccount(
     brandStyle: profile?.brandStyle ?? 'clean',
     useLogoOverlay: profile?.overlayDefaultOn ?? false,
     updatedAt: profile?.updatedAt ?? account.createdAt,
+    pushNotificationsEnabled: account.pushNotificationsEnabled !== false,
   };
 }
 
@@ -245,6 +242,16 @@ export async function getAccount(ownerUserId: string) {
     account_id: account.id,
   });
   return formatAccount(account, profile);
+}
+
+/**
+ * Same data as `getAccount`, but throws if missing. Use instead of
+ * `requireAccountForUser` + `getAccount` to avoid duplicate account lookups.
+ */
+export async function requireAccountRecordForUser(ownerUserId: string): Promise<Record<string, any>> {
+  const record = await getAccount(ownerUserId);
+  if (!record) throw new NotFoundError('Account not found');
+  return record;
 }
 
 export async function scanAndSaveWebsite(ownerUserId: string, rawUrl: string) {
@@ -544,4 +551,135 @@ export async function captureSignal(ownerUserId: string, input: CaptureSignalInp
     account_id: account.id,
   });
   return formatAccount(account, profile);
+}
+
+export interface NotificationItem {
+  id: string;
+  accountId: string;
+  title: string;
+  body: string;
+  type: string;
+  read: boolean;
+  postId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function formatNotificationRow(row: {
+  id: string;
+  accountId: string;
+  title: string;
+  body: string;
+  type: string;
+  read: boolean;
+  postId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}): NotificationItem {
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    title: row.title,
+    body: row.body,
+    type: row.type,
+    read: row.read,
+    postId: row.postId ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export async function saveExpoPushToken(ownerUserId: string, token: string): Promise<void> {
+  const accountId = await requireAccountForUser(ownerUserId);
+  const db = await getDb();
+  const trimmed = token.trim();
+  if (!trimmed) throw new ValidationError('Push token required');
+  await db.updateOne('accounts', accountId, {
+    pushToken: trimmed,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function setPushNotificationsEnabled(
+  ownerUserId: string,
+  enabled: boolean
+): Promise<Record<string, unknown>> {
+  const db = await getDb();
+  const account = await db.findOne<AccountRecord>('accounts', { owner_user_id: ownerUserId });
+  if (!account) throw new NotFoundError('Account not found');
+  await db.updateOne('accounts', account.id, {
+    pushNotificationsEnabled: enabled,
+    updatedAt: new Date().toISOString(),
+  });
+  const profile = await db.findOne<BusinessProfileRecord>('business_profiles', {
+    account_id: account.id,
+  });
+  return formatAccount({ ...account, pushNotificationsEnabled: enabled }, profile);
+}
+
+export async function listNotifications(
+  ownerUserId: string,
+  opts?: { limit?: number }
+): Promise<NotificationItem[]> {
+  const accountId = await requireAccountForUser(ownerUserId);
+  const db = await getDb();
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100);
+  const rows = await db.findMany<{
+    id: string;
+    accountId: string;
+    title: string;
+    body: string;
+    type: string;
+    read: boolean;
+    postId?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>('notifications', { accountId }, { createdAt: -1 });
+  return rows.slice(0, limit).map(formatNotificationRow);
+}
+
+export async function unreadNotificationCount(ownerUserId: string): Promise<number> {
+  const accountId = await requireAccountForUser(ownerUserId);
+  const db = await getDb();
+  return db.countDocuments('notifications', { accountId, read: false });
+}
+
+export async function markNotificationRead(
+  ownerUserId: string,
+  notificationId: string
+): Promise<NotificationItem> {
+  const accountId = await requireAccountForUser(ownerUserId);
+  const db = await getDb();
+  const row = await db.findOne<{
+    id: string;
+    accountId: string;
+    title: string;
+    body: string;
+    type: string;
+    read: boolean;
+    postId?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>('notifications', { id: notificationId, accountId });
+  if (!row) throw new NotFoundError('Notification not found');
+  const now = new Date().toISOString();
+  await db.updateOne('notifications', notificationId, {
+    read: true,
+    updatedAt: now,
+  });
+  return formatNotificationRow({ ...row, read: true, updatedAt: now });
+}
+
+export async function markAllNotificationsRead(ownerUserId: string): Promise<{ updated: number }> {
+  const accountId = await requireAccountForUser(ownerUserId);
+  const supabase = getSupabase();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({ read: true, updated_at: now })
+    .eq('account_id', accountId)
+    .eq('read', false)
+    .select('id');
+  if (error) throw new Error(`markAllNotificationsRead: ${error.message}`);
+  return { updated: data?.length ?? 0 };
 }

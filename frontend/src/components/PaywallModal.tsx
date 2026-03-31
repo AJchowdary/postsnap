@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, BorderRadius } from '../constants/theme';
+import { Colors, BorderRadius, Shadows } from '../constants/theme';
 
 interface PaywallModalProps {
   visible: boolean;
@@ -130,18 +130,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
-    backgroundColor: '#0f172a',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: Colors.paper,
+    borderTopLeftRadius: BorderRadius.card,
+    borderTopRightRadius: BorderRadius.card,
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 12,
     maxHeight: Dimensions.get('window').height * 0.85,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.card,
   },
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: Colors.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -153,7 +156,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: Colors.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
@@ -179,22 +182,24 @@ const styles = StyleSheet.create({
   headline: {
     fontSize: 24,
     fontWeight: '800',
-    color: Colors.white,
+    color: Colors.textPrimary,
     textAlign: 'center',
     lineHeight: 32,
     marginBottom: 10,
   },
   subtext: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.55)',
+    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   featuresCard: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.card,
     marginBottom: 24,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   featureRow: {
     flexDirection: 'row',
@@ -204,7 +209,7 @@ const styles = StyleSheet.create({
   },
   featureBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
+    borderBottomColor: Colors.border,
   },
   featureIcon: {
     width: 34,
@@ -218,7 +223,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.85)',
+    color: Colors.textPrimary,
     lineHeight: 20,
   },
   priceRow: {
@@ -230,35 +235,31 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 44,
     fontWeight: '800',
-    color: Colors.white,
+    color: Colors.textPrimary,
     letterSpacing: -1,
   },
   pricePer: {
     fontSize: 18,
-    color: 'rgba(255,255,255,0.5)',
+    color: Colors.textMuted,
     marginBottom: 8,
     marginLeft: 4,
   },
   fairUse: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+    color: Colors.textMuted,
     textAlign: 'center',
     marginBottom: 24,
   },
   upgradeBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.button,
     paddingVertical: 18,
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Shadows.primary,
   },
   upgradeBtnText: {
-    color: Colors.white,
+    color: Colors.textOnPrimary,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.4)',
+    color: Colors.textMuted,
     fontWeight: '500',
   },
 });

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseHttpOrHttpsWebsiteUrl } from '../utils/websiteUrl';
 
 export const BusinessProfileSchema = z.object({
   name: z.string().min(1, 'Business name is required'),
@@ -46,7 +47,15 @@ export const BusinessProfileSchema = z.object({
 });
 
 export const ScanWebsiteSchema = z.object({
-  websiteUrl: z.string().min(1).max(2048),
+  websiteUrl: z
+    .string()
+    .max(2048, 'Website URL is too long')
+    .transform((s) => s.trim())
+    .refine((s) => s.length > 0, { message: 'Website URL is required' })
+    .refine((s) => parseHttpOrHttpsWebsiteUrl(s) !== null, {
+      message: 'Enter a valid http(s) website URL',
+    })
+    .transform((s) => parseHttpOrHttpsWebsiteUrl(s)!),
 });
 
 /**
@@ -82,6 +91,18 @@ export const CaptureSignalSchema = z.object({
 export const ConnectSocialSchema = z.object({
   platform: z.enum(['instagram', 'facebook']),
   handle: z.string().min(1, 'Handle is required'),
+});
+
+export const ExpoPushTokenSchema = z.object({
+  token: z.string().min(1, 'Push token is required').max(4096),
+});
+
+export const PushNotificationsEnabledSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export const ListNotificationsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 export type BootstrapAccountInput = z.infer<typeof BootstrapAccountSchema>;

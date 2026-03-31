@@ -27,10 +27,14 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<PostStatus, { bg: string; text: string; icon: string }> = {
-  published: { bg: Colors.successLight, text: '#15803d', icon: 'checkmark-circle' },
-  draft: { bg: Colors.warningLight, text: '#b45309', icon: 'document-text' },
+  published: { bg: Colors.successLight, text: Colors.successOnLight, icon: 'checkmark-circle' },
+  draft: { bg: Colors.warningLight, text: Colors.warningOnLight, icon: 'document-text' },
   failed: { bg: Colors.errorLight, text: Colors.error, icon: 'close-circle' },
-  scheduled: { bg: 'rgba(99,102,241,0.15)', text: '#6366f1', icon: 'calendar-outline' },
+  scheduled: { bg: Colors.primaryLight, text: Colors.primaryDark, icon: 'calendar-outline' },
+  generating: { bg: Colors.primaryLight, text: Colors.primaryDark, icon: 'sync' },
+  ready: { bg: Colors.successLight, text: Colors.successOnLight, icon: 'image-outline' },
+  publishing: { bg: Colors.primaryLight, text: Colors.primaryDark, icon: 'cloud-upload-outline' },
+  partial_failed: { bg: Colors.warningLight, text: Colors.warningOnLight, icon: 'warning-outline' },
 };
 
 function formatDate(iso: string) {
@@ -144,11 +148,27 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} testID="history-title">History</Text>
-          {loading && <ActivityIndicator size="small" color={Colors.primary} style={styles.headerSpinner} />}
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)/settings');
+          }}
+          hitSlop={12}
+          accessibilityLabel="Back"
+          style={styles.backBtn}
+        >
+          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} testID="history-title">History</Text>
+            {loading && <ActivityIndicator size="small" color={Colors.primary} style={styles.headerSpinner} />}
+          </View>
+          <Text style={styles.count}>
+            {filtered.length} post{filtered.length !== 1 ? 's' : ''}
+          </Text>
         </View>
-        <Text style={styles.count}>{filtered.length} post{filtered.length !== 1 ? 's' : ''}</Text>
+        <View style={styles.backBtnSpacer} />
       </View>
 
       {/* Filter */}
@@ -393,8 +413,17 @@ function getTemplateLabel(template: string): string {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingTop: Spacing.base, paddingBottom: Spacing.md },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.md,
+  },
+  backBtn: { width: 40, paddingTop: 2 },
+  backBtnSpacer: { width: 40 },
+  headerCenter: { flex: 1, minWidth: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   title: { ...Typography.h2 },
   headerSpinner: { marginLeft: 4 },
   count: { ...Typography.bodySmall, color: Colors.textTertiary },
@@ -444,7 +473,7 @@ const styles = StyleSheet.create({
 
 const modal = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: Colors.overlay40 },
   sheet: { backgroundColor: Colors.paper, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '92%', paddingBottom: 32 },
   handle: { width: 36, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },

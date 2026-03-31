@@ -137,13 +137,17 @@ Rules:
 export function buildPhotoStudioStyledPrompt(params: {
   businessType: string;
   userDescription: string;
-  style: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  style: string;
   brandColor?: string | null;
   studioBgColor?: string | null;
   visualStyle?: string | null;
   brandColors?: string[] | null;
 }): string {
-  const styleHint = STUDIO_STYLE_HINTS[params.style];
+  const rawStyle = params.style.trim();
+  const styleHint =
+    rawStyle in STUDIO_STYLE_HINTS
+      ? STUDIO_STYLE_HINTS[rawStyle as keyof typeof STUDIO_STYLE_HINTS]
+      : rawStyle.slice(0, 500);
   const palette =
     params.brandColors && params.brandColors.length
       ? params.brandColors.slice(0, 8).join(', ')

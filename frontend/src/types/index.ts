@@ -12,12 +12,22 @@ export type StudioStyle =
   | 'flat-lay'
   | 'outdoor-natural';
 export type PreferredCaptionLength = 'short' | 'medium' | 'long';
-export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed';
+export type PostStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'published'
+  | 'failed'
+  | 'generating'
+  | 'ready'
+  | 'publishing'
+  | 'partial_failed';
 export type Platform = 'instagram' | 'facebook';
 export type SubscriptionStatus = 'trial' | 'subscribed' | 'expired';
 
 export interface BusinessProfile {
   name: string;
+  /** Server account flag; when false, push token registration is skipped. */
+  pushNotificationsEnabled?: boolean;
   /** Internal AI tone bucket (templates, tone guide). */
   type: BusinessType;
   /** Shown in UI and passed to the model as the specific business label. */
@@ -103,12 +113,18 @@ export interface Post {
   description: string;
   caption: string;
   processedImage?: string;
+  /** Signed read URL from GET /posts (not stored in DB). */
+  photoUrl?: string;
+  /** Signed read URL for processed image from GET /posts. */
+  processedImageUrl?: string;
   exportAssets?: PostExportAssetsPayload;
   platforms: Platform[];
   status: PostStatus;
   createdAt: string;
   publishedAt?: string;
   scheduledAt?: string;
+  /** Server-set when post was created from a campaign */
+  campaignId?: string;
 }
 
 export interface ToastMessage {
@@ -116,6 +132,26 @@ export interface ToastMessage {
   message: string;
   type: 'success' | 'error' | 'info';
 }
+
+/** Quick-create horizontal chips (matches API `CampaignIdeaCard` shape). */
+export type SuggestionCard = {
+  id: string;
+  emoji: string;
+  contentAngle: string;
+  headline: string;
+  rationale: string;
+  prompt: string;
+};
+
+/** Product attached to a campaign (URL scrape or manual entry). */
+export type ProductContext = {
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  price?: string;
+  url?: string;
+  isManual?: boolean;
+};
 
 export interface Template {
   id: string;

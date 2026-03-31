@@ -2,6 +2,20 @@
  * Generic marketing copy detector — hard fails trigger silent caption retry upstream.
  */
 
+import { BANNED_OPENER_PREFIXES } from '../../prompts/quickpostAI';
+
+function mergeOpenerPrefixes(base: readonly string[], extra: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of [...base, ...extra]) {
+    const k = x.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+}
+
 export type GenericDetectionContext = {
   city: string;
   services: string[];
@@ -19,18 +33,21 @@ export type DetectionResult = {
   score: number;
 };
 
-const OPENER_PREFIXES: readonly string[] = [
-  'are you looking for',
-  "we're excited to",
-  'we are excited to',
-  'transform your',
-  'elevate your',
-  "in today's fast-paced world",
-  "don't miss out on",
-  'looking for the best',
-  'discover the difference',
-  'your journey starts here',
-];
+const OPENER_PREFIXES: readonly string[] = mergeOpenerPrefixes(
+  [
+    'are you looking for',
+    "we're excited to",
+    'we are excited to',
+    'transform your',
+    'elevate your',
+    "in today's fast-paced world",
+    "don't miss out on",
+    'looking for the best',
+    'discover the difference',
+    'your journey starts here',
+  ],
+  BANNED_OPENER_PREFIXES
+);
 
 const GENERIC_ONLY_HASHTAGS = new Set([
   '#smallbusiness',

@@ -1,27 +1,83 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BorderRadius, Colors, GradientColors } from '../src/constants/theme';
+import LegalDisclosureModal from '../src/components/LegalDisclosureModal';
+import { legalAcceptedStorageKey } from '../src/constants/legal';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const [legalPhase, setLegalPhase] = useState<'checking' | 'needs_modal' | 'ready'>('checking');
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const key = legalAcceptedStorageKey();
+        const accepted = await AsyncStorage.getItem(key);
+        if (!alive) return;
+        setLegalPhase(accepted ? 'ready' : 'needs_modal');
+      } catch {
+        if (alive) setLegalPhase('needs_modal');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleLegalAgree = useCallback(async () => {
+    await AsyncStorage.setItem(legalAcceptedStorageKey(), '1');
+    setLegalPhase('ready');
+  }, []);
+
+  const handleLegalExit = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    if (Platform.OS === 'android') {
+      BackHandler.exitApp();
+      return;
+    }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.close();
+      if (window.history.length > 1) {
+        window.history.back();
+      }
+    }
+  }, [router]);
 
   return (
     <LinearGradient
-      colors={GradientColors.dark}
+      colors={GradientColors.welcome}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.root}
     >
+      {legalPhase === 'checking' && (
+        <View style={styles.legalChecking} pointerEvents="auto">
+          <ActivityIndicator color={Colors.primary} size="large" />
+        </View>
+      )}
+      <LegalDisclosureModal
+        visible={legalPhase === 'needs_modal'}
+        onAgree={handleLegalAgree}
+        onExit={handleLegalExit}
+      />
       <View style={styles.glow1} />
       <View style={styles.glow2} />
       <View style={styles.glow3} />
@@ -85,6 +141,13 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  legalChecking: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
   safe: { flex: 1 },
   scroll: {
     flexGrow: 1,
@@ -161,7 +224,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -1.1,
     lineHeight: 48,
-    color: Colors.background,
+    color: Colors.textOnPrimary,
     fontFamily: 'Manrope',
   },
   subtitle: {
@@ -197,14 +260,16 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 17,
     fontWeight: '800',
-    color: Colors.background,
+    color: Colors.textOnPrimary,
     fontFamily: 'Manrope',
   },
   secondaryBtn: {
     paddingVertical: 16,
     alignItems: 'center',
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(20,31,56,0.6)',
+    backgroundColor: Colors.paper,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   secondaryBtnText: {
     fontWeight: '800',

@@ -25,7 +25,7 @@ export default function StatusChip({ status, daysLeft, postsLeft, size = 'sm', t
 
 function getConfig(status: SubscriptionStatus, daysLeft?: number, postsLeft?: number) {
   if (status === 'subscribed') {
-    return { bg: Colors.successLight, color: '#16a34a', label: 'Subscribed' };
+    return { bg: Colors.successLight, color: '#047857', label: 'Subscribed' };
   }
   if (status === 'expired') {
     return { bg: Colors.errorLight, color: Colors.error, label: 'Trial ended' };

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import BrandColorPicker from '../src/components/BrandColorPicker';
 import BrandVibePicker from '../src/components/BrandVibePicker';
 import type { BrandVibe, BusinessType } from '../src/types';
 import { buildManualOnboardingProfilePayload } from '../src/constants/categoryDefaults';
+import WebsiteDnaScanOverlay from '../src/components/WebsiteDnaScanOverlay';
 
 type Flow = 'undecided' | 'manual' | 'website';
 
@@ -81,12 +82,12 @@ export default function OnboardingScreen() {
   const [websiteUrlDraft, setWebsiteUrlDraft] = useState('');
   const [serverAccount, setServerAccount] = useState<Record<string, any> | null>(null);
 
-  const [brandColor, setBrandColor] = useState('#2A9D8F');
+  const [brandColor, setBrandColor] = useState('#00D4AA');
   const [brandVibe, setBrandVibe] = useState<BrandVibe>('warm');
 
   const [saving, setSaving] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
-  const [scanStatus, setScanStatus] = useState('');
+  const scanAbortRef = useRef<AbortController | null>(null);
 
   const dots = useMemo(() => progressDots(step, flow), [step, flow]);
 
@@ -99,13 +100,21 @@ export default function OnboardingScreen() {
     setStep(3);
   };
 
+  const cancelWebsiteScan = () => {
+    scanAbortRef.current?.abort();
+    scanAbortRef.current = null;
+    setScanBusy(false);
+  };
+
   const runWebsiteScan = async () => {
     const u = websiteUrlDraft.trim();
     if (!u) return;
+    scanAbortRef.current?.abort();
+    const controller = new AbortController();
+    scanAbortRef.current = controller;
     setScanBusy(true);
-    setScanStatus('Analyzing your brand... 🔍');
     try {
-      const { account } = await scanWebsite(u);
+      const { account } = await scanWebsite(u, { signal: controller.signal });
       const acc = account as Record<string, any>;
       setServerAccount(acc);
       if (!businessName.trim() && typeof acc.name === 'string' && acc.name.trim()) {
@@ -125,10 +134,13 @@ export default function OnboardingScreen() {
       setFlow('website');
       setStep(5);
     } catch (e) {
+      if (e instanceof Error && e.message === 'Request cancelled') {
+        return;
+      }
       showToast(e instanceof Error ? e.message : 'Could not scan website. Try manual setup.', 'error');
     } finally {
+      scanAbortRef.current = null;
       setScanBusy(false);
-      setScanStatus('');
     }
   };
 
@@ -321,7 +333,7 @@ export default function OnboardingScreen() {
                       setStep(2);
                     }}
                     disabled={!businessName.trim()}
-                    icon={<Ionicons name="arrow-forward" size={18} color={Colors.white} />}
+                    icon={<Ionicons name="arrow-forward" size={18} color={Colors.textOnPrimary} />}
                   />
                 </View>
               </>
@@ -384,7 +396,6 @@ export default function OnboardingScreen() {
                         )}
                       </LinearGradient>
                     </TouchableOpacity>
-                    {!!scanStatus && <Text style={styles.scanStatus}>{scanStatus}</Text>}
                   </View>
                 )}
 
@@ -473,6 +484,12 @@ export default function OnboardingScreen() {
             )}
           </ScrollView>
         </KeyboardAvoidingView>
+
+        <WebsiteDnaScanOverlay
+          visible={scanBusy}
+          urlRaw={websiteUrlDraft}
+          onCancel={cancelWebsiteScan}
+        />
       </View>
     </SafeAreaView>
   );
@@ -523,7 +540,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadows.primary,
   },
-  logoText: { color: Colors.background, fontWeight: '900', fontSize: 16 },
+  logoText: { color: Colors.textOnPrimary, fontWeight: '900', fontSize: 16 },
   appName: { fontSize: 18, fontWeight: '900', color: Colors.textPrimary },
 
   dotsRow: {
@@ -572,12 +589,13 @@ const styles = StyleSheet.create({
   backText: { fontSize: 14, color: Colors.primary, fontWeight: '800' },
 
   bigCard: {
-    backgroundColor: 'rgba(25,37,64,0.75)',
-    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.paper,
+    borderRadius: BorderRadius.card,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(186,158,255,0.35)',
+    borderColor: Colors.border,
+    ...Shadows.sm,
   },
   bigCardEmoji: { fontSize: 36, marginBottom: 8 },
   bigCardTitle: { fontSize: 18, fontWeight: '900', color: Colors.textPrimary, marginBottom: 6 },
@@ -589,18 +607,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  gradBtnText: { color: Colors.background, fontWeight: '900', fontSize: 15 },
-  scanStatus: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center' },
-
+  gradBtnText: { color: Colors.textOnPrimary, fontWeight: '900', fontSize: 15 },
   manualLink: { alignItems: 'center', paddingVertical: 12 },
   manualLinkText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
 
   reviewCard: {
-    backgroundColor: 'rgba(25,37,64,0.55)',
-    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.paper,
+    borderRadius: BorderRadius.card,
     padding: 16,
     marginBottom: 16,
     gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.sm,
   },
   reviewOk: { fontSize: 15, fontWeight: '800', color: Colors.success },
   reviewLabel: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },

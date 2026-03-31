@@ -1,302 +1,349 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Image,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Alert,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../../src/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Colors, Spacing, BorderRadius, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
 import {
   captureSignal,
-  generateCaption,
+  editCaptionWithAI,
   generateCaptionDetailed,
   generatePostImage,
-  savePostToBackend,
+  getCampaignSuggestions,
   publishPostToBackend,
-  GenerateCaptionQuality,
-  GenerateCaptionResponse,
+  savePostToBackend,
+  type EditCaptionChatTurn,
 } from '../../src/services/api';
-import PrimaryButton from '../../src/components/PrimaryButton';
-import SecondaryButton from '../../src/components/SecondaryButton';
-import { SchedulePicker } from '../../src/components/SchedulePicker';
-import { TEMPLATES_BY_TYPE, Platform as SocialPlatform, BusinessType, Template } from '../../src/types';
+import type { BusinessType, Platform as SocialPlatform, Post, SuggestionCard } from '../../src/types';
+import { getTopicSuggestions } from '../../src/constants/quickTopicFallbacks';
+import AccountSelectorSheet from '../../src/components/AccountSelectorSheet';
 
-const CREATE_BG = '#0d0d0d';
-const CREATE_CARD = '#141414';
-type TemplatePreview = { id: string; label: string; uri: string; mediaType: 'photo' | 'video' };
-type TopicSuggestion = { id: string; icon: string; title: string; subtitle: string; prompt: string };
+const ASPECT_FOUR_FIVE: [number, number] = [4, 5];
+const IDEA_MAX = 280;
+const WARN_LEN = 260;
+const SCROLL_TO_INPUT_Y = 200;
 
-/** Raw base64 or full data URL from API */
-function imageDataUri(s: string | null | undefined): string | undefined {
-  if (!s) return undefined;
-  if (s.startsWith('data:') || s.startsWith('http')) return s;
-  return `data:image/jpeg;base64,${s}`;
-}
-
-const BUSINESS_TEMPLATE_MEDIA: Record<BusinessType, { uri: string; mediaType: 'photo' | 'video' }[]> = {
-  restaurant: [
-    { uri: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=300&h=380&fit=crop', mediaType: 'video' },
-  ],
-  salon: [
-    { uri: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1600948836101-f9ffda59d250?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1582095133179-bfd08e2fc6b3?w=300&h=380&fit=crop', mediaType: 'video' },
-  ],
-  retail: [
-    { uri: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1557821552-17105176677c?w=300&h=380&fit=crop', mediaType: 'video' },
-  ],
-  gym: [
-    { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1517963879433-6ad2b056d712?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1593079831268-3381b0db4a77?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=300&h=380&fit=crop', mediaType: 'video' },
-  ],
-  cafe: [
-    { uri: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1511537190424-bbbab87ac5eb?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1494314671902-399b18174975?w=300&h=380&fit=crop', mediaType: 'video' },
-    { uri: 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=300&h=380&fit=crop', mediaType: 'photo' },
-    { uri: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300&h=380&fit=crop', mediaType: 'video' },
-  ],
-};
-
-const SPECIFICITY_ANGLES = ['offer', 'story', 'local', 'event'] as const;
-const CAPTION_QUALITY_GATE_THRESHOLD = 70;
-const STUDIO_STYLES = [
-  { id: 'clean-white', label: 'Clean White' },
-  { id: 'lifestyle', label: 'Lifestyle' },
-  { id: 'dark-dramatic', label: 'Dark Dramatic' },
-  { id: 'flat-lay', label: 'Flat Lay' },
-  { id: 'outdoor-natural', label: 'Outdoor Natural' },
+const AI_QUICK_CHIPS = [
+  'Improve the style',
+  'Rewrite the post',
+  'Enhance the image',
+  'Change the tone',
+  'Make it shorter',
+  'Make it punchier',
+  'Add a stronger CTA',
+  'Make it more local',
 ] as const;
 
-function getBusinessTemplatePreviews(type: BusinessType, templates: Template[]): TemplatePreview[] {
-  const media = BUSINESS_TEMPLATE_MEDIA[type] || BUSINESS_TEMPLATE_MEDIA.restaurant;
-  return templates
-    .filter((t) => t.id !== 'auto')
-    .slice(0, 12)
-    .map((t, i) => ({
-      id: t.id,
-      label: t.label,
-      uri: media[i % media.length].uri,
-      mediaType: media[i % media.length].mediaType,
-    }));
+type PreviewChatMsg = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  isError?: boolean;
+  apply?: { caption: string; tags: string[] };
+};
+
+function mergeCaptionAndHashtags(body: string, tags: string[]): string {
+  const trimmed = body.trim();
+  const tagStr = tags.map((t) => `#${t.replace(/^#/, '')}`).join(' ');
+  return tagStr ? `${trimmed}\n\n${tagStr}` : trimmed;
 }
 
-function getTopicSuggestions(type: BusinessType): TopicSuggestion[] {
-  switch (type) {
-    case 'restaurant':
-      return [
-        { id: 'seasonal', icon: '🌿', title: 'Seasonal Special', subtitle: 'Timely menu hook', prompt: 'Promote our seasonal special this week with a local angle and clear CTA.' },
-        { id: 'chef', icon: '👨‍🍳', title: 'Chef Story', subtitle: 'Behind the scenes', prompt: 'Share a behind-the-scenes kitchen moment and what makes this dish unique.' },
-        { id: 'review', icon: '⭐', title: 'Customer Love', subtitle: 'Social proof', prompt: 'Feature a recent customer favorite and invite people to try it today.' },
-      ];
-    case 'salon':
-      return [
-        { id: 'look', icon: '💇', title: 'New Look Reveal', subtitle: 'Transformation post', prompt: 'Showcase a transformation result and how it helps clients feel confident.' },
-        { id: 'book', icon: '📅', title: 'Book This Week', subtitle: 'Appointment CTA', prompt: 'Announce available appointment slots this week with urgency and warmth.' },
-        { id: 'tip', icon: '✨', title: 'Care Tip', subtitle: 'Expert authority', prompt: 'Share one practical hair/beauty care tip and invite clients for professional help.' },
-      ];
-    case 'retail':
-      return [
-        { id: 'arrival', icon: '🆕', title: 'New Arrival', subtitle: 'Fresh inventory', prompt: 'Announce a new arrival with style/lifestyle detail and stock urgency.' },
-        { id: 'bundle', icon: '📦', title: 'Bundle Offer', subtitle: 'Value message', prompt: 'Promote a bundle offer with concrete value and who it is perfect for.' },
-        { id: 'staffpick', icon: '🔥', title: 'Staff Pick', subtitle: 'Human recommendation', prompt: 'Highlight a team favorite product and why customers keep buying it.' },
-      ];
-    case 'gym':
-      return [
-        { id: 'member', icon: '💪', title: 'Member Win', subtitle: 'Motivation', prompt: 'Tell a short member progress story with a motivating call to action.' },
-        { id: 'class', icon: '🏋️', title: 'Class Spotlight', subtitle: 'Program promotion', prompt: 'Promote this week’s class schedule and the specific benefit of joining.' },
-        { id: 'challenge', icon: '🏆', title: 'Challenge Post', subtitle: 'Engagement driver', prompt: 'Launch a short fitness challenge and invite the community to join.' },
-      ];
-    case 'cafe':
-      return [
-        { id: 'brew', icon: '☕', title: 'Drink of the Week', subtitle: 'Seasonal flavor', prompt: 'Promote this week’s featured drink with sensory description and local vibe.' },
-        { id: 'morning', icon: '🌅', title: 'Morning Ritual', subtitle: 'Lifestyle angle', prompt: 'Create a cozy morning ritual post tied to our cafe experience.' },
-        { id: 'pastry', icon: '🥐', title: 'Pastry Pairing', subtitle: 'Cross-sell', prompt: 'Suggest a pastry + drink pairing and invite people in today.' },
-      ];
-    default:
-      return [];
+function PreviewTypingIndicator() {
+  const d1 = useRef(new Animated.Value(0.35)).current;
+  const d2 = useRef(new Animated.Value(0.35)).current;
+  const d3 = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const pulse = (v: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(v, { toValue: 1, duration: 280, useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0.35, duration: 280, useNativeDriver: true }),
+        ])
+      );
+    const a1 = pulse(d1, 0);
+    const a2 = pulse(d2, 120);
+    const a3 = pulse(d3, 240);
+    a1.start();
+    a2.start();
+    a3.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [d1, d2, d3]);
+  return (
+    <View style={styles.aiTypingRow}>
+      <Animated.View style={[styles.aiTypingDot, { opacity: d1 }]} />
+      <Animated.View style={[styles.aiTypingDot, { opacity: d2 }]} />
+      <Animated.View style={[styles.aiTypingDot, { opacity: d3 }]} />
+    </View>
+  );
+}
+
+function extractHashtagsFromCaption(caption: string): string[] {
+  const m = caption.match(/#[\w\u0080-\uFFFF]+/g) ?? [];
+  const tags = m.map((t) => t.slice(1));
+  return [...new Set(tags)];
+}
+
+/** Prose line for preview; falls back to full caption if stripping removes everything. */
+function captionBodyForPreview(caption: string): string {
+  const stripped = caption.replace(/#[\w\u0080-\uFFFF]+/g, '').replace(/\s{2,}/g, ' ').trim();
+  return stripped.length > 0 ? stripped : caption;
+}
+
+function resolvePreviewImageUri(post: Post): string | null {
+  if (post.processedImageUrl) return post.processedImageUrl;
+  if (post.photoUrl) return post.photoUrl;
+  const raw = post.processedImage || post.photo;
+  if (!raw) return null;
+  if (raw.startsWith('http') || raw.startsWith('data:')) return raw;
+  return `data:image/jpeg;base64,${raw}`;
+}
+
+function safeOptString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim().length > 0 ? v : undefined;
+}
+
+function safeOptStringArray(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v
+    .filter((x): x is string => typeof x === 'string')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return out.length ? out : undefined;
+}
+
+function safeStudioStyle(
+  v: unknown
+): 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural' | undefined {
+  if (v !== 'clean-white' && v !== 'lifestyle' && v !== 'dark-dramatic' && v !== 'flat-lay' && v !== 'outdoor-natural') {
+    return undefined;
   }
+  return v;
+}
+
+function SkeletonChip() {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.9, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+  return (
+    <Animated.View style={[styles.skeletonPill, { opacity: pulse }]}>
+      <View style={styles.skeletonInner} />
+    </Animated.View>
+  );
+}
+
+function PreviewPanelSkeleton() {
+  const pulse = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.95, duration: 650, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.4, duration: 650, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+  return (
+    <View style={styles.previewSkelBody}>
+      <Animated.View style={[styles.previewSkelHero, { opacity: pulse }]} />
+      <Animated.View style={[styles.previewSkelLine, { opacity: pulse, width: '92%' }]} />
+      <Animated.View style={[styles.previewSkelLine, { opacity: pulse, width: '78%' }]} />
+      <Animated.View style={[styles.previewSkelLine, { opacity: pulse, width: '85%' }]} />
+      <Animated.View style={[styles.previewSkelLine, { opacity: pulse, width: '40%' }]} />
+    </View>
+  );
 }
 
 export default function CreateScreen() {
   const router = useRouter();
   const businessProfile = useAppStore((s) => s.businessProfile);
-  const socialAccounts = useAppStore((s) => s.socialAccounts);
   const addPost = useAppStore((s) => s.addPost);
   const updatePost = useAppStore((s) => s.updatePost);
   const showToast = useAppStore((s) => s.showToast);
+  const setCurrentEdit = useAppStore((s) => s.setCurrentEdit);
+  const checkEntitlement = useAppStore((s) => s.checkEntitlement);
   const setShowPaywall = useAppStore((s) => s.setShowPaywall);
   const setPaywallSuccessCallback = useAppStore((s) => s.setPaywallSuccessCallback);
-  const checkEntitlement = useAppStore((s) => s.checkEntitlement);
-  const currentEdit = useAppStore((s) => s.currentEdit);
-  const setCurrentEdit = useAppStore((s) => s.setCurrentEdit);
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [selectedTemplate, setSelectedTemplate] = useState('auto');
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [beforePhoto, setBeforePhoto] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [caption, setCaption] = useState('');
-  const [processedImage, setProcessedImage] = useState<string | null>(null);
-  const [processedImageWithOverlay, setProcessedImageWithOverlay] = useState<string | null>(null);
-  const [processedImageClean, setProcessedImageClean] = useState<string | null>(null);
-  const [studioVariants, setStudioVariants] = useState<string[]>([]);
-  const [processedImageChoice, setProcessedImageChoice] = useState<'with' | 'clean'>('with');
-  const [platforms, setPlatforms] = useState<Record<string, boolean>>({
-    instagram: !!socialAccounts.instagram?.connected,
-    facebook: !!socialAccounts.facebook?.connected,
-  });
+  const [ideaText, setIdeaText] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-  const [captionQuality, setCaptionQuality] = useState<GenerateCaptionQuality | null>(null);
-  const [captionRetry, setCaptionRetry] = useState<GenerateCaptionResponse['retry'] | null>(null);
-  const [hasGuidedRegenerate, setHasGuidedRegenerate] = useState(false);
-  const [studioStylePreference, setStudioStylePreference] =
-    useState<(typeof STUDIO_STYLES)[number]['id'] | null>(null);
-  const captionInputRef = useRef<TextInput>(null);
-  const captionAtFocusRef = useRef<string | null>(null);
+  const [selectedChip, setSelectedChip] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestionCard[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [ideaFocused, setIdeaFocused] = useState(false);
+  const [generatedPost, setGeneratedPost] = useState<Post | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [aiChatVisible, setAiChatVisible] = useState(false);
+  const [chatHistory, setChatHistory] = useState<PreviewChatMsg[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [selectedAiChip, setSelectedAiChip] = useState<string | null>(null);
+  const [appliedMsgId, setAppliedMsgId] = useState<string | null>(null);
+  const [accountSelectorVisible, setAccountSelectorVisible] = useState(false);
+  const [previewRegenerating, setPreviewRegenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [captionAiProvider, setCaptionAiProvider] = useState<string | null>(null);
+  const panelAnim = useRef(new Animated.Value(0)).current;
+  const aiChatSlideAnim = useRef(new Animated.Value(0)).current;
+  const pendingScrollToPreviewRef = useRef(false);
+  const previewPanelLayoutYRef = useRef(0);
+  const aiChatScrollRef = useRef<ScrollView>(null);
+  const chatHistoryRef = useRef<PreviewChatMsg[]>([]);
 
-  const genBiz = {
-    businessName: businessProfile.name,
-    businessType: businessProfile.type,
-    brandStyle: businessProfile.brandStyle,
-    displayType: businessProfile.displayType,
-    aiCategory: businessProfile.type,
-    customDescription: businessProfile.customDescription || '',
-    brandColor: businessProfile.brandColor,
-    brandVibe: businessProfile.brandVibe,
-    dominantColors: businessProfile.dominantColors,
-    websiteSummary: businessProfile.websiteSummary,
-    city: businessProfile.city,
-    instagramHandle: businessProfile.instagramHandle,
-    toneOfVoice: businessProfile.toneOfVoice,
-    contentPersona: businessProfile.contentPersona,
-    uniqueDifferentiator: businessProfile.uniqueDifferentiator,
-    visualStyle: businessProfile.visualStyle,
-    studioBgColor: businessProfile.studioBgColor,
-  };
+  const scrollRef = useRef<ScrollView>(null);
+  const ideaInputRef = useRef<TextInput>(null);
 
-  const vibeEmoji = (v?: string) => {
-    if (v === 'professional') return '🎯';
-    if (v === 'bold') return '🔥';
-    if (v === 'warm') return '🌿';
-    return '✨';
-  };
+  const genBiz = useMemo(
+    () => ({
+      businessName: businessProfile.name,
+      businessType: businessProfile.type,
+      brandStyle: businessProfile.brandStyle,
+      displayType: businessProfile.displayType,
+      aiCategory: businessProfile.type,
+      customDescription: businessProfile.customDescription || '',
+      brandColor: safeOptString(businessProfile.brandColor),
+      brandVibe: safeOptString(businessProfile.brandVibe),
+      dominantColors: safeOptStringArray(businessProfile.dominantColors),
+      websiteSummary: safeOptString(businessProfile.websiteSummary),
+      city: safeOptString(businessProfile.city),
+      instagramHandle: safeOptString(businessProfile.instagramHandle),
+      toneOfVoice: safeOptString(businessProfile.toneOfVoice),
+      contentPersona: safeOptString(businessProfile.contentPersona),
+      uniqueDifferentiator: safeOptString(businessProfile.uniqueDifferentiator),
+      visualStyle: safeOptString(businessProfile.visualStyle),
+      studioBgColor: safeOptString(businessProfile.studioBgColor),
+      studioStylePreference: safeStudioStyle(businessProfile.studioStylePreference),
+    }),
+    [businessProfile]
+  );
 
-  const templates = TEMPLATES_BY_TYPE[businessProfile.type] || TEMPLATES_BY_TYPE.restaurant;
-  const templatePreviews = useMemo(
-    () => getBusinessTemplatePreviews(businessProfile.type, templates),
-    [businessProfile.type, templates]
-  );
-  const photoTemplates = useMemo(
-    () => templatePreviews.filter((t) => t.mediaType === 'photo'),
-    [templatePreviews]
-  );
-  const videoTemplates = useMemo(
-    () => templatePreviews.filter((t) => t.mediaType === 'video'),
-    [templatePreviews]
-  );
-  const selectedTpl = templates.find((t) => t.id === selectedTemplate);
-  const isBeforeAfter = selectedTpl?.beforeAfter;
-  const topicSuggestions = useMemo(
-    () => getTopicSuggestions(businessProfile.type),
+  const previewBrandGradient = useMemo((): [string, string] => {
+    const a = businessProfile.brandColor || Colors.primary;
+    const b = businessProfile.dominantColors?.[0] || Colors.primaryDark;
+    return [a, b];
+  }, [businessProfile.brandColor, businessProfile.dominantColors]);
+
+  const loadSuggestions = useCallback(
+    async (hint?: string) => {
+      setSuggestionsLoading(true);
+      try {
+        const res = await getCampaignSuggestions(hint?.trim() || undefined);
+        if (res.ideas?.length) {
+          setSuggestions(res.ideas as SuggestionCard[]);
+        } else {
+          setSuggestions(getTopicSuggestions(businessProfile.type as BusinessType));
+        }
+      } catch {
+        setSuggestions(getTopicSuggestions(businessProfile.type as BusinessType));
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    },
     [businessProfile.type]
   );
 
-  useEffect(() => {
-    if (!currentEdit) return;
-    if (currentEdit.id) setDraftId(currentEdit.id);
-    if (currentEdit.template) setSelectedTemplate(currentEdit.template);
-    if (currentEdit.photo) setPhoto(currentEdit.photo);
-    if (currentEdit.description) setDescription(currentEdit.description);
-    if (currentEdit.caption) {
-      setCaption(currentEdit.caption);
-      setStep(2);
-    }
-    if (currentEdit.processedImage) {
-      setProcessedImage(currentEdit.processedImage);
-      setProcessedImageWithOverlay(currentEdit.processedImage);
-      setProcessedImageClean(currentEdit.processedImage);
-      setProcessedImageChoice('with');
-    }
-  }, [currentEdit]);
+  useFocusEffect(
+    useCallback(() => {
+      setIdeaText('');
+      setSelectedPhoto(null);
+      setSelectedChip(null);
+      setIdeaFocused(false);
+      setIsGenerating(false);
+      setGeneratedPost(null);
+      setPreviewVisible(false);
+      setPreviewRegenerating(false);
+      setGenerateError(null);
+      setCaptionAiProvider(null);
+      setAiChatVisible(false);
+      panelAnim.setValue(0);
+      setCurrentEdit(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      void loadSuggestions();
+      return undefined;
+    }, [loadSuggestions, setCurrentEdit, panelAnim])
+  );
 
   useEffect(() => {
-    return () => setCurrentEdit(null);
-  }, [setCurrentEdit]);
+    if (!aiChatVisible) {
+      setChatHistory([]);
+      setChatInput('');
+      setSelectedAiChip(null);
+      setIsAiLoading(false);
+      aiChatSlideAnim.setValue(0);
+      return;
+    }
+    aiChatSlideAnim.setValue(0);
+    Animated.spring(aiChatSlideAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 60,
+      friction: 10,
+    }).start();
+  }, [aiChatVisible, aiChatSlideAnim]);
 
-  const pickPhoto = async (field: 'main' | 'before') => {
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
+
+  useEffect(() => {
+    if (!previewVisible || !generatedPost?.id || previewRegenerating) return;
+    const t = requestAnimationFrame(() => {
+      const y = previewPanelLayoutYRef.current;
+      if (y > 0) {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+      }
+    });
+    return () => cancelAnimationFrame(t);
+  }, [generatedPost?.id, previewRegenerating, previewVisible]);
+
+  const pickPhotoFromLibrary = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Allow photo library access to pick photos.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images' as any,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.65,
+      aspect: ASPECT_FOUR_FIVE,
+      quality: 0.72,
       base64: true,
     });
-    if (!result.canceled && result.assets[0].base64) {
-      if (field === 'before') setBeforePhoto(result.assets[0].base64);
-      else setPhoto(result.assets[0].base64);
+    if (!result.canceled && result.assets[0]?.base64) {
+      setSelectedPhoto(result.assets[0].base64);
     }
-  };
+  }, []);
 
-  const takePhoto = async () => {
+  const takePhotoWithCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Allow camera access to take photos.');
@@ -304,1312 +351,1271 @@ export default function CreateScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.65,
+      aspect: ASPECT_FOUR_FIVE,
+      quality: 0.72,
       base64: true,
     });
-    if (!result.canceled && result.assets[0].base64) {
-      setPhoto(result.assets[0].base64);
+    if (!result.canceled && result.assets[0]?.base64) {
+      setSelectedPhoto(result.assets[0].base64);
     }
-  };
+  }, []);
 
-  const handleGeneratePost = async () => {
-    if (!photo && !description.trim()) {
-      showToast('Add a description or upload a photo first', 'error');
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      const photoToUse = isBeforeAfter ? (beforePhoto || photo) : photo;
-      const effectiveTemplate = 'auto';
-      const effectiveDescription = description.trim() || `Create a polished post for ${businessProfile.displayType}`;
-      const shownTopicIds = topicSuggestions.map((s) => s.id);
-      const topicMatch = topicSuggestions.find((s) => s.prompt.trim() === description.trim());
-      const selectedTopicId = topicMatch?.id ?? 'custom';
-      for (const id of shownTopicIds) {
-        if (id === selectedTopicId) continue;
-        void captureSignal({
-          signalType: 'topic_skip',
-          topic: id,
-          metadata: { selectedTopic: selectedTopicId, shownTopics: shownTopicIds },
-        }).catch(() => {});
-      }
-      const [capRes, imgResult] = await Promise.all([
-        generateCaptionDetailed({
-          description: effectiveDescription,
-          template: effectiveTemplate,
-          studioStylePreference: photoToUse ? studioStylePreference ?? undefined : undefined,
-          ...genBiz,
-        }),
-        generatePostImage({
-          photo: photoToUse || undefined,
-          template: effectiveTemplate,
-          description: effectiveDescription,
-          studioStylePreference: photoToUse ? studioStylePreference ?? undefined : undefined,
-          ...genBiz,
-        }),
-      ]);
-      setCaption(capRes.caption);
-      setCaptionQuality(capRes.quality ?? null);
-      setCaptionRetry(capRes.retry ?? null);
-      setHasGuidedRegenerate(false);
-      let savedProcessed: string | undefined;
-      if (imgResult) {
-        setProcessedImageWithOverlay(imgResult.withOverlay);
-        setProcessedImageClean(imgResult.clean);
-        setStudioVariants(imgResult.variants ?? []);
-        const pick = imgResult.withOverlay ?? imgResult.clean ?? null;
-        const studioPick = !pick && imgResult.variants && imgResult.variants.length > 0 ? imgResult.variants[0] : null;
-        setProcessedImage(pick ?? studioPick);
-        setProcessedImageChoice(imgResult.withOverlay ? 'with' : 'clean');
-        savedProcessed = (pick ?? studioPick) ?? undefined;
-        if (!pick && !studioPick) {
-          showToast('AI image enhancement failed. Using original photo preview.', 'info');
-        }
-      } else {
-        setProcessedImageWithOverlay(null);
-        setProcessedImageClean(null);
-        setStudioVariants([]);
-        setProcessedImage(null);
-        savedProcessed = undefined;
-        showToast('AI image enhancement failed. Using original photo preview.', 'info');
+  const onChipPress = useCallback(
+    (card: SuggestionCard) => {
+      setIdeaText(card.headline);
+      setSelectedChip(card.id);
+      setTimeout(() => {
+        ideaInputRef.current?.focus();
+        scrollRef.current?.scrollTo({ y: SCROLL_TO_INPUT_Y, animated: true });
+      }, 80);
+    },
+    []
+  );
+
+  const onMoreIdeas = useCallback(() => {
+    void loadSuggestions(ideaText.trim() || undefined);
+  }, [loadSuggestions, ideaText]);
+
+  const dismissPreview = useCallback(() => {
+    setPreviewVisible(false);
+    setPreviewRegenerating(false);
+    setGeneratedPost(null);
+    setAiChatVisible(false);
+    panelAnim.setValue(0);
+  }, [panelAnim]);
+
+  const handlePreviewPostPress = useCallback(() => {
+    if (previewRegenerating || !generatedPost?.id) return;
+    setAccountSelectorVisible(true);
+  }, [generatedPost?.id, previewRegenerating]);
+
+  const handlePublishFromSheet = useCallback(
+    async (_accountIds: string[], platforms: string[]) => {
+      const post = generatedPostRef.current;
+      if (!post?.id) {
+        throw new Error('No post to publish');
       }
 
-      // Auto-save draft
-      const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
-      const draft = await savePostToBackend({
-        template: effectiveTemplate,
-        photo: photo || undefined,
-        description: effectiveDescription,
-        caption: capRes.caption,
-        processedImage: savedProcessed,
-        platforms: enabledPlatforms,
+      if (!checkEntitlement()) {
+        setPaywallSuccessCallback(() => setAccountSelectorVisible(true));
+        setShowPaywall(true);
+        throw new Error('PAYWALL');
+      }
+
+      const plats = platforms.filter((p): p is SocialPlatform => p === 'instagram' || p === 'facebook');
+      if (plats.length === 0) {
+        throw new Error('No platforms');
+      }
+
+      await savePostToBackend({
+        id: post.id,
+        template: post.template,
+        description: post.description,
+        caption: post.caption,
+        photo: post.photo,
+        processedImage: post.processedImage,
+        platforms: plats,
         status: 'draft',
       });
-      addPost(draft);
-      setDraftId(draft.id);
-      setStep(2);
-    } catch {
-      showToast('Generation failed — try again.', 'error');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
-  const handleSaveDraft = async () => {
-    const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
-    const draft = await savePostToBackend({
-      id: draftId || undefined,
-      template: 'auto',
-      photo: photo || undefined,
-      description,
-      caption,
-      processedImage: processedImage || undefined,
-      platforms: enabledPlatforms,
-      status: 'draft',
-    });
-    if (draftId) {
-      updatePost(draftId, draft);
-    } else {
-      addPost(draft);
-      setDraftId(draft.id);
-    }
-    void captureSignal({
-      signalType: 'save_without_publish',
-      topic: description.trim() || undefined,
-      studioStyle: studioStylePreference ?? undefined,
-      metadata: {
-        postId: draft.id,
-        workflow: 'create',
-      },
-    }).catch(() => {});
-    showToast('Draft saved!', 'success');
-  };
+      try {
+        const result = await publishPostToBackend(post.id, plats);
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to post');
+        }
+      } catch (e: unknown) {
+        const payload = (e as { payload?: unknown })?.payload;
+        if (payload != null) {
+          setPaywallSuccessCallback(() => setAccountSelectorVisible(true));
+          setShowPaywall(true);
+          throw new Error('PAYWALL');
+        }
+        throw e instanceof Error ? e : new Error('Failed to post');
+      }
 
-  const handlePostNow = async () => {
-    if (isLowQualityBlocked) {
-      showToast('Run one specificity regenerate before posting this low-score caption.', 'info');
-      return;
-    }
-    if (!checkEntitlement()) {
-      setShowPaywall(true);
-      return;
-    }
-    if (!draftId) {
-      showToast('Save a draft first', 'error');
-      return;
-    }
-    setIsPosting(true);
-    try {
-      const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]);
-      const result = await publishPostToBackend(draftId, enabledPlatforms);
-      if (result.success) {
-        updatePost(draftId, { status: 'published', publishedAt: new Date().toISOString() });
-        void captureSignal({
-          signalType: 'publish',
-          topic: description.trim() || undefined,
-          angle: captionQuality?.tags?.[0] || undefined,
-          studioStyle: studioStylePreference ?? undefined,
-          metadata: {
-            postId: draftId,
-            platforms: enabledPlatforms,
-            qualityScore: captionQuality?.score,
-            workflow: 'create',
+      updatePost(post.id, {
+        status: 'published',
+        publishedAt: new Date().toISOString(),
+        caption: post.caption,
+        platforms: plats,
+      });
+    },
+    [checkEntitlement, setPaywallSuccessCallback, setShowPaywall, updatePost]
+  );
+
+  const onAccountSheetPosted = useCallback(() => {
+    showToast('Your post is live! 🎉', 'success');
+    setIdeaText('');
+    setSelectedPhoto(null);
+    setSelectedChip(null);
+    setGeneratedPost(null);
+    setPreviewVisible(false);
+    setPreviewRegenerating(false);
+    setAiChatVisible(false);
+    panelAnim.setValue(0);
+    setCurrentEdit(null);
+    setAccountSelectorVisible(false);
+    router.replace('/(tabs)/home' as any);
+  }, [panelAnim, router, setCurrentEdit, showToast]);
+
+  const previewHashtags = useMemo(
+    () => (generatedPost ? extractHashtagsFromCaption(generatedPost.caption) : []),
+    [generatedPost]
+  );
+
+  const generatedPostRef = useRef(generatedPost);
+  useEffect(() => {
+    generatedPostRef.current = generatedPost;
+  }, [generatedPost]);
+
+  const scrollAiChatToEnd = useCallback(() => {
+    setTimeout(() => aiChatScrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, []);
+
+  const scrollMainToPreviewTop = useCallback(() => {
+    const y = previewPanelLayoutYRef.current;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  }, []);
+
+  const sendAiMessage = useCallback(
+    async (raw: string, fromQuickChip: boolean) => {
+      const text = raw.trim();
+      const post = generatedPostRef.current;
+      if (!text || isAiLoading || !post) return;
+
+      if (!fromQuickChip) setSelectedAiChip(null);
+      if (fromQuickChip) setSelectedAiChip(text);
+
+      const prior: EditCaptionChatTurn[] = chatHistoryRef.current.slice(-10).map(({ role, content }) => ({
+        role,
+        content,
+      }));
+
+      const uid = `u-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setChatHistory((h) => [...h, { id: uid, role: 'user', content: text }]);
+      setChatInput('');
+      setIsAiLoading(true);
+      scrollAiChatToEnd();
+
+      try {
+        const data = await editCaptionWithAI({
+          userRequest: text,
+          currentCaption: post.caption,
+          currentHashtags: extractHashtagsFromCaption(post.caption),
+          businessName: businessProfile.name,
+          city: businessProfile.city || '',
+          ideaText,
+          chatHistory: prior,
+        });
+        const aid = `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        setChatHistory((h) => [
+          ...h,
+          {
+            id: aid,
+            role: 'assistant',
+            content: data.message,
+            apply: { caption: data.newCaption, tags: data.newHashtags },
           },
-        }).catch(() => {});
-        showToast('Posted successfully! 🎉', 'success');
-        resetForm();
-      } else {
-        showToast(result.message || 'Failed to post', 'error');
+        ]);
+      } catch (err) {
+        const detail =
+          err instanceof Error && err.message && err.message !== 'UNAUTHORIZED'
+            ? err.message
+            : 'Something went wrong. Try again.';
+        const aid = `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        setChatHistory((h) => [
+          ...h,
+          { id: aid, role: 'assistant', content: detail, isError: true },
+        ]);
+      } finally {
+        setIsAiLoading(false);
+        setSelectedAiChip(null);
+        scrollAiChatToEnd();
       }
-    } catch (err: any) {
-      if (err?.payload != null) {
-        setPaywallSuccessCallback(() => handlePostNow());
-        setShowPaywall(true);
-      } else {
-        showToast(err?.message || 'Posting failed — check your connection.', 'error');
-      }
-    } finally {
-      setIsPosting(false);
-    }
-  };
+    },
+    [isAiLoading, businessProfile.name, businessProfile.city, ideaText, scrollAiChatToEnd]
+  );
 
-  const handleRegenerate = async () => {
+  const applyAiSuggestion = useCallback(
+    (msg: PreviewChatMsg) => {
+      if (!msg.apply || !generatedPostRef.current) return;
+      const nextCaption = mergeCaptionAndHashtags(msg.apply.caption, msg.apply.tags);
+      const id = generatedPostRef.current.id;
+      setGeneratedPost((p) => (p ? { ...p, caption: nextCaption } : null));
+      updatePost(id, { caption: nextCaption });
+      setAppliedMsgId(msg.id);
+      setTimeout(() => setAppliedMsgId(null), 1200);
+      scrollMainToPreviewTop();
+    },
+    [updatePost, scrollMainToPreviewTop]
+  );
+
+  const handleCreatePost = async () => {
+    const text = ideaText.trim();
+    if (!text || isGenerating) return;
+
+    setGenerateError(null);
+    setCaptionAiProvider(null);
+    const hadPreview = Boolean(previewVisible && generatedPost);
+    setGeneratedPost(null);
+    setAiChatVisible(false);
+    setChatHistory([]);
+    chatHistoryRef.current = [];
+    setPreviewRegenerating(true);
+    setPreviewVisible(true);
+    panelAnim.setValue(1);
+
     setIsGenerating(true);
     try {
-      const capRes = await generateCaptionDetailed({
-        description,
+      const cap = await generateCaptionDetailed({
+        description: text,
         template: 'auto',
-        studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
         ...genBiz,
       });
-      setCaption(capRes.caption);
-      setCaptionQuality(capRes.quality ?? null);
-      setCaptionRetry(capRes.retry ?? null);
-      setHasGuidedRegenerate(false);
-      void captureSignal({
-        signalType: 'regenerate',
-        topic: description.trim() || undefined,
-        metadata: {
-          postId: draftId ?? undefined,
-          previousAngle: captionQuality?.tags?.[0],
-        },
-      }).catch(() => {});
-      if (draftId) updatePost(draftId, { caption: capRes.caption });
-    } catch {
-      showToast('Regeneration failed', 'error');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+      setCaptionAiProvider(cap.aiProvider ?? null);
 
-  const handleRegenerateAngle = async (angle: (typeof SPECIFICITY_ANGLES)[number]) => {
-    if (!description.trim()) return;
-    setIsGenerating(true);
-    try {
-      const capRes = await generateCaptionDetailed({
-        description: `${description.trim()} (Angle: ${angle}. Be highly specific and concrete.)`,
-        template: 'auto',
-        studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
-        ...genBiz,
-      });
-      setCaption(capRes.caption);
-      setCaptionQuality(capRes.quality ?? null);
-      setCaptionRetry(capRes.retry ?? null);
-      setHasGuidedRegenerate(true);
-      void captureSignal({
-        signalType: 'regenerate',
-        topic: description.trim() || undefined,
-        angle,
-        metadata: {
-          postId: draftId ?? undefined,
-          previousAngle: angle,
-          reason: 'specificity_angle',
-        },
-      }).catch(() => {});
-      if (draftId) updatePost(draftId, { caption: capRes.caption });
-    } catch {
-      showToast('Could not regenerate with this angle', 'error');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+      let processed: string | undefined;
+      if (selectedPhoto) {
+        const img = await generatePostImage({
+          photo: selectedPhoto,
+          template: 'auto',
+          description: text,
+          aspectPreset: 'story',
+          ...genBiz,
+        });
+        processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
+        if (!processed) {
+          showToast('Image enhancement skipped — caption saved.', 'info');
+        }
+      } else {
+        const img = await generatePostImage({
+          template: 'auto',
+          description: text,
+          aspectPreset: 'story',
+          ...genBiz,
+        });
+        processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
+        if (!processed) {
+          showToast('No AI image for this post (needs OpenAI + image models). Caption saved.', 'info');
+        }
+      }
 
-  const handleSchedulePost = async (scheduleDate: Date) => {
-    if (isLowQualityBlocked) {
-      showToast('Run one specificity regenerate before scheduling this low-score caption.', 'info');
-      return;
-    }
-    if (!checkEntitlement()) { setShowPaywall(true); return; }
-    setShowSchedulePicker(false);
-    try {
-      const enabledPlatforms = Object.keys(platforms).filter((k) => platforms[k]) as SocialPlatform[];
       const post = await savePostToBackend({
-        id: draftId || undefined,
         template: 'auto',
-        photo: photo || undefined,
-        description,
-        caption,
-        processedImage: processedImage || undefined,
-        platforms: enabledPlatforms,
-        status: 'scheduled',
-        scheduledAt: scheduleDate.toISOString(),
+        description: text,
+        caption: cap.caption,
+        photo: selectedPhoto ?? undefined,
+        processedImage: processed,
+        platforms: ['instagram', 'facebook'],
+        status: 'draft',
       });
-      if (draftId) {
-        updatePost(draftId, post);
+      addPost(post);
+
+      void captureSignal({
+        signalType: 'save_without_publish',
+        topic: text.slice(0, 120),
+        metadata: { postId: post.id, workflow: 'create_v2' },
+      }).catch(() => {});
+
+      setPreviewRegenerating(false);
+      // For preview UX: if we just generated a processed image (data URL or http URL),
+      // use it directly so the preview doesn't depend on signed storage URLs.
+      const previewPost = processed ? { ...post, processedImage: processed } : post;
+      setGeneratedPost(previewPost);
+      setPreviewVisible(true);
+      pendingScrollToPreviewRef.current = true;
+      if (!hadPreview) {
+        panelAnim.setValue(0);
+        Animated.spring(panelAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 60,
+          friction: 10,
+        }).start();
       } else {
-        addPost(post);
+        panelAnim.setValue(1);
       }
-      const dateStr = scheduleDate.toLocaleString('en-US', {
-        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-      });
-      showToast(`Post scheduled for ${dateStr}`, 'success');
-      resetForm();
-    } catch {
-      showToast('Failed to schedule post', 'error');
+    } catch (e) {
+      setPreviewRegenerating(false);
+      setPreviewVisible(false);
+      const msg =
+        e instanceof Error && e.message && e.message !== 'UNAUTHORIZED'
+          ? e.message
+          : 'Could not create your post. Try again.';
+      setGenerateError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const resetForm = () => {
-    setStep(1);
-    setSelectedTemplate('auto');
-    setPhoto(null);
-    setBeforePhoto(null);
-    setDescription('');
-    setCaption('');
-    setCaptionQuality(null);
-    setCaptionRetry(null);
-    setHasGuidedRegenerate(false);
-    setStudioStylePreference(null);
-    setProcessedImage(null);
-    setProcessedImageWithOverlay(null);
-    setProcessedImageClean(null);
-    setStudioVariants([]);
-    setProcessedImageChoice('with');
-    setDraftId(null);
-    setPlatforms({
-      instagram: !!socialAccounts.instagram?.connected,
-      facebook: !!socialAccounts.facebook?.connected,
-    });
-  };
-
-  const displayImage = processedImage || photo;
-  const enabledCount = Object.values(platforms).filter(Boolean).length;
-  const isLowQualityBlocked =
-    !!captionQuality &&
-    captionQuality.score < CAPTION_QUALITY_GATE_THRESHOLD &&
-    !hasGuidedRegenerate;
-  const resultTags = useMemo(() => {
-    const tags = new Set<string>();
-    (captionQuality?.tags ?? []).forEach((t) => tags.add(t));
-    if (/\bspring|summer|fall|autumn|winter|holiday|festival|seasonal\b/i.test(description)) {
-      tags.add('Seasonal');
-    }
-    if (captionQuality && captionQuality.score >= 80) {
-      tags.add('On-brand');
-    }
-    return Array.from(tags).slice(0, 4);
-  }, [captionQuality, description]);
+  const len = ideaText.length;
+  const counterColor = len >= WARN_LEN ? Colors.warning : Colors.textMuted;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
-        style={styles.kav}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.topBar}>
-            <View style={styles.brandRow}>
-              <Ionicons name="sparkles" size={14} color={Colors.primary} />
-              <Text style={styles.brandText}>Quickpost</Text>
-            </View>
-            <View style={styles.avatarDot}>
-              <Ionicons name="person" size={12} color={Colors.white} />
+            <TouchableOpacity
+              onPress={() => {
+                if (router.canGoBack()) router.back();
+                else router.replace('/(tabs)/home');
+              }}
+              hitSlop={12}
+              accessibilityLabel="Back to home"
+            >
+              <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.topBarTitle}>Create</Text>
+            <View style={styles.topBarSpacer} />
+          </View>
+          <Text style={styles.subtitle}>What&apos;s today&apos;s post about?</Text>
+
+          <Text style={styles.stripLabel}>Quick ideas</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.stripRow}
+            style={styles.stripScroll}
+          >
+            {suggestionsLoading
+              ? [0, 1, 2, 3].map((i) => <SkeletonChip key={`sk-${i}`} />)
+              : suggestions.map((card) => {
+                  const selected = selectedChip === card.id;
+                  return (
+                    <TouchableOpacity
+                      key={card.id}
+                      style={[styles.chip, selected && styles.chipSelected]}
+                      onPress={() => onChipPress(card)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={[styles.angleDot, selected && styles.angleDotOn]} />
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]} numberOfLines={1}>
+                        {card.headline}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            <TouchableOpacity style={styles.moreIdeas} onPress={onMoreIdeas} disabled={suggestionsLoading}>
+              <Text style={styles.moreIdeasText}>More ideas →</Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          <View style={styles.inputWrap}>
+            <TextInput
+              ref={ideaInputRef}
+              style={[
+                styles.ideaInput,
+                ideaFocused && styles.ideaInputFocused,
+              ]}
+              placeholder="e.g. We just got new summer products in store — come check them out"
+              placeholderTextColor={Colors.textMuted}
+              value={ideaText}
+              onChangeText={(t) => setIdeaText(t.slice(0, IDEA_MAX))}
+              onFocus={() => setIdeaFocused(true)}
+              onBlur={() => setIdeaFocused(false)}
+              multiline
+              textAlignVertical="top"
+              maxLength={IDEA_MAX}
+            />
+            <Text style={[styles.counter, { color: counterColor }]}>
+              {len}/{IDEA_MAX}
+            </Text>
+            <View style={styles.ideaInputActions}>
+              {ideaText.length > 0 ? (
+                <TouchableOpacity
+                  style={styles.ideaClearBtn}
+                  onPress={() => {
+                    setIdeaText('');
+                    setSelectedChip(null);
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Clear idea"
+                >
+                  <Text style={styles.ideaClearBtnText}>Clear</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[
+                  styles.ideaGenerateBtn,
+                  (!ideaText.trim() || isGenerating) && styles.ideaGenerateBtnDisabled,
+                ]}
+                onPress={() => void handleCreatePost()}
+                disabled={!ideaText.trim() || isGenerating}
+                activeOpacity={0.85}
+                accessibilityLabel="Generate post"
+              >
+                <Text style={styles.ideaGenerateBtnText}>{isGenerating ? 'Generating...' : 'Generate'}</Text>
+              </TouchableOpacity>
             </View>
           </View>
+          {generateError ? <Text style={styles.generateErrorText}>{generateError}</Text> : null}
 
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/settings')}
-            activeOpacity={0.85}
-            style={styles.brandDnaBar}
-          >
-            <View
-              style={[
-                styles.brandDnaDot,
-                { backgroundColor: businessProfile.brandColor || '#2A9D8F' },
-              ]}
-            />
-            <Text style={styles.brandDnaEmoji}>{vibeEmoji(businessProfile.brandVibe)}</Text>
-            <Text style={styles.brandDnaName} numberOfLines={1}>
-              {businessProfile.name || 'Your brand'}
-            </Text>
-            <Text style={styles.brandDnaEdit}>Edit →</Text>
-          </TouchableOpacity>
-
-          {/* ===== STEP 1 ===== */}
-          {step === 1 && (
-            <>
-              <View style={[styles.section, styles.blockCard]}>
-                <Text style={styles.vibeTitle}>What&apos;s the vibe today?</Text>
-                <Text style={styles.topicLabel}>Quick topics</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.topicRow}>
-                  {topicSuggestions.map((s) => (
-                    <TouchableOpacity
-                      key={s.id}
-                      activeOpacity={0.85}
-                      onPress={() => setDescription(s.prompt)}
-                      style={styles.topicCard}
-                    >
-                      <Text style={styles.topicIcon}>{s.icon}</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.topicTitle} numberOfLines={1}>{s.title}</Text>
-                        <Text style={styles.topicSubtitle} numberOfLines={1}>{s.subtitle}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-                <TextInput
-                  testID="description-input"
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Describe your post in one line..."
-                  placeholderTextColor="#666"
-                  style={styles.vibeInput}
-                  returnKeyType="done"
-                  maxLength={120}
-                  multiline
-                  textAlignVertical="top"
-                />
-                <Text style={styles.aiScratchHint}>
-                  Tip: You can generate a full post with AI even without uploading a photo.
-                </Text>
-                <View style={styles.vibeActions}>
-                  <TouchableOpacity
-                    testID="photo-library-btn"
-                    onPress={() => pickPhoto('main')}
-                    activeOpacity={0.85}
-                    style={styles.uploadChip}
-                  >
-                    <Ionicons name="cloud-upload-outline" size={14} color={Colors.textPrimary} />
-                    <Text style={styles.uploadChipText}>{photo ? 'Change Upload' : 'Upload'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="photo-camera-btn"
-                    onPress={takePhoto}
-                    activeOpacity={0.85}
-                    style={styles.uploadChip}
-                  >
-                    <Ionicons name="camera-outline" size={14} color={Colors.textPrimary} />
-                    <Text style={styles.uploadChipText}>Take Photo</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID="generate-post-btn"
-                    onPress={handleGeneratePost}
-                    activeOpacity={0.9}
-                    disabled={(!photo && !description.trim()) || isGenerating}
-                    style={styles.generateMiniBtn}
-                  >
-                    {isGenerating ? (
-                      <ActivityIndicator size="small" color={Colors.white} />
-                    ) : (
-                      <Text style={styles.generateMiniBtnText}>Generate</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+          <Text style={styles.sectionLabel}>Add a photo (optional)</Text>
+          {!selectedPhoto ? (
+            <View style={styles.photoDashed}>
+              <View style={styles.photoBtnRow}>
+                <TouchableOpacity style={styles.ghostBtn} onPress={takePhotoWithCamera} activeOpacity={0.85}>
+                  <Ionicons name="camera-outline" size={18} color={Colors.primary} />
+                  <Text style={styles.ghostBtnText}>Take Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.ghostBtn} onPress={pickPhotoFromLibrary} activeOpacity={0.85}>
+                  <Ionicons name="image-outline" size={18} color={Colors.primary} />
+                  <Text style={styles.ghostBtnText}>Choose Photo</Text>
+                </TouchableOpacity>
               </View>
-
-              {!!photo && (
-                <View style={[styles.section, styles.blockCard]}>
-                  <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photoPreview} />
-                  <Text style={styles.studioStyleLabel}>AI Photo Studio style</Text>
-                  <View style={styles.studioStyleRow}>
-                    {STUDIO_STYLES.map((s) => (
-                      <TouchableOpacity
-                        key={s.id}
-                        onPress={() => {
-                          const next = studioStylePreference === s.id ? null : s.id;
-                          setStudioStylePreference(next);
-                          if (next) {
-                            void captureSignal({
-                              signalType: 'studio_style_selected',
-                              studioStyle: next,
-                              topic: description.trim() || undefined,
-                              metadata: { context: 'create' },
-                            }).catch(() => {});
-                          }
-                        }}
-                        style={[
-                          styles.studioStyleChip,
-                          studioStylePreference === s.id && styles.studioStyleChipActive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.studioStyleChipText,
-                            studioStylePreference === s.id && styles.studioStyleChipTextActive,
-                          ]}
-                        >
-                          {s.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              <View style={styles.section}>
-                <View style={styles.sectionHeadRow}>
-                  <Text style={styles.sectionHeaderTitle}>Photo Templates</Text>
-                  <Text style={styles.viewAllText}>Tap to open</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageTplRow}>
-                  {photoTemplates.map((t) => (
-                    <TouchableOpacity
-                      key={t.id}
-                      testID={`business-template-${t.id}`}
-                      activeOpacity={0.85}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/template-workflow',
-                          params: { templateId: t.id },
-                        } as any)
-                      }
-                      style={styles.imageTplWrap}
-                    >
-                      <View style={styles.templateMediaWrap}>
-                        <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
-                        {t.mediaType === 'video' && (
-                          <View style={styles.videoBadge}>
-                            <Ionicons name="play" size={12} color={Colors.white} />
-                            <Text style={styles.videoBadgeText}>Video</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.imageTplLabel} numberOfLines={1}>
-                        {t.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+            </View>
+          ) : (
+            <View style={styles.photoSelected}>
+              <Image
+                source={{ uri: `data:image/jpeg;base64,${selectedPhoto}` }}
+                style={styles.photoPreview}
+                resizeMode="cover"
+              />
+              <View style={styles.photoActions}>
+                <TouchableOpacity
+                  style={styles.secondarySmall}
+                  onPress={() => {
+                    Alert.alert('Replace photo', undefined, [
+                      { text: 'Camera', onPress: () => void takePhotoWithCamera() },
+                      { text: 'Library', onPress: () => void pickPhotoFromLibrary() },
+                      { text: 'Cancel', style: 'cancel' },
+                    ]);
+                  }}
+                >
+                  <Text style={styles.secondarySmallText}>Replace</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSelectedPhoto(null)} hitSlop={8}>
+                  <Text style={styles.removeText}>Remove</Text>
+                </TouchableOpacity>
               </View>
-
-              <View style={styles.section}>
-                <View style={styles.sectionHeadRow}>
-                  <Text style={styles.sectionHeaderTitle}>Video Templates</Text>
-                  <Text style={styles.viewAllText}>Tap to open</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageTplRow}>
-                  {videoTemplates.map((t) => (
-                    <TouchableOpacity
-                      key={t.id}
-                      testID={`business-video-template-${t.id}`}
-                      activeOpacity={0.85}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/template-workflow',
-                          params: { templateId: t.id },
-                        } as any)
-                      }
-                      style={styles.imageTplWrap}
-                    >
-                      <View style={styles.templateMediaWrap}>
-                        <Image source={{ uri: t.uri }} style={styles.imageTplImg} />
-                        <View style={styles.videoBadge}>
-                          <Ionicons name="play" size={12} color={Colors.white} />
-                          <Text style={styles.videoBadgeText}>Video</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.imageTplLabel} numberOfLines={1}>
-                        {t.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Buttons */}
-              <View style={styles.btnStack}>
-                <SecondaryButton
-                  testID="save-draft-btn-step1"
-                  title="Save Draft"
-                  onPress={handleSaveDraft}
-                  disabled={!photo}
-                />
-              </View>
-            </>
+              <Text style={styles.photoHint}>
+                AI will enhance this photo and match it to your brand
+              </Text>
+            </View>
           )}
 
-          {/* ===== STEP 2 ===== */}
-          {step === 2 && (
-            <>
-              {/* Back */}
-              <TouchableOpacity
-                testID="back-to-step1-btn"
-                onPress={() => setStep(1)}
-                style={styles.backBtn}
-              >
-                <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-                <Text style={styles.backBtnText}>Back</Text>
-              </TouchableOpacity>
+          <Text style={styles.aiDisclaimer}>AI-generated — review before posting</Text>
 
-              {/* Platform Toggles */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Post to</Text>
-                <View style={styles.platformToggles}>
-                  {(['instagram', 'facebook'] as SocialPlatform[]).map((platform) => {
-                    const account = socialAccounts[platform];
-                    const isConnected = !!account?.connected;
-                    const isEnabled = platforms[platform];
-                    const platformColor = platform === 'instagram' ? Colors.instagram : Colors.facebook;
-                    return (
-                      <TouchableOpacity
-                        key={platform}
-                        testID={`platform-toggle-${platform}`}
-                        onPress={() => {
-                          if (!isConnected) {
-                            showToast(`Connect ${platform} in Settings first`, 'info');
-                            return;
-                          }
-                          setPlatforms((p) => ({ ...p, [platform]: !p[platform] }));
-                        }}
-                        activeOpacity={0.8}
-                        style={[styles.platformToggle, isEnabled && isConnected && styles.platformToggleActive, { borderColor: isEnabled && isConnected ? platformColor : Colors.border }]}
-                      >
-                        <Ionicons
-                          name={platform === 'instagram' ? 'logo-instagram' : 'logo-facebook'}
-                          size={20}
-                          color={isEnabled && isConnected ? platformColor : Colors.textTertiary}
-                        />
-                        <Text style={[styles.platformToggleText, isEnabled && isConnected && { color: platformColor }]}>
-                          {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                        </Text>
-                        {!isConnected && (
-                          <Text style={styles.connectLink}>Connect</Text>
-                        )}
-                        {isConnected && (
-                          <View style={[styles.toggleDot, { backgroundColor: isEnabled ? platformColor : Colors.border }]} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Preview Image */}
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Preview</Text>
-                {processedImageWithOverlay && processedImageClean && (
-                  <View style={styles.photoVariantRow}>
-                    <TouchableOpacity
-                      testID="preview-variant-with-text"
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        setProcessedImageChoice('with');
-                        if (processedImageWithOverlay) setProcessedImage(processedImageWithOverlay);
-                      }}
-                      style={[
-                        styles.photoVariantThumb,
-                        processedImageChoice === 'with' && styles.photoVariantThumbSelected,
-                      ]}
-                    >
-                      <Image
-                        source={{ uri: imageDataUri(processedImageWithOverlay) ?? '' }}
-                        style={styles.photoVariantImg}
-                        resizeMode="cover"
-                      />
-                      <Text style={styles.photoVariantLabel}>With Text</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      testID="preview-variant-clean"
-                      activeOpacity={0.85}
-                      onPress={() => {
-                        setProcessedImageChoice('clean');
-                        if (processedImageClean) setProcessedImage(processedImageClean);
-                      }}
-                      style={[
-                        styles.photoVariantThumb,
-                        processedImageChoice === 'clean' && styles.photoVariantThumbSelected,
-                      ]}
-                    >
-                      <Image
-                        source={{ uri: imageDataUri(processedImageClean) ?? '' }}
-                        style={styles.photoVariantImg}
-                        resizeMode="cover"
-                      />
-                      <Text style={styles.photoVariantLabel}>Clean</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                {studioVariants.length > 1 && (
-                  <View style={styles.photoVariantRow}>
-                    {studioVariants.map((variant, idx) => (
-                      <TouchableOpacity
-                        key={`${variant}-${idx}`}
-                        activeOpacity={0.85}
-                        onPress={() => {
-                          setProcessedImage(variant);
-                          void captureSignal({
-                            signalType: 'variant_selected',
-                            topic: description.trim() || undefined,
-                            metadata: { variantIndex: idx + 1, postId: draftId ?? undefined },
-                          }).catch(() => {});
-                        }}
-                        style={[
-                          styles.photoVariantThumb,
-                          processedImage === variant && styles.photoVariantThumbSelected,
-                        ]}
-                      >
-                        <Image source={{ uri: imageDataUri(variant) ?? '' }} style={styles.photoVariantImg} />
-                        <Text style={styles.photoVariantLabel}>Variant {idx + 1}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+          {previewRegenerating || (previewVisible && generatedPost) ? (
+            <Animated.View
+              key={previewRegenerating ? 'preview-loading' : generatedPost?.id ?? 'preview'}
+              style={[
+                styles.previewPanelWrap,
+                {
+                  opacity: panelAnim,
+                  transform: [
+                    {
+                      translateY: panelAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [40, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+              onLayout={(e) => {
+                previewPanelLayoutYRef.current = e.nativeEvent.layout.y;
+                if (!pendingScrollToPreviewRef.current) return;
+                pendingScrollToPreviewRef.current = false;
+                const y = e.nativeEvent.layout.y;
+                scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+              }}
+            >
+              {previewRegenerating ? (
                 <View style={styles.previewCard}>
-                  {displayImage ? (
-                    <Image
-                      testID="preview-image"
-                      source={{ uri: imageDataUri(displayImage) ?? `data:image/jpeg;base64,${displayImage}` }}
-                      style={styles.previewImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.previewPlaceholder}>
-                      <Ionicons name="image-outline" size={40} color={Colors.textTertiary} />
-                      <Text style={styles.previewPlaceholderText}>No image — text-only post</Text>
-                    </View>
-                  )}
-                  {processedImage && (
-                    <View style={styles.aiTag}>
-                      <Ionicons name="sparkles" size={10} color={Colors.primary} />
-                      <Text style={styles.aiTagText}>AI Enhanced</Text>
-                    </View>
-                  )}
-                </View>
-                {!!resultTags.length && (
-                  <View style={styles.resultTagsRow}>
-                    {resultTags.map((tag) => (
-                      <View key={tag} style={styles.resultTag}>
-                        <Text style={styles.resultTagText}>{tag}</Text>
-                      </View>
-                    ))}
+                  <View style={styles.previewHeader}>
+                    <Text style={styles.previewHeaderTitle}>Preview</Text>
+                    <Text style={styles.previewUpdatingLabel}>Updating…</Text>
                   </View>
-                )}
-              </View>
+                  <PreviewPanelSkeleton />
+                </View>
+              ) : generatedPost ? (
+              <View style={styles.previewCard}>
+                <View style={styles.previewHeader}>
+                  <View style={styles.previewHeaderLeft}>
+                    <Text style={styles.previewHeaderTitle}>Preview</Text>
+                    {captionAiProvider ? (
+                      <Text style={styles.previewAiProviderLabel}>AI: {captionAiProvider}</Text>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity
+                    onPress={dismissPreview}
+                    hitSlop={12}
+                    accessibilityLabel="Dismiss preview"
+                  >
+                    <Text style={styles.previewDismiss}>✕</Text>
+                  </TouchableOpacity>
+                </View>
 
-              {/* Caption Editor */}
-              <View style={styles.section}>
-                <View style={styles.captionHeader}>
-                  <Text style={styles.sectionLabel}>Caption</Text>
-                  {isGenerating && <ActivityIndicator size="small" color={Colors.primary} />}
-                </View>
-                <TextInput
-                  testID="caption-input"
-                  ref={captionInputRef}
-                  value={caption}
-                  onChangeText={setCaption}
-                  onFocus={() => {
-                    captionAtFocusRef.current = caption;
-                  }}
-                  onBlur={() => {
-                    const start = captionAtFocusRef.current;
-                    captionAtFocusRef.current = null;
-                    if (start != null && start !== caption && draftId) {
-                      void captureSignal({
-                        signalType: 'edit_caption',
-                        topic: description.trim(),
-                        metadata: {
-                          postId: draftId,
-                          originalCaption: start,
-                          editedCaption: caption,
-                          editDelta: caption.length - start.length,
-                        },
-                      }).catch(() => {});
-                    }
-                  }}
-                  style={styles.captionInput}
-                  multiline
-                  numberOfLines={5}
-                  textAlignVertical="top"
-                  placeholderTextColor={Colors.textTertiary}
-                  placeholder="Your caption will appear here..."
-                />
-                <View style={styles.captionFooter}>
-                  <Text style={styles.charCount}>{caption.length} chars</Text>
-                  <View style={styles.quickActions}>
-                    <TouchableOpacity
-                      testID="make-shorter-btn"
-                      onPress={async () => {
-                        if (!caption) return;
-                        setIsGenerating(true);
-                        try {
-                          const cap = await generateCaption({
-                            description: `SHORT VERSION: ${description}`,
-                            template: 'auto',
-                            studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
-                            ...genBiz,
-                          });
-                          setCaption(cap);
-                          setCaptionQuality(null);
-                          setCaptionRetry(null);
-                        } finally { setIsGenerating(false); }
-                      }}
-                      style={styles.quickActionBtn}
-                    >
-                      <Text style={styles.quickActionText}>Make shorter</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      testID="more-playful-btn"
-                      onPress={async () => {
-                        if (!caption) return;
-                        setIsGenerating(true);
-                        try {
-                          const cap = await generateCaption({
-                            description: `FUN & PLAYFUL VERSION: ${description}`,
-                            template: 'auto',
-                            studioStylePreference: photo ? studioStylePreference ?? undefined : undefined,
-                            ...genBiz,
-                            brandStyle: 'bold',
-                          });
-                          setCaption(cap);
-                          setCaptionQuality(null);
-                          setCaptionRetry(null);
-                        } finally { setIsGenerating(false); }
-                      }}
-                      style={styles.quickActionBtn}
-                    >
-                      <Text style={styles.quickActionText}>More playful</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={styles.specificityRow}>
-                  <Text style={styles.specificityLabel}>Regenerate with more specificity:</Text>
-                  <View style={styles.specificityChips}>
-                    {SPECIFICITY_ANGLES.map((angle) => (
-                      <TouchableOpacity
-                        key={angle}
-                        onPress={() => void handleRegenerateAngle(angle)}
-                        style={styles.specificityChip}
+                <View style={styles.previewImageArea}>
+                  {(() => {
+                    const uri = resolvePreviewImageUri(generatedPost);
+                    return uri ? (
+                      <Image source={{ uri }} style={styles.previewHeroImage} resizeMode="cover" />
+                    ) : (
+                      <LinearGradient
+                        colors={previewBrandGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.previewHeroImage}
                       >
-                        <Text style={styles.specificityChipText}>{angle}</Text>
-                      </TouchableOpacity>
-                    ))}
+                        <Text style={styles.previewPlaceholderBizName} numberOfLines={2}>
+                          {businessProfile.name || 'Your business'}
+                        </Text>
+                      </LinearGradient>
+                    );
+                  })()}
+                  <View style={styles.previewPlatformChips}>
+                    <View style={styles.previewPlatformChip}>
+                      <Text style={styles.previewPlatformChipText}>IG</Text>
+                    </View>
+                    <View style={styles.previewPlatformChip}>
+                      <Text style={styles.previewPlatformChipText}>FB</Text>
+                    </View>
                   </View>
                 </View>
-                {!!captionQuality && (
-                  <View style={styles.qualityBox}>
-                    <Text style={styles.qualityTitle}>Why this works</Text>
-                    <Text style={styles.qualityRationale}>{captionQuality.rationale}</Text>
-                    {!!captionRetry && (
-                      <Text style={styles.retryMetaText}>
-                        Generation path: {captionRetry.strategy} · attempts: {captionRetry.attempts}
-                        {captionRetry.reason ? ` · ${captionRetry.reason}` : ''}
-                      </Text>
-                    )}
-                    <View style={styles.qualityTags}>
-                      {captionQuality.tags.map((tag) => (
-                        <View key={tag} style={styles.qualityTag}>
-                          <Text style={styles.qualityTagText}>{tag}</Text>
+
+                <View style={styles.previewCaptionBlock}>
+                  <Text style={styles.previewCaptionText}>
+                    {captionBodyForPreview(generatedPost.caption)}
+                  </Text>
+                  {previewHashtags.length > 0 ? (
+                    <View style={styles.previewHashtagRow}>
+                      {previewHashtags.map((tag) => (
+                        <View key={tag} style={styles.previewHashtagPill}>
+                          <Text style={styles.previewHashtagText}>#{tag}</Text>
                         </View>
                       ))}
                     </View>
-                    <View style={styles.feedbackRow}>
+                  ) : null}
+                </View>
+
+                {aiChatVisible ? (
+                  <Animated.View
+                    style={[
+                      styles.previewAiChatOuter,
+                      {
+                        opacity: aiChatSlideAnim,
+                        transform: [
+                          {
+                            translateY: aiChatSlideAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [16, 0],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <Text style={styles.previewAiQuickLabel}>Quick edits</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.previewAiChipScroll}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {AI_QUICK_CHIPS.map((label) => {
+                        const selected = selectedAiChip === label;
+                        return (
+                          <TouchableOpacity
+                            key={label}
+                            style={[styles.previewAiChip, selected && styles.previewAiChipSelected]}
+                            onPress={() => void sendAiMessage(label, true)}
+                            disabled={isAiLoading}
+                            activeOpacity={0.85}
+                          >
+                            <Text style={[styles.previewAiChipText, selected && styles.previewAiChipTextSelected]}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+
+                    <ScrollView
+                      ref={aiChatScrollRef}
+                      style={styles.previewAiMessages}
+                      contentContainerStyle={styles.previewAiMessagesContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {chatHistory.map((msg) =>
+                        msg.role === 'user' ? (
+                          <View key={msg.id} style={styles.aiMsgUserWrap}>
+                            <Text style={styles.aiMsgUserText}>{msg.content}</Text>
+                          </View>
+                        ) : (
+                          <View key={msg.id}>
+                            <View
+                              style={[styles.aiMsgAssistantWrap, msg.isError && styles.aiMsgAssistantError]}
+                            >
+                              <Text
+                                style={[styles.aiMsgAssistantText, msg.isError && styles.aiMsgAssistantTextError]}
+                              >
+                                {msg.content}
+                              </Text>
+                            </View>
+                            {msg.apply && !msg.isError ? (
+                              <TouchableOpacity
+                                style={styles.aiApplyBtn}
+                                onPress={() => applyAiSuggestion(msg)}
+                                activeOpacity={0.88}
+                              >
+                                <Text style={styles.aiApplyBtnText}>
+                                  {appliedMsgId === msg.id ? '✓ Applied' : 'Apply changes'}
+                                </Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
+                        )
+                      )}
+                      {isAiLoading ? (
+                        <View style={styles.aiMsgAssistantWrap}>
+                          <PreviewTypingIndicator />
+                        </View>
+                      ) : null}
+                    </ScrollView>
+
+                    <View style={styles.previewAiInputRow}>
+                      <TextInput
+                        style={styles.previewAiTextInput}
+                        placeholder="Ask AI to change anything..."
+                        placeholderTextColor={Colors.textMuted}
+                        value={chatInput}
+                        onChangeText={setChatInput}
+                        multiline
+                        maxLength={500}
+                        editable={!isAiLoading}
+                      />
                       <TouchableOpacity
-                        onPress={() =>
-                          void captureSignal({
-                            signalType: 'thumbs_up',
-                            topic: description.trim() || undefined,
-                            angle: captionQuality.tags?.[0],
-                            metadata: { postId: draftId ?? undefined, context: 'result_card' },
-                          }).catch(() => {})
-                        }
-                        style={styles.feedbackChip}
+                        style={[
+                          styles.previewAiSendBtn,
+                          (!chatInput.trim() || isAiLoading) && styles.previewAiSendBtnDisabled,
+                        ]}
+                        onPress={() => void sendAiMessage(chatInput, false)}
+                        disabled={!chatInput.trim() || isAiLoading}
+                        accessibilityLabel="Send message"
                       >
-                        <Text style={styles.feedbackChipText}>👍 Helpful</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() =>
-                          void captureSignal({
-                            signalType: 'thumbs_down',
-                            topic: description.trim() || undefined,
-                            metadata: { postId: draftId ?? undefined, context: 'result_card' },
-                          }).catch(() => {})
-                        }
-                        style={styles.feedbackChip}
-                      >
-                        <Text style={styles.feedbackChipText}>👎 Needs work</Text>
+                        <Ionicons name="arrow-up" size={16} color={Colors.white} />
                       </TouchableOpacity>
                     </View>
-                  </View>
-                )}
-                {isLowQualityBlocked && (
-                  <View style={styles.qualityGateBox}>
-                    <Text style={styles.qualityGateTitle}>Quality Gate Active</Text>
-                    <Text style={styles.qualityGateText}>
-                      This caption scored {captionQuality?.score ?? 0}/100. Run one specificity regenerate
-                      (offer/story/local/event) to unlock Post and Schedule.
-                    </Text>
-                  </View>
-                )}
-              </View>
+                  </Animated.View>
+                ) : null}
 
-              {/* Buttons */}
-              <View style={styles.btnStack}>
-                <PrimaryButton
-                  testID="post-now-btn"
-                  title={`Confirm & Post${enabledCount > 0 ? ` (${enabledCount})` : ''}`}
-                  onPress={handlePostNow}
-                  loading={isPosting}
-                  disabled={enabledCount === 0 || !caption || isLowQualityBlocked}
-                  icon={<Ionicons name="paper-plane" size={18} color={Colors.white} />}
-                />
-                <TouchableOpacity
-                  testID="schedule-post-btn"
-                  onPress={() => {
-                    if (!checkEntitlement()) { setShowPaywall(true); return; }
-                    if (!caption) { showToast('Generate or write a caption first', 'error'); return; }
-                    if (isLowQualityBlocked) {
-                      showToast('Use one specificity regenerate first to improve this caption.', 'info');
-                      return;
-                    }
-                    setShowSchedulePicker(true);
-                  }}
-                  activeOpacity={0.8}
-                  style={styles.scheduleBtn}
-                >
-                  <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-                  <Text style={styles.scheduleBtnText}>Confirm & Schedule</Text>
-                </TouchableOpacity>
-                <View style={styles.btnRow}>
-                  <SecondaryButton
-                    testID="regenerate-btn"
-                    title="Regenerate"
-                    onPress={handleRegenerate}
-                    loading={isGenerating}
-                    icon={<Ionicons name="refresh" size={16} color={Colors.textSecondary} />}
-                  />
-                  <SecondaryButton
-                    testID="edit-caption-btn"
-                    title="Edit"
-                    onPress={() => {
-                      captionInputRef.current?.focus();
-                    }}
-                    icon={<Ionicons name="create-outline" size={16} color={Colors.textSecondary} />}
-                  />
-                  <SecondaryButton
-                    testID="save-draft-btn-step2"
-                    title="Save Draft"
-                    onPress={handleSaveDraft}
-                    icon={<Ionicons name="bookmark-outline" size={16} color={Colors.textSecondary} />}
-                  />
+                <View style={styles.previewFooter}>
+                  <TouchableOpacity
+                    style={[
+                      styles.previewAiBtn,
+                      aiChatVisible && styles.previewAiBtnOpen,
+                    ]}
+                    onPress={() => setAiChatVisible((v) => !v)}
+                    activeOpacity={0.88}
+                  >
+                    <Text style={styles.previewAiEmoji}>✨</Text>
+                    <Text style={styles.previewAiBtnLabel}>
+                      {aiChatVisible ? 'Close AI' : 'Create with AI'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handlePreviewPostPress}
+                    activeOpacity={0.9}
+                    style={styles.previewPostBtnOuter}
+                    disabled={!generatedPost.id}
+                  >
+                    <LinearGradient
+                      colors={GradientColors.primary}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.previewPostBtnGrad, !generatedPost.id && styles.previewPostBtnGradDisabled]}
+                    >
+                      <Text style={styles.previewPostBtnText}>Post →</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
               </View>
-            </>
-          )}
+              ) : null}
+            </Animated.View>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <SchedulePicker
-        visible={showSchedulePicker}
-        onConfirm={handleSchedulePost}
-        onCancel={() => setShowSchedulePicker(false)}
+      <AccountSelectorSheet
+        visible={accountSelectorVisible}
+        onClose={() => setAccountSelectorVisible(false)}
+        onPost={handlePublishFromSheet}
+        onPosted={onAccountSheetPosted}
+        postId={generatedPost?.id ?? ''}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: CREATE_BG },
-  kav: { flex: 1 },
+  safe: { flex: 1, backgroundColor: Colors.background },
+  flex: { flex: 1 },
   scroll: { flex: 1 },
-  content: { paddingBottom: 120 },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
+    paddingTop: Spacing.sm,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.md,
-  },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  brandText: { fontSize: 16, fontWeight: '800', color: Colors.primary },
-  avatarDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.surfaceContainerHighest,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandDnaBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: Spacing.base,
     marginBottom: Spacing.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    minHeight: 36,
-    backgroundColor: '#141f38',
-    borderRadius: BorderRadius.lg,
-    gap: 8,
   },
-  brandDnaDot: { width: 10, height: 10, borderRadius: 5 },
-  brandDnaEmoji: { fontSize: 16 },
-  brandDnaName: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
-  brandDnaEdit: { fontSize: 12, fontWeight: '700', color: Colors.primary },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingTop: Spacing.base, paddingBottom: Spacing.md },
-  headerTitle: { ...Typography.h2, color: Colors.textPrimary },
-  stepper: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, marginBottom: Spacing.lg, gap: 0 },
-  stepperItem: { alignItems: 'center', gap: 4 },
-  stepDot: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  stepDotActive: { backgroundColor: Colors.primary },
-  stepDotInactive: { backgroundColor: Colors.border },
-  stepNum: { color: Colors.white, fontSize: 13, fontWeight: '700' },
-  stepNumInactive: { color: Colors.textTertiary },
-  stepLabel: { fontSize: 11, fontWeight: '600', color: Colors.textTertiary },
-  stepLabelActive: { color: Colors.primary },
-  stepLine: { flex: 1, height: 2, backgroundColor: Colors.border, marginBottom: 14, marginHorizontal: 6 },
-  stepLineActive: { backgroundColor: Colors.primary },
-  section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.lg },
-  blockCard: {
-    backgroundColor: CREATE_CARD,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
+  topBarTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  topBarSpacer: { width: 24 },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
     marginBottom: Spacing.md,
   },
-  sectionLabel: { ...Typography.label, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: Spacing.sm, color: Colors.textSecondary },
-  sectionHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  sectionHeaderTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
-  viewAllText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
-  vibeTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10 },
-  topicLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 },
-  topicRow: { gap: 8, paddingBottom: 10 },
-  topicCard: {
-    width: 200,
+  stripLabel: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: Colors.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  stripScroll: { marginBottom: Spacing.md },
+  stripRow: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingRight: Spacing.md,
+  },
+  skeletonPill: {
+    width: 80,
+    height: 36,
+    borderRadius: 20,
+    backgroundColor: Colors.bgElevated,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  skeletonInner: {
+    height: 10,
+    borderRadius: 4,
+    backgroundColor: Colors.border,
+    width: '70%',
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    borderRadius: BorderRadius.md,
+    maxWidth: 220,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: '#101522',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    gap: 8,
   },
-  topicIcon: { fontSize: 18 },
-  topicTitle: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
-  topicSubtitle: { fontSize: 11, color: Colors.textTertiary, marginTop: 2 },
-  vibeInput: {
-    backgroundColor: '#101522',
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 84,
-    color: Colors.textPrimary,
-    marginBottom: 10,
-  },
-  aiScratchHint: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: -2,
-    marginBottom: 8,
-  },
-  vibeActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  uploadChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: BorderRadius.full,
-    backgroundColor: '#111827',
-  },
-  uploadChipText: { fontSize: 12, color: Colors.textPrimary, fontWeight: '600' },
-  generateMiniBtn: {
-    marginLeft: 'auto',
+  chipSelected: {
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderColor: Colors.primary,
   },
-  generateMiniBtnText: { color: Colors.white, fontWeight: '800', fontSize: 12 },
-  modeRow: { gap: 8 },
-  modeChip: {
+  angleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.accent,
+  },
+  angleDotOn: {
+    backgroundColor: Colors.white,
+  },
+  chipText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  chipTextSelected: {
+    color: Colors.white,
+  },
+  moreIdeas: { justifyContent: 'center', paddingLeft: Spacing.sm },
+  moreIdeasText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  inputWrap: { marginBottom: Spacing.lg, position: 'relative' },
+  ideaInput: {
+    minHeight: 96,
+    maxHeight: 168,
+    backgroundColor: Colors.bgSurface,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    backgroundColor: '#101010',
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.textPrimary,
+    paddingBottom: 44,
   },
-  modeChipActive: {
+  ideaInputFocused: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
   },
-  modeTitle: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary, marginBottom: 2 },
-  modeTitleActive: { color: Colors.primary },
-  modeDesc: { fontSize: 12, color: Colors.textSecondary },
-  modeHintBox: {
-    marginTop: 8,
+  counter: {
+    position: 'absolute',
+    left: 14,
+    bottom: 10,
+    fontSize: 11,
+  },
+  ideaInputActions: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ideaClearBtn: {
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  ideaClearBtnText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  ideaGenerateBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  ideaGenerateBtnDisabled: {
+    opacity: 0.4,
+  },
+  ideaGenerateBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  generateErrorText: {
+    marginTop: 6,
+    marginBottom: Spacing.sm,
+    fontSize: 12,
+    color: Colors.error,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  photoDashed: {
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgElevated,
+    justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  photoBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.md,
+  },
+  ghostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    backgroundColor: Colors.bgSurface,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  modeHintText: { fontSize: 12, color: Colors.textSecondary },
-  sectionLabelMuted: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: '#888', marginBottom: 4 },
-  sectionLabelSpaced: { marginTop: Spacing.md },
-  templatesLinkRow: {
+  ghostBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  photoSelected: { marginBottom: Spacing.lg },
+  photoPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: Colors.bgElevated,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  secondarySmall: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.paper,
+  },
+  secondarySmallText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  removeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.error,
+  },
+  photoHint: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
+  previewPanelWrap: {
+    marginTop: 16,
+  },
+  previewCard: {
+    backgroundColor: Colors.bgSurface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  previewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  templatesLinkBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  templatesLinkText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  exploreChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primaryLight,
-    marginBottom: Spacing.md,
-    maxWidth: '100%',
-  },
-  exploreChipText: { fontSize: 12, fontWeight: '600', color: Colors.primary, flexShrink: 1 },
-  trendRow: { gap: 10, paddingVertical: 4 },
-  trendThumbWrap: {
-    width: 90,
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: BorderRadius.sm,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  trendThumbWrapSelected: { borderColor: Colors.primary },
-  trendThumb: { width: 90, height: 90, borderRadius: BorderRadius.sm, backgroundColor: '#222' },
-  trendLabel: { fontSize: 11, color: '#888', fontWeight: '600', maxWidth: 90, textAlign: 'center' },
-  trendLabelSelected: { color: Colors.primary },
-  imageTplRow: { gap: 10, paddingVertical: 4 },
-  imageTplWrap: {
-    width: 110,
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: BorderRadius.sm,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  imageTplWrapSelected: { borderColor: Colors.primary },
-  templateMediaWrap: { width: 110, height: 140, borderRadius: BorderRadius.sm, overflow: 'hidden', position: 'relative' },
-  imageTplImg: { width: 110, height: 140, borderRadius: BorderRadius.sm, backgroundColor: '#222' },
-  videoBadge: {
-    position: 'absolute',
-    right: 6,
-    bottom: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  videoBadgeText: { fontSize: 10, color: Colors.white, fontWeight: '700' },
-  imageTplLabel: { fontSize: 11, color: '#888', fontWeight: '600', maxWidth: 110, textAlign: 'center' },
-  imageTplLabelSelected: { color: Colors.primary },
-  promptTitle: { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: Spacing.md },
-  helperText: { marginTop: 8, fontSize: 12, color: Colors.textTertiary, fontStyle: 'italic' },
-  genBtnOuter: { borderRadius: BorderRadius.lg, overflow: 'hidden', ...Shadows.sm },
-  genBtnGrad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  genBtnGradDisabled: { opacity: 0.45 },
-  genBtnText: { fontSize: 16, fontWeight: '800', color: Colors.white },
-  photoPicker: { flexDirection: 'row', borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainerHighest, overflow: 'hidden', ...Shadows.sm },
-  photoPickerBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18 },
-  photoPickerBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  photoPickerDivider: { width: 10 },
-  photoPickerCompact: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainerHighest },
-  photoPreviewWrap: { position: 'relative' },
-  photoPreview: { width: '100%', height: 200, borderRadius: BorderRadius.lg, backgroundColor: Colors.subtle },
-  studioStyleLabel: {
-    marginTop: 10,
-    fontSize: 12,
+  previewHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.textSecondary,
-    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  studioStyleRow: {
-    marginTop: 8,
+  previewHeaderLeft: {
+    flex: 1,
+    gap: 4,
+  },
+  previewAiProviderLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    fontWeight: '600',
+  },
+  previewDismiss: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    paddingHorizontal: 4,
+  },
+  previewUpdatingLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  previewSkelBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 10,
+  },
+  previewSkelHero: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    borderRadius: 12,
+    backgroundColor: Colors.bgElevated,
+  },
+  previewSkelLine: {
+    height: 14,
+    borderRadius: 6,
+    backgroundColor: Colors.bgElevated,
+  },
+  previewImageArea: {
+    width: '100%',
+    position: 'relative',
+  },
+  previewHeroImage: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    backgroundColor: Colors.bgElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  previewPlaceholderBizName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.white,
+    textAlign: 'center',
+  },
+  previewPlatformChips: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  previewPlatformChip: {
+    backgroundColor: Colors.overlay55,
+    borderRadius: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+  },
+  previewPlatformChipText: {
+    fontSize: 10,
+    color: Colors.white,
+    fontWeight: '600',
+  },
+  previewCaptionBlock: {
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 0,
+  },
+  previewCaptionText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    lineHeight: 22,
+  },
+  previewHashtagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  studioStyleChip: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: '#101522',
-  },
-  studioStyleChipActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
-  },
-  studioStyleChipText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
-  studioStyleChipTextActive: { color: Colors.primary },
-  photoRemove: { position: 'absolute', top: 8, right: 8, backgroundColor: Colors.white, borderRadius: 12 },
-  input: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: Colors.textPrimary, ...Shadows.sm },
-  promptInput: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#fff',
-    minHeight: 120,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  charCount: { fontSize: 11, color: Colors.textTertiary, textAlign: 'right', marginTop: 4 },
-  btnStack: { paddingHorizontal: Spacing.base, gap: Spacing.md },
-  btnRow: { flexDirection: 'row', gap: Spacing.md },
-  scheduleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.surfaceContainerHighest,
-  },
-  scheduleBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.base, paddingBottom: Spacing.md },
-  backBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
-  platformToggles: { flexDirection: 'row', gap: Spacing.md },
-  platformToggle: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: BorderRadius.lg, backgroundColor: Colors.surfaceContainer, ...Shadows.sm },
-  platformToggleActive: { backgroundColor: Colors.surfaceContainerHighest },
-  platformToggleText: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.textTertiary },
-  connectLink: { fontSize: 11, color: Colors.primary, fontWeight: '700' },
-  toggleDot: { width: 10, height: 10, borderRadius: 5 },
-  photoVariantRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: Spacing.md,
-  },
-  photoVariantThumb: {
-    flex: 1,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: CREATE_CARD,
-  },
-  photoVariantThumbSelected: {
-    borderColor: Colors.primary,
-  },
-  photoVariantImg: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: '#222',
-  },
-  photoVariantLabel: {
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    paddingVertical: 8,
-  },
-  previewCard: { borderRadius: BorderRadius.xl, overflow: 'hidden', backgroundColor: Colors.subtle, ...Shadows.md, position: 'relative' },
-  previewImage: { width: '100%', height: 260 },
-  previewPlaceholder: { height: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  previewPlaceholderText: { ...Typography.bodySmall, color: Colors.textTertiary },
-  aiTag: { position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primaryLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: BorderRadius.full },
-  aiTagText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
-  resultTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  resultTag: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: 'rgba(82,183,136,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(82,183,136,0.35)',
-  },
-  resultTagText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700' },
-  captionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
-  captionInput: { backgroundColor: Colors.surfaceContainerHighest, borderRadius: BorderRadius.lg, paddingHorizontal: 14, paddingVertical: 14, fontSize: 14, color: Colors.textPrimary, lineHeight: 22, minHeight: 120, ...Shadows.sm },
-  captionFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-  quickActions: { flexDirection: 'row', gap: 8 },
-  quickActionBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full, backgroundColor: Colors.primaryLight },
-  quickActionText: { fontSize: 11, color: Colors.primary, fontWeight: '600' },
-  specificityRow: { marginTop: 10 },
-  specificityLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 6 },
-  specificityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  specificityChip: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(186,158,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(186,158,255,0.35)',
-  },
-  specificityChipText: { fontSize: 10, color: Colors.primary, fontWeight: '700', textTransform: 'capitalize' },
-  qualityBox: {
-    marginTop: 10,
-    borderRadius: BorderRadius.md,
-    backgroundColor: 'rgba(82,183,136,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(82,183,136,0.35)',
-    padding: 10,
-  },
-  qualityTitle: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  qualityRationale: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginBottom: 8 },
-  retryMetaText: { fontSize: 10, color: Colors.textTertiary, marginBottom: 8 },
-  qualityTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  qualityTag: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: Colors.primaryLight,
-  },
-  qualityTagText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
-  feedbackRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  feedbackChip: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  feedbackChipText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700' },
-  qualityGateBox: {
     marginTop: 8,
-    borderRadius: BorderRadius.md,
-    backgroundColor: 'rgba(244,162,97,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(244,162,97,0.35)',
-    padding: 10,
   },
-  qualityGateTitle: { fontSize: 11, color: '#F4A261', fontWeight: '800', marginBottom: 4 },
-  qualityGateText: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  previewHashtagPill: {
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+  },
+  previewHashtagText: {
+    fontSize: 11,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  previewFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  previewAiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexShrink: 1,
+  },
+  previewAiBtnOpen: {
+    borderColor: Colors.primary,
+  },
+  previewAiEmoji: {
+    fontSize: 14,
+  },
+  previewAiBtnLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  previewPostBtnOuter: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  previewPostBtnGrad: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewPostBtnGradDisabled: {
+    opacity: 0.45,
+  },
+  previewPostBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textOnPrimary,
+  },
+  previewAiChatOuter: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    overflow: 'hidden',
+  },
+  previewAiQuickLabel: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  previewAiChipScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  previewAiChip: {
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  previewAiChipSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  previewAiChipText: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  previewAiChipTextSelected: {
+    color: Colors.white,
+  },
+  previewAiMessages: {
+    maxHeight: 220,
+    marginHorizontal: 12,
+  },
+  previewAiMessagesContent: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  aiMsgUserWrap: {
+    alignSelf: 'flex-end',
+    maxWidth: '80%',
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    borderBottomRightRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  aiMsgUserText: {
+    fontSize: 13,
+    color: Colors.white,
+    fontWeight: '500',
+  },
+  aiMsgAssistantWrap: {
+    alignSelf: 'flex-start',
+    maxWidth: '85%',
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 16,
+    borderBottomLeftRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  aiMsgAssistantError: {
+    backgroundColor: Colors.bgElevated,
+  },
+  aiMsgAssistantText: {
+    fontSize: 13,
+    color: Colors.textPrimary,
+    lineHeight: 18,
+  },
+  aiMsgAssistantTextError: {
+    color: Colors.textMuted,
+  },
+  aiApplyBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.accentLight,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  aiApplyBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.accent,
+  },
+  aiTypingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 2,
+  },
+  aiTypingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.textSecondary,
+  },
+  previewAiInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  previewAiTextInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 80,
+    fontSize: 13,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.bgElevated,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  previewAiSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewAiSendBtnDisabled: {
+    opacity: 0.4,
+  },
+  aiDisclaimer: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: Spacing.md,
+  },
 });

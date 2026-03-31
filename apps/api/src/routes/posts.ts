@@ -17,6 +17,7 @@ import {
   deletePost,
   enqueueGenerate,
   publishPost,
+  DRAFT_LIMIT,
 } from '../services/postsService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { socialPublishRateLimiter } from '../middleware/rateLimit';
@@ -30,6 +31,15 @@ router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const filter = (req.query.filter as string) || (req.query.status as string);
   const posts = await listPosts(req.userId!, filter);
   return sendSuccess(res, posts);
+}));
+
+router.get('/drafts', asyncHandler(async (req: AuthRequest, res: Response) => {
+  const posts = await listPosts(req.userId!, 'draft');
+  return sendSuccess(res, {
+    posts,
+    count: posts.length,
+    limit: DRAFT_LIMIT,
+  });
 }));
 
 router.get('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -54,6 +64,10 @@ router.post(
       caption: body.caption,
       photo: body.photo ?? undefined,
       processedImage: body.processedImage ?? undefined,
+      scheduled_at:
+        body.status === 'scheduled' && body.scheduledAt?.trim()
+          ? body.scheduledAt.trim()
+          : undefined,
     });
     return sendSuccess(res, result, 201);
   })

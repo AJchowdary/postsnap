@@ -1,60 +1,17 @@
 // ============================================================
-// Quickpost Design System – Dark Theme (2026)
-// Inspired by modern dark UI with purple/blue gradient accents
+// Quickpost design system — re-exports tokens from src/theme/colors
 // ============================================================
 
-export const Colors = {
-  // Core brand (Design System)
-  primary: '#ba9eff', // Primary accent
-  secondary: '#699cff', // Secondary accent
-  tertiary: '#ec63ff',
+import { Colors, shadowTint } from '../theme/colors';
 
-  // Button/glow helpers (kept for existing components)
-  primaryGrad: '#699cff', // Gradient end
-  primaryLight: 'rgba(186,158,255,0.14)',
-  primaryMid: 'rgba(186,158,255,0.22)',
-
-  // Backgrounds
-  background: '#060e20', // Deep navy
-  paper: '#0f1930', // Surface container
-  subtle: '#141f38', // Surface container high
-  surface: 'rgba(20,31,56,0.35)', // Glass-ish surface
-
-  surfaceContainer: '#0f1930',
-  surfaceContainerHigh: '#141f38',
-  surfaceContainerHighest: '#192540',
-
-  // Text
-  text: '#dee5ff',
-  textPrimary: '#dee5ff', // On surface text
-  textSecondary: '#a3aac4', // Muted text (on surface variant)
-  textTertiary: '#a3aac4',
-
-  // Borders
-  border: '#40485d', // Outline variant
-  borderActive: 'rgba(186,158,255,0.35)',
-
-  // Status
-  success: '#4ade80',
-  successLight: 'rgba(74,222,128,0.13)',
-  error: '#f87171',
-  errorLight: 'rgba(248,113,113,0.13)',
-  warning: '#fbbf24',
-  warningLight: 'rgba(251,191,36,0.13)',
-
-  // Platforms
-  instagram: '#e1306c',
-  facebook: '#1877f2',
-
-  white: '#ffffff',
-  black: '#000000',
-};
+export { Colors, shadowTint };
+export type { AppColors } from '../theme/colors';
 
 export const GradientColors = {
-  // Primary buttons: #ba9eff -> #699cff
-  primary: ['#ba9eff', '#699cff'] as [string, string],
-  purple: ['#ba9eff', '#ec63ff'] as [string, string],
-  dark: ['#060e20', '#141f38'] as [string, string],
+  primary: ['#6C63FF', '#4B44CC'] as [string, string],
+  purple: ['#6C63FF', '#00D4AA'] as [string, string],
+  dark: ['#F8F9FF', '#EEF0FF'] as [string, string],
+  welcome: ['#F8F9FF', '#E6FAF7'] as [string, string],
 };
 
 export const Spacing = {
@@ -68,48 +25,88 @@ export const Spacing = {
   xxxl: 48,
 };
 
+/** Cards 16px, inputs 12px, buttons 24px radius */
 export const BorderRadius = {
+  input: 12,
+  card: 16,
+  button: 24,
   sm: 12,
-  md: 20,
-  lg: 24,
+  md: 16,
+  lg: 16,
   xl: 24,
   full: 999,
 };
 
 export const Typography = {
-  // Note: font families fall back to system fonts if Manrope/Inter aren't loaded.
-  h1: { fontSize: 30, fontWeight: '800' as const, letterSpacing: -0.5, color: '#dee5ff', fontFamily: 'Manrope' },
-  h2: { fontSize: 24, fontWeight: '700' as const, letterSpacing: -0.3, color: '#dee5ff', fontFamily: 'Manrope' },
-  h3: { fontSize: 20, fontWeight: '700' as const, color: '#dee5ff', fontFamily: 'Manrope' },
-  h4: { fontSize: 17, fontWeight: '600' as const, color: '#dee5ff', fontFamily: 'Manrope' },
-  bodyLarge: { fontSize: 16, lineHeight: 24, color: '#dee5ff', fontFamily: 'Inter' },
-  body: { fontSize: 14, lineHeight: 20, color: '#dee5ff', fontFamily: 'Inter' },
-  bodySmall: { fontSize: 12, lineHeight: 18, color: '#a3aac4', fontFamily: 'Inter' },
-  label: { fontSize: 12, fontWeight: '600' as const, color: '#a3aac4', fontFamily: 'Inter' },
-  caption: { fontSize: 11, fontWeight: '500' as const, letterSpacing: 0.3, color: '#a3aac4', fontFamily: 'Inter' },
-  title: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5, color: '#dee5ff', fontFamily: 'Manrope' },
+  h1: {
+    fontSize: 30,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
+    color: Colors.textPrimary,
+    fontFamily: 'Manrope',
+  },
+  h2: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    letterSpacing: -0.3,
+    color: Colors.textPrimary,
+    fontFamily: 'Manrope',
+  },
+  h3: { fontSize: 20, fontWeight: '700' as const, color: Colors.textPrimary, fontFamily: 'Manrope' },
+  h4: { fontSize: 17, fontWeight: '600' as const, color: Colors.textPrimary, fontFamily: 'Manrope' },
+  bodyLarge: { fontSize: 16, lineHeight: 24, color: Colors.textPrimary, fontFamily: 'Inter' },
+  body: { fontSize: 14, lineHeight: 20, color: Colors.textPrimary, fontFamily: 'Inter' },
+  bodySmall: { fontSize: 12, lineHeight: 18, color: Colors.textSecondary, fontFamily: 'Inter' },
+  label: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+    letterSpacing: 0.6,
+    fontFamily: 'Inter',
+  },
+  caption: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    letterSpacing: 0.4,
+    color: Colors.textMuted,
+    fontFamily: 'Inter',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800' as const,
+    letterSpacing: -0.5,
+    color: Colors.textPrimary,
+    fontFamily: 'Manrope',
+  },
 };
 
 export const Shadows = {
   sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowColor: 'rgba(108, 99, 255, 0.12)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
     elevation: 2,
   },
   md: {
-    shadowColor: '#000',
+    shadowColor: 'rgba(108, 99, 255, 0.1)',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 4,
   },
   primary: {
-    shadowColor: '#ba9eff',
+    shadowColor: '#6C63FF',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.40,
+    shadowOpacity: 0.22,
     shadowRadius: 16,
-    elevation: 10,
+    elevation: 8,
+  },
+  card: {
+    shadowColor: shadowTint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 3,
   },
 };

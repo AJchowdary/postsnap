@@ -38,6 +38,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-image-picker",
         {
@@ -47,12 +48,27 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": "Quickpost saves studio images to your library",
+          "savePhotosPermission": "Quickpost saves generated images to your library",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#4f46e5"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#4f46e5"
         }
       ]
     ],

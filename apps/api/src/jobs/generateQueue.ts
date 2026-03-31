@@ -35,6 +35,8 @@ import { redisClient } from '../lib/redis';
 import { config } from '../config';
 import { getMetaConnectionOrThrow } from '../services/metaOAuthService';
 import { postToFacebookPage, postToInstagram, isTransientPublishError } from '../providers/posting/metaPostingProvider';
+import { notifyGenerationComplete, notifyPostPublished } from '../services/notificationService';
+import { workerRawToBrandDNA } from '../prompts/quickpostAI';
 
 export interface GenerationJob {
   userId: string;
@@ -249,6 +251,7 @@ async function processPublishJob(job: JobRecord): Promise<void> {
   );
   const toPublish = payload.platforms.filter((p) => !alreadyPublished.has(p));
   const posted = [...alreadyPublished];
+  const newlyPublished: string[] = [];
   const failed: string[] = [];
   const errors: Record<string, string> = {};
   /** Per-platform: true only if the failure was transient (429, 5xx, timeout). */
@@ -290,6 +293,7 @@ async function processPublishJob(job: JobRecord): Promise<void> {
           created_at: now,
         });
         posted.push('facebook');
+        newlyPublished.push('facebook');
         void trackEvent({
           name: 'POST_PUBLISHED',
           accountId: payload.accountId,
@@ -316,6 +320,7 @@ async function processPublishJob(job: JobRecord): Promise<void> {
           created_at: now,
         });
         posted.push('instagram');
+        newlyPublished.push('instagram');
         void trackEvent({
           name: 'POST_PUBLISHED',
           accountId: payload.accountId,
@@ -387,6 +392,9 @@ async function processPublishJob(job: JobRecord): Promise<void> {
     posted: posted.length,
     failed: failed.length,
   });
+  if (newlyPublished.length > 0) {
+    void notifyPostPublished(payload.accountId, payload.postId, newlyPublished);
+  }
 }
 
 async function processJob(job: JobRecord): Promise<void> {
@@ -521,6 +529,7 @@ async function processJob(job: JobRecord): Promise<void> {
 
   const ai = getAIProvider();
   const now = new Date().toISOString();
+  const brandProfile = workerRawToBrandDNA(profile, account);
 
   try {
     const captionResult = await ai.generateCaption({
@@ -549,6 +558,7 @@ async function processJob(job: JobRecord): Promise<void> {
       brandColors: dominantColors.length ? dominantColors : undefined,
       coreServices: coreServices.length ? coreServices : undefined,
       heroProduct: heroProduct ?? undefined,
+      brandProfile: brandProfile ?? undefined,
       detectionContext: { accountId: payload.accountId, postId: post.id, source: 'worker' },
     });
 
@@ -583,6 +593,7 @@ async function processJob(job: JobRecord): Promise<void> {
           visualStyle,
           studioBgColor,
           brandColors: dominantColors.length ? dominantColors : undefined,
+          brandProfile: brandProfile ?? undefined,
         });
         const processedDataUrlOrUrl =
           processedResult?.withOverlay ?? processedResult?.clean ?? null;
@@ -638,6 +649,7 @@ async function processJob(job: JobRecord): Promise<void> {
         source: 'worker',
       },
     });
+    void notifyGenerationComplete(payload.accountId, post.id);
     logger.info(`Job ${job.id} completed for post ${post.id}`);
   } catch (err: any) {
     const attempts = (job.attempts ?? 0) + 1;

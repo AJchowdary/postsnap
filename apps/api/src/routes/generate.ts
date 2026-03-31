@@ -3,12 +3,16 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { validateImagePayload } from '../middleware/validateImagePayload';
 import { GenerateCaptionSchema, GenerateImageSchema } from '../schemas/posts';
+import { EditCaptionSchema } from '../schemas/editCaption';
 import { getAIProvider } from '../providers/ai';
+import { requireAccountRecordForUser } from '../services/accountService';
+import { runEditCaption } from '../services/editCaptionService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { aiRateLimiter } from '../middleware/rateLimit';
 import { sendSuccess } from '../utils/apiResponse';
-import { requireAccountForUser } from '../services/accountService';
 import { scoreCaption, scoringContextFromCaptionParams } from '../providers/ai/qualityScorer';
+import { formattedAccountToBrandDNA } from '../prompts/quickpostAI';
+import { config } from '../config';
 
 const router = Router();
 
@@ -19,7 +23,9 @@ router.post(
   '/caption',
   validate(GenerateCaptionSchema),
   asyncHandler(async (req: AuthRequest, res: Response) => {
-    const accountId = await requireAccountForUser(req.userId!);
+    const accountRecord = await requireAccountRecordForUser(req.userId!);
+    const accountId = String(accountRecord.id);
+    const brandProfile = formattedAccountToBrandDNA(accountRecord);
     const ai = getAIProvider();
     const result = await ai.generateCaption({
       description: req.body.description,
@@ -47,6 +53,7 @@ router.post(
       coreServices: req.body.coreServices,
       heroProduct: req.body.heroProduct,
       neighborhood: req.body.neighborhood,
+      brandProfile: brandProfile ?? undefined,
       detectionContext: { accountId, source: 'api' },
     });
     const caption = result.instagram?.caption ?? result.facebook?.caption ?? '';
@@ -93,6 +100,8 @@ router.post(
             qualityRetryCount: result.meta.qualityRetryCount ?? 0,
           }
         : null,
+      aiProvider: config.aiProvider,
+      openaiConfigured: Boolean(config.openaiApiKey?.trim()),
     });
   })
 );
@@ -102,6 +111,8 @@ router.post(
   validate(GenerateImageSchema),
   validateImagePayload,
   asyncHandler(async (req: AuthRequest, res: Response) => {
+    const accountRecord = await requireAccountRecordForUser(req.userId!);
+    const brandProfile = formattedAccountToBrandDNA(accountRecord);
     const ai = getAIProvider();
     const processed = await ai.processImage({
       photoBase64: req.body.photo,
@@ -126,6 +137,8 @@ router.post(
       visualStyle: req.body.visualStyle,
       studioBgColor: req.body.studioBgColor,
       brandColors: req.body.dominantColors,
+      aspectPreset: req.body.aspectPreset,
+      brandProfile: brandProfile ?? undefined,
     });
     if (!processed) {
       return sendSuccess(res, {
@@ -133,6 +146,8 @@ router.post(
         processed_image_with_overlay: null,
         processed_image_clean: null,
         processed_image_variants: [],
+        aiProvider: config.aiProvider,
+        openaiConfigured: Boolean(config.openaiApiKey?.trim()),
       });
     }
     const primary = processed.withOverlay ?? processed.clean;
@@ -141,6 +156,46 @@ router.post(
       processed_image_with_overlay: processed.withOverlay,
       processed_image_clean: processed.clean,
       processed_image_variants: processed.variants ?? [],
+      aiProvider: config.aiProvider,
+      openaiConfigured: Boolean(config.openaiApiKey?.trim()),
+    });
+  })
+);
+
+router.post(
+  '/edit-caption',
+  validate(EditCaptionSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const accountRecord = await requireAccountRecordForUser(req.userId!);
+    const businessName =
+      req.body.businessName?.trim() || (accountRecord.name as string | undefined)?.trim() || 'Your business';
+    const city = req.body.city?.trim() || (accountRecord.city as string | undefined)?.trim() || '';
+    const brandVibe =
+      typeof accountRecord.brandVibe === 'string' ? accountRecord.brandVibe : undefined;
+    const toneOfVoice =
+      typeof accountRecord.toneOfVoice === 'string' ? accountRecord.toneOfVoice : undefined;
+
+    const brandProfile = formattedAccountToBrandDNA(accountRecord);
+
+    const result = await runEditCaption({
+      userRequest: req.body.userRequest,
+      currentCaption: req.body.currentCaption,
+      currentHashtags: req.body.currentHashtags,
+      businessName,
+      city,
+      ideaText: req.body.ideaText,
+      brandVibe,
+      toneOfVoice,
+      chatHistory: req.body.chatHistory,
+      brandProfile: brandProfile ?? undefined,
+    });
+
+    return sendSuccess(res, {
+      message: result.message,
+      newCaption: result.newCaption,
+      newHashtags: result.newHashtags,
+      aiProvider: config.aiProvider,
+      openaiConfigured: Boolean(config.openaiApiKey?.trim()),
     });
   })
 );

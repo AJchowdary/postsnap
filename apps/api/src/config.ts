@@ -13,6 +13,15 @@ function optional(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+/** OpenAI when key is set, unless AI_PROVIDER explicitly forces mock. */
+function resolveAiProvider(): 'mock' | 'openai' {
+  const explicit = process.env.AI_PROVIDER?.trim().toLowerCase();
+  if (explicit === 'mock') return 'mock';
+  if (explicit === 'openai') return 'openai';
+  const key = process.env.OPENAI_API_KEY?.trim();
+  return key ? 'openai' : 'mock';
+}
+
 /** CORS allowlist: comma-separated origins. No wildcard in production. */
 export function getCorsAllowlist(): string[] {
   const raw = optional('CORS_ALLOWLIST', 'http://localhost:19006,http://localhost:3000,http://127.0.0.1:19006,http://127.0.0.1:3000');
@@ -32,7 +41,7 @@ export const config = {
   openaiImageEditTimeoutMs: parseInt(optional('OPENAI_IMAGE_EDIT_TIMEOUT_MS', '120000'), 10),
   openaiImageEditMaxRetries: parseInt(optional('OPENAI_IMAGE_EDIT_MAX_RETRIES', '3'), 10),
   storageBucket: optional('STORAGE_BUCKET', 'post-images'),
-  aiProvider: (optional('AI_PROVIDER', 'mock') === 'openai' ? 'openai' : 'mock') as 'mock' | 'openai',
+  aiProvider: resolveAiProvider(),
   // Optional Redis for BullMQ; if missing, use DB-backed queue
   redisUrl: optional('REDIS_URL', ''),
   // Rate limits — see middleware/rateLimit.ts
@@ -60,7 +69,7 @@ export const config = {
   regenLimitTrialPerPost: 1,
   regenLimitPaidPerPost: 2,
   regenLimitPaidPerDay: 10,
-  /** v1: scheduling disabled; no scheduled_at column. Set SCHEDULING_ENABLED=true to enable. */
+  /** When true, in-process / worker scheduler processes due rows (see migration 017_posts_scheduled_at.sql). */
   schedulingEnabled: process.env.SCHEDULING_ENABLED === 'true',
   /** When true, API process runs the job worker loop (default false for Render; run separate worker service). */
   runWorkerInProcess: process.env.RUN_WORKER_IN_PROCESS === 'true',
@@ -99,6 +108,8 @@ export const config = {
   publishEnabled: process.env.PUBLISH_ENABLED !== 'false',
   /** Optional shared secret for GET /api/v1/admin/metrics (Bearer or X-Admin-Key). */
   adminMetricsKey: optional('ADMIN_METRICS_KEY', ''),
+  /** Optional Expo access token for https://exp.host/--/api/v2/push/send (Expo account → Access tokens). */
+  expoAccessToken: optional('EXPO_ACCESS_TOKEN', ''),
 };
 
 /** Fail startup in production if required env is missing. Clear error messages. */

@@ -24,8 +24,6 @@ import {
   inferCustomDescriptionHint,
 } from '../constants/businessTypeCatalog';
 
-const BG = '#141f38';
-
 export type BusinessTypeSelection = {
   type: BusinessType;
   displayType: string;
@@ -136,19 +134,19 @@ export function BusinessTypeSelector({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color="#8b92a8" />
+        <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Search or type your business type…"
-          placeholderTextColor="#6b7280"
+          placeholderTextColor={Colors.textMuted}
           style={styles.searchInput}
           autoCapitalize="words"
           autoCorrect
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch('')} hitSlop={10}>
-            <Ionicons name="close-circle" size={20} color="#6b7280" />
+            <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -279,7 +277,7 @@ export function BusinessTypeSelector({
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeHit}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>{title}</Text>
               <View style={{ width: 40 }} />
@@ -297,9 +295,9 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   modalSafe: { maxHeight: '92%' },
   modalCard: {
-    backgroundColor: BG,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: Colors.paper,
+    borderTopLeftRadius: BorderRadius.card,
+    borderTopRightRadius: BorderRadius.card,
     paddingHorizontal: 16,
     paddingBottom: 12,
     flex: 1,
@@ -312,34 +310,44 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   closeHit: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontSize: 17, fontWeight: '800', color: '#fff' },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: Colors.textPrimary },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: 14,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: BorderRadius.input,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  searchInput: { flex: 1, color: '#e5e7eb', fontSize: 16 },
+  searchInput: { flex: 1, color: Colors.textPrimary, fontSize: 16 },
   customBanner: {
-    backgroundColor: 'rgba(186,158,255,0.12)',
-    borderRadius: 12,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: BorderRadius.input,
     padding: 12,
     marginBottom: 12,
     gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  customBannerText: { color: '#c4b5fd', fontSize: 14, lineHeight: 20 },
-  customBannerBold: { fontWeight: '800', color: '#fff' },
-  customConfirmSmall: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: Colors.primary },
-  customConfirmSmallText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  customBannerText: { color: Colors.primaryDark, fontSize: 14, lineHeight: 20 },
+  customBannerBold: { fontWeight: '800', color: Colors.textPrimary },
+  customConfirmSmall: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+  },
+  customConfirmSmallText: { color: Colors.textOnPrimary, fontWeight: '700', fontSize: 13 },
   groupHeader: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
-    color: '#8b92a8',
+    color: Colors.textMuted,
     marginBottom: 8,
     marginTop: 4,
   },
@@ -351,18 +359,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: Colors.bgElevated,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: Colors.border,
     maxWidth: '100%',
   },
   pillSelected: {
-    backgroundColor: 'rgba(186,158,255,0.25)',
+    backgroundColor: Colors.primaryLight,
     borderColor: Colors.primary,
   },
   pillEmoji: { fontSize: 16 },
-  pillLabel: { fontSize: 13, fontWeight: '600', color: '#d1d5db', maxWidth: 200 },
-  pillLabelSelected: { color: '#fff' },
+  pillLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, maxWidth: 200 },
+  pillLabelSelected: { color: Colors.primaryDark },
   seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10, marginBottom: 8 },
   seeAllText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
   listScroll: { flexGrow: 0, maxHeight: 320 },
@@ -374,14 +382,14 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: BorderRadius.input,
     marginBottom: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: Colors.bgElevated,
   },
-  rowSelected: { backgroundColor: 'rgba(186,158,255,0.18)' },
+  rowSelected: { backgroundColor: Colors.primaryLight },
   rowEmoji: { fontSize: 20 },
-  rowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#e5e7eb' },
-  rowLabelSelected: { color: '#fff' },
+  rowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  rowLabelSelected: { color: Colors.primaryDark },
   footer: { paddingTop: 8, paddingBottom: 4 },
   confirmOuter: { borderRadius: BorderRadius.lg, overflow: 'hidden' },
   confirmGrad: {
@@ -389,7 +397,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  confirmText: { fontSize: 16, fontWeight: '800', color: Colors.textOnPrimary },
   inlineWrap: { width: '100%' },
   selectedPreview: { marginTop: 12, gap: 8 },
   previewLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
@@ -398,7 +406,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(186,158,255,0.2)',
+    backgroundColor: Colors.primaryLight,
   },
   previewText: { fontSize: 15, fontWeight: '700', color: Colors.primary },
   previewHint: { fontSize: 12, color: Colors.textTertiary, lineHeight: 17 },

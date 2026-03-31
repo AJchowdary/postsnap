@@ -78,6 +78,9 @@ export function createApp() {
       status: 'ok',
       redis,
       database,
+      aiProvider: config.aiProvider,
+      openaiConfigured: Boolean(config.openaiApiKey?.trim()),
+      captionModel: config.openaiCaptionModel,
       timestamp: new Date().toISOString(),
     });
   });

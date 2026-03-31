@@ -24,9 +24,14 @@ import {
   savePostToBackend,
 } from '../src/services/api';
 import { SchedulePicker } from '../src/components/SchedulePicker';
+import AiDisclaimer from '../src/components/AiDisclaimer';
 import { Platform as SocialPlatform, TEMPLATES_BY_TYPE, StudioStyle } from '../src/types';
-
-const CARD = '#141414';
+import {
+  IMAGE_ASPECT_OPTIONS,
+  pickerAspectForPreset,
+  previewAspectRatio,
+  type ImageAspectPreset,
+} from '../src/constants/imageAspect';
 
 const STUDIO_STYLES: { id: StudioStyle; label: string }[] = [
   { id: 'clean-white', label: 'Clean White' },
@@ -93,6 +98,7 @@ export default function TemplateWorkflowScreen() {
   }, [businessProfile.type, selectedTemplateId, templates]);
 
   const [photo, setPhoto] = useState<string | null>(null);
+  const [imageAspectPreset, setImageAspectPreset] = useState<ImageAspectPreset>('square');
   const [studioStylePreference, setStudioStylePreference] = useState<StudioStyle | null>(null);
   const [studioVariants, setStudioVariants] = useState<string[]>([]);
   const [description, setDescription] = useState('');
@@ -118,7 +124,7 @@ export default function TemplateWorkflowScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images' as any,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: pickerAspectForPreset(imageAspectPreset),
       quality: 0.65,
       base64: true,
     });
@@ -133,7 +139,7 @@ export default function TemplateWorkflowScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: pickerAspectForPreset(imageAspectPreset),
       quality: 0.65,
       base64: true,
     });
@@ -197,6 +203,7 @@ export default function TemplateWorkflowScreen() {
           template: selectedTemplateId,
           description: description.trim(),
           studioStylePreference: studioStyleForGen,
+          aspectPreset: imageAspectPreset,
           ...genBiz,
         }),
       ]);
@@ -304,6 +311,25 @@ export default function TemplateWorkflowScreen() {
 
         <View style={styles.card}>
           <Image source={{ uri: templatePreview }} style={styles.templatePreview} />
+          <Text style={styles.inputLabel}>Aspect ratio</Text>
+          <View style={styles.aspectRow}>
+            {IMAGE_ASPECT_OPTIONS.map((o) => (
+              <TouchableOpacity
+                key={o.id}
+                activeOpacity={0.85}
+                onPress={() => setImageAspectPreset(o.id)}
+                style={[styles.aspectChip, imageAspectPreset === o.id && styles.aspectChipActive]}
+              >
+                <Text
+                  style={[styles.aspectChipTitle, imageAspectPreset === o.id && styles.aspectChipTitleActive]}
+                >
+                  {o.icon ? `${o.icon} ` : ''}
+                  {o.label}
+                </Text>
+                <Text style={styles.aspectChipSub}>{o.sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <Text style={styles.inputLabel}>Add your photo (optional)</Text>
           <View style={styles.photoRow}>
             <TouchableOpacity onPress={pickPhoto} style={styles.uploadBtn}>
@@ -317,7 +343,12 @@ export default function TemplateWorkflowScreen() {
               <Text style={styles.uploadText}>Take Photo</Text>
             </TouchableOpacity>
           </View>
-          {!!photo && <Image source={{ uri: `data:image/jpeg;base64,${photo}` }} style={styles.photoPreview} />}
+          {!!photo && (
+            <Image
+              source={{ uri: `data:image/jpeg;base64,${photo}` }}
+              style={[styles.photoPreview, { aspectRatio: previewAspectRatio(imageAspectPreset) }]}
+            />
+          )}
           {!!photo && (
             <View style={styles.studioBlock}>
               <Text style={styles.studioStyleLabel}>AI Photo Studio style</Text>
@@ -371,6 +402,7 @@ export default function TemplateWorkflowScreen() {
           <TouchableOpacity onPress={handleGenerate} style={styles.generateBtn} disabled={isGenerating}>
             {isGenerating ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.generateText}>Generate Preview</Text>}
           </TouchableOpacity>
+          <AiDisclaimer compact />
         </View>
 
         {!!caption && (
@@ -408,7 +440,7 @@ export default function TemplateWorkflowScreen() {
             {!!processedImage && (
               <Image
                 source={{ uri: imageDataUri(processedImage) || processedImage }}
-                style={styles.generatedImage}
+                style={[styles.generatedImage, { aspectRatio: previewAspectRatio(imageAspectPreset) }]}
                 resizeMode="cover"
               />
             )}
@@ -461,28 +493,49 @@ export default function TemplateWorkflowScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0d0d0d' },
+  safe: { flex: 1, backgroundColor: Colors.background },
   content: { paddingBottom: 120, paddingHorizontal: Spacing.base },
   header: { paddingTop: Spacing.base, paddingBottom: Spacing.md, gap: 8 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   backText: { color: Colors.primary, fontWeight: '700' },
   title: { ...Typography.h3, color: Colors.textPrimary },
   card: {
-    backgroundColor: CARD,
-    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.paper,
+    borderRadius: BorderRadius.card,
     padding: Spacing.base,
     marginBottom: Spacing.md,
-    ...Shadows.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.card,
   },
   templatePreview: { width: '100%', height: 220, borderRadius: BorderRadius.md, marginBottom: 12 },
+  aspectRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: Spacing.md },
+  aspectChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.inputBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minWidth: '28%',
+    flexGrow: 1,
+    maxWidth: '32%',
+  },
+  aspectChipActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  aspectChipTitle: { fontSize: 13, fontWeight: '800', color: Colors.textSecondary },
+  aspectChipTitleActive: { color: Colors.primary },
+  aspectChipSub: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   inputLabel: { ...Typography.label, color: Colors.textSecondary, marginBottom: 8 },
   input: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: Colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: BorderRadius.md,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.input,
     minHeight: 90,
-    color: Colors.white,
+    color: Colors.textPrimary,
     padding: 12,
     marginBottom: 12,
   },
@@ -490,7 +543,7 @@ const styles = StyleSheet.create({
   photoRow: { marginBottom: 10 },
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
   uploadText: { color: Colors.primary, fontWeight: '700' },
-  photoPreview: { width: '100%', height: 180, borderRadius: BorderRadius.md, marginBottom: 10 },
+  photoPreview: { width: '100%', borderRadius: BorderRadius.md, marginBottom: 10 },
   studioBlock: { marginBottom: 12 },
   studioStyleLabel: {
     marginTop: 4,
@@ -510,7 +563,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: '#101522',
+    backgroundColor: Colors.inputBackground,
   },
   studioStyleChipActive: {
     borderColor: Colors.primary,
@@ -529,7 +582,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
-    backgroundColor: CARD,
+    backgroundColor: Colors.paper,
   },
   photoVariantThumbSelected: {
     borderColor: Colors.primary,
@@ -537,7 +590,7 @@ const styles = StyleSheet.create({
   photoVariantImg: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#222',
+    backgroundColor: Colors.border,
   },
   photoVariantLabel: {
     textAlign: 'center',
@@ -547,8 +600,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   generateBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 12, alignItems: 'center' },
-  generateText: { color: Colors.white, fontWeight: '800' },
-  generatedImage: { width: '100%', height: 220, borderRadius: BorderRadius.md, marginBottom: 10 },
+  generateText: { color: Colors.textOnPrimary, fontWeight: '800' },
+  generatedImage: { width: '100%', borderRadius: BorderRadius.md, marginBottom: 10 },
   caption: { color: Colors.textPrimary, lineHeight: 20, marginBottom: 12 },
   platformRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   platformChip: {
@@ -561,7 +614,15 @@ const styles = StyleSheet.create({
   platformChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   platformChipText: { color: Colors.textSecondary, textTransform: 'capitalize' },
   primaryBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
-  primaryBtnText: { color: Colors.white, fontWeight: '800' },
-  secondaryBtn: { backgroundColor: '#121212', borderRadius: BorderRadius.full, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
+  primaryBtnText: { color: Colors.textOnPrimary, fontWeight: '800' },
+  secondaryBtn: {
+    backgroundColor: Colors.bgElevated,
+    borderRadius: BorderRadius.full,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   secondaryBtnText: { color: Colors.textPrimary, fontWeight: '700' },
 });

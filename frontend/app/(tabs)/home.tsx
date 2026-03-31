@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
+import { getUnreadNotificationCount } from '../../src/services/api';
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -30,7 +31,27 @@ export default function HomeScreen() {
   const businessProfile = useAppStore((s) => s.businessProfile);
   const posts = useAppStore((s) => s.posts);
   const setCurrentEdit = useAppStore((s) => s.setCurrentEdit);
-  const showToast = useAppStore((s) => s.showToast);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      const load = async () => {
+        try {
+          const { count } = await getUnreadNotificationCount();
+          if (alive) setUnreadCount(count);
+        } catch {
+          if (alive) setUnreadCount(0);
+        }
+      };
+      void load();
+      const id = setInterval(load, 30000);
+      return () => {
+        alive = false;
+        clearInterval(id);
+      };
+    }, [])
+  );
 
   const recentPosts = posts.slice(0, 3);
   const latestDraft = posts.find((p) => p.status === 'draft');
@@ -44,8 +65,8 @@ export default function HomeScreen() {
     facebook: Colors.facebook,
   };
   const statusColors: Record<string, { bg: string; text: string }> = {
-    published: { bg: Colors.successLight, text: '#15803d' },
-    draft: { bg: Colors.warningLight, text: '#b45309' },
+    published: { bg: Colors.successLight, text: Colors.successOnLight },
+    draft: { bg: Colors.warningLight, text: Colors.warningOnLight },
     failed: { bg: Colors.errorLight, text: Colors.error },
   };
 
@@ -67,9 +88,16 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.bellBtn}
             activeOpacity={0.85}
-            onPress={() => showToast('Notifications coming soon', 'info')}
+            onPress={() => router.push('/notifications' as any)}
           >
             <Ionicons name="notifications-outline" size={20} color={Colors.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge} pointerEvents="none">
+                <Text style={styles.bellBadgeText}>
+                  {unreadCount > 99 ? '99+' : String(unreadCount)}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -83,7 +111,7 @@ export default function HomeScreen() {
         {/* Hero */}
         <View style={styles.section}>
           <LinearGradient
-            colors={['rgba(186,158,255,0.28)', 'rgba(105,156,255,0.20)']}
+            colors={[Colors.homeHeroGradientStart, Colors.homeHeroGradientEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
@@ -101,7 +129,7 @@ export default function HomeScreen() {
             >
               <LinearGradient colors={GradientColors.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.heroCta}>
                 <Text style={styles.heroCtaText}>Start Creating</Text>
-                <Ionicons name="arrow-forward" size={16} color={Colors.background} />
+                <Ionicons name="arrow-forward" size={16} color={Colors.textOnPrimary} />
               </LinearGradient>
             </TouchableOpacity>
           </LinearGradient>
@@ -140,6 +168,20 @@ export default function HomeScreen() {
               />
               <Text style={styles.quickActionText}>{latestDraft ? 'Continue Draft' : 'History'}</Text>
             </TouchableOpacity>
+            <View style={styles.quickActionWrap}>
+              <TouchableOpacity
+                testID="home-action-templates-btn"
+                onPress={() => router.push('/templates' as any)}
+                activeOpacity={0.85}
+                style={[styles.quickAction, styles.quickActionMuted]}
+              >
+                <Ionicons name="layers-outline" size={20} color={Colors.primary} />
+                <Text style={styles.quickActionText}>Templates</Text>
+              </TouchableOpacity>
+              <View style={styles.templatesQuickBadge} pointerEvents="none">
+                <Text style={styles.templatesQuickBadgeText}>Soon</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -245,6 +287,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.paper,
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.white,
   },
   greetingWrap: { paddingHorizontal: Spacing.base, marginBottom: Spacing.base },
   greeting: { ...Typography.h2, marginBottom: 2 },
@@ -262,7 +322,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 80,
     borderRadius: 16,
-    backgroundColor: 'rgba(186,158,255,0.20)',
+    backgroundColor: Colors.homeHeroIllustrationTint,
     marginBottom: 12,
   },
   heroTitle: { ...Typography.h3, marginBottom: 14 },
@@ -280,13 +340,31 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   heroCtaText: {
-    color: Colors.background,
+    color: Colors.textOnPrimary,
     fontWeight: '800',
     fontFamily: 'Manrope',
   },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
   seeAll: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
-  quickRow: { flexDirection: 'row', gap: Spacing.md },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  quickActionWrap: { flex: 1, minWidth: '28%', position: 'relative' },
+  quickActionMuted: { opacity: 0.6 },
+  templatesQuickBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    zIndex: 2,
+  },
+  templatesQuickBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.white,
+    textTransform: 'uppercase',
+  },
   quickAction: {
     flex: 1,
     backgroundColor: Colors.surfaceContainer,

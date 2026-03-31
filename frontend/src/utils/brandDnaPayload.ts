@@ -1,0 +1,48 @@
+import type { BusinessProfile } from '../types';
+import type { updateBusinessProfile } from '../services/api';
+
+/** Maps store profile → API body for PUT /account/profile */
+export function businessProfileToApiPayload(p: BusinessProfile): Parameters<typeof updateBusinessProfile>[0] {
+  return {
+    name: p.name,
+    type: p.type,
+    displayType: p.displayType,
+    customDescription: p.customDescription,
+    city: p.city,
+    logo: p.logo ?? undefined,
+    brandStyle: p.brandStyle,
+    useLogoOverlay: p.useLogoOverlay,
+    brandColor: p.brandColor,
+    brandVibe: p.brandVibe,
+    dominantColors: p.dominantColors,
+    websiteUrl: p.websiteUrl,
+    websiteSummary: p.websiteSummary,
+    toneExample: p.toneExample,
+    instagramHandle: p.instagramHandle,
+    facebookPage: p.facebookPage,
+    brandDnaSource: p.brandDnaSource,
+    businessSubcategory: p.businessSubcategory,
+    neighborhood: p.neighborhood,
+    tagline: p.tagline,
+    toneOfVoice: p.toneOfVoice,
+    contentPersona: p.contentPersona,
+    coreServices: p.coreServices,
+    heroProduct: p.heroProduct,
+    pricePositioning: p.pricePositioning,
+    uniqueDifferentiator: p.uniqueDifferentiator,
+    visualStyle: p.visualStyle,
+    photoStyleExamples: p.photoStyleExamples,
+    studioStylePreference: p.studioStylePreference,
+    studioBgColor: p.studioBgColor,
+    seasonalContext: p.seasonalContext,
+    localEvents: p.localEvents,
+    lastPostTopics: p.lastPostTopics,
+    topPerformingAngles: p.topPerformingAngles,
+    preferredCaptionLength: p.preferredCaptionLength,
+    preferredPostingDays: p.preferredPostingDays,
+    photoStudioHistory: p.photoStudioHistory,
+    confidenceOverall: p.confidenceOverall,
+    enrichmentVersion: p.enrichmentVersion,
+    brainFieldConfidence: p.brainFieldConfidence,
+  };
+}

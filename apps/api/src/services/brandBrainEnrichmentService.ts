@@ -6,6 +6,7 @@ import { getDb } from '../db';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { trackEvent } from './analyticsEvents';
+import { enrichBrandBrainSystemPrompt } from '../prompts/quickpostAI';
 
 const ENRICH_CONF = 0.75;
 const HIGH_CONF_GUARD = 0.85;
@@ -161,7 +162,7 @@ RULES:
       max_tokens: 1500,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: 'Output valid JSON only. No markdown.' },
+        { role: 'system', content: enrichBrandBrainSystemPrompt() },
         { role: 'user', content: userPrompt },
       ],
     });

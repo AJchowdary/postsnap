@@ -21,9 +21,9 @@ export default function Toast({ toast, onHide }: ToastProps) {
   }, [toast.id, opacity, translateY]);
 
   const config = {
-    success: { bg: '#052e16', icon: 'checkmark-circle' as const, iconColor: Colors.success },
-    error: { bg: '#450a0a', icon: 'close-circle' as const, iconColor: Colors.error },
-    info: { bg: '#1e1327', icon: 'information-circle' as const, iconColor: Colors.primary },
+    success: { bg: Colors.successLight, icon: 'checkmark-circle' as const, iconColor: Colors.success },
+    error: { bg: Colors.errorLight, icon: 'close-circle' as const, iconColor: Colors.error },
+    info: { bg: Colors.primaryLight, icon: 'information-circle' as const, iconColor: Colors.primary },
   }[toast.type];
 
   return (
@@ -34,7 +34,7 @@ export default function Toast({ toast, onHide }: ToastProps) {
       <Ionicons name={config.icon} size={20} color={config.iconColor} />
       <Text style={styles.message} numberOfLines={2}>{toast.message}</Text>
       <TouchableOpacity onPress={onHide} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
+        <Ionicons name="close" size={16} color={Colors.textMuted} />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   message: {
     flex: 1,
-    color: Colors.white,
+    color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,

@@ -1,10 +1,14 @@
 import { Router, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { ValidationError } from '../utils/errors';
 import {
   BootstrapAccountSchema,
   BusinessProfileSchema,
   CaptureSignalSchema,
+  ExpoPushTokenSchema,
+  PushNotificationsEnabledSchema,
+  ListNotificationsQuerySchema,
   ScanWebsiteSchema,
 } from '../schemas/account';
 import { TrackAnalyticsEventSchema, type TrackAnalyticsEventInput } from '../schemas/analyticsEvent';
@@ -12,8 +16,14 @@ import {
   bootstrapAccount,
   captureSignal,
   getAccount,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   requireAccountForUser,
+  saveExpoPushToken,
   scanAndSaveWebsite,
+  setPushNotificationsEnabled,
+  unreadNotificationCount,
   upsertBusinessProfile,
 } from '../services/accountService';
 import { trackEvent, type EventName } from '../services/analyticsEvents';
@@ -88,6 +98,66 @@ router.post(
       properties: body.properties,
     });
     return sendSuccess(res, { ok: true });
+  })
+);
+
+router.post(
+  '/push-token',
+  authenticate,
+  validate(ExpoPushTokenSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    await saveExpoPushToken(req.userId!, req.body.token);
+    return sendSuccess(res, { ok: true });
+  })
+);
+
+router.put(
+  '/push-notifications',
+  authenticate,
+  validate(PushNotificationsEnabledSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const account = await setPushNotificationsEnabled(req.userId!, req.body.enabled);
+    return sendSuccess(res, { account });
+  })
+);
+
+router.get(
+  '/notifications',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const parsed = ListNotificationsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      throw new ValidationError(parsed.error.errors.map((e) => e.message).join('; '));
+    }
+    const items = await listNotifications(req.userId!, { limit: parsed.data.limit });
+    return sendSuccess(res, { notifications: items });
+  })
+);
+
+router.get(
+  '/notifications/unread-count',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const count = await unreadNotificationCount(req.userId!);
+    return sendSuccess(res, { count });
+  })
+);
+
+router.post(
+  '/notifications/read-all',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const out = await markAllNotificationsRead(req.userId!);
+    return sendSuccess(res, out);
+  })
+);
+
+router.post(
+  '/notifications/:notificationId/read',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const item = await markNotificationRead(req.userId!, req.params.notificationId);
+    return sendSuccess(res, { notification: item });
   })
 );
 

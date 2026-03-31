@@ -1,3 +1,6 @@
+import type { ImageAspectPreset } from './imageAspectPreset';
+import type { BrandDNAProfile } from '../../prompts/quickpostAI';
+
 export interface CaptionParams {
   description: string;
   template: string;
@@ -18,7 +21,7 @@ export interface CaptionParams {
   websiteSummary?: string;
   city?: string;
   instagramHandle?: string;
-  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  studioStylePreference?: string;
   /** Brand Brain — folded into brief + legacy caption prompts */
   toneOfVoice?: string;
   contentPersona?: string;
@@ -33,6 +36,8 @@ export interface CaptionParams {
   /** Optional audit logging for generic detection */
   detectionContext?: { accountId?: string; postId?: string; source?: 'api' | 'worker' };
   neighborhood?: string;
+  /** Server-enriched Brand DNA block for prompts (optional). */
+  brandProfile?: BrandDNAProfile;
 }
 
 export type CaptionResult = {
@@ -75,13 +80,18 @@ export interface ImageParams {
   dominantColors?: string[];
   city?: string;
   instagramHandle?: string;
-  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  /** Preset id (e.g. clean-white) or free-text studio direction (describe mode). */
+  studioStylePreference?: string;
   toneOfVoice?: string;
   contentPersona?: string;
   uniqueDifferentiator?: string;
   visualStyle?: string;
   studioBgColor?: string;
   brandColors?: string[];
+  /** Output aspect for generated / edited images */
+  aspectPreset?: ImageAspectPreset;
+  /** Optional; text-only image branch reuses caption brief pipeline. */
+  brandProfile?: BrandDNAProfile;
 }
 
 /** Result of My Photo pipeline: enhanced + optional in-image text, and clean enhanced only. */

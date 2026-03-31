@@ -18,15 +18,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="welcome" options={{ headerShown: false }} />
-          <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="templates" options={{ headerShown: false }} />
-          <Stack.Screen name="template-workflow" options={{ headerShown: false }} />
-        </Stack>
+        {/*
+          File-based routes under app/ register automatically. Single screenOptions
+          keeps headers off for index, auth, (tabs), post-preview, templates, etc.
+        */}
+        <Stack screenOptions={{ headerShown: false }} />
         <GlobalToast />
       </SafeAreaProvider>
     </GestureHandlerRootView>

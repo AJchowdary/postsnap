@@ -264,5 +264,5 @@ const s = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
   },
-  confirmText: { fontSize: 15, fontWeight: '700', color: Colors.white },
+  confirmText: { fontSize: 15, fontWeight: '700', color: Colors.textOnPrimary },
 });

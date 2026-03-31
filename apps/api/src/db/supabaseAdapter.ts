@@ -15,6 +15,8 @@ const TABLE_POST_PUBLISH_RESULTS = 'post_publish_results';
 const TABLE_JOBS = 'jobs';
 const TABLE_DETECTION_LOGS = 'detection_logs';
 const TABLE_ANALYTICS_EVENTS = 'analytics_events';
+const TABLE_NOTIFICATIONS = 'notifications';
+const TABLE_CAMPAIGNS = 'campaigns';
 
 function toSnake(s: string): string {
   return s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
@@ -54,6 +56,8 @@ export class SupabaseAdapter implements IDatabase {
       jobs: TABLE_JOBS,
       detection_logs: TABLE_DETECTION_LOGS,
       analytics_events: TABLE_ANALYTICS_EVENTS,
+      notifications: TABLE_NOTIFICATIONS,
+      campaigns: TABLE_CAMPAIGNS,
     };
     return map[collection] ?? collection;
   }
@@ -95,6 +99,15 @@ export class SupabaseAdapter implements IDatabase {
     if (query.postId !== undefined) {
       q = q.eq('post_id', query.postId);
     }
+    if (query.campaign_id !== undefined) {
+      q = q.eq('campaign_id', query.campaign_id);
+    }
+    if (query.campaignId !== undefined) {
+      q = q.eq('campaign_id', query.campaignId);
+    }
+    if (table === TABLE_CAMPAIGNS) {
+      q = q.is('deleted_at', null);
+    }
 
     const { data, error } = await q.limit(1).maybeSingle();
     if (error) throw new Error(`Supabase findOne ${table}: ${error.message}`);
@@ -126,6 +139,12 @@ export class SupabaseAdapter implements IDatabase {
     if (query.post_id !== undefined) q = q.eq('post_id', query.post_id);
     if (query.postId !== undefined) q = q.eq('post_id', query.postId);
     if (query.type !== undefined) q = q.eq('type', query.type);
+    if (query.read !== undefined) q = q.eq('read', query.read);
+    if (query.campaign_id !== undefined) q = q.eq('campaign_id', query.campaign_id);
+    if (query.campaignId !== undefined) q = q.eq('campaign_id', query.campaignId);
+    if (table === TABLE_CAMPAIGNS) {
+      q = q.is('deleted_at', null);
+    }
 
     const orderBy = Object.keys(sort)[0];
     if (orderBy) {
@@ -161,7 +180,9 @@ export class SupabaseAdapter implements IDatabase {
     const row = mapKeysToSnake(data);
     const pk = table === TABLE_BUSINESS_PROFILES || table === TABLE_SUBSCRIPTIONS ? 'account_id' : 'id';
 
-    const { error } = await supabase.from(table).update({ ...row, updated_at: new Date().toISOString() }).eq(pk, id);
+    const withUpdated =
+      table === TABLE_NOTIFICATIONS ? row : { ...row, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from(table).update(withUpdated).eq(pk, id);
     if (error) throw new Error(`Supabase updateOne ${table}: ${error.message}`);
   }
 
@@ -199,6 +220,9 @@ export class SupabaseAdapter implements IDatabase {
     if (query.account_id !== undefined) q = q.eq('account_id', query.account_id);
     if (query.accountId !== undefined) q = q.eq('account_id', query.accountId);
     if (query.status !== undefined) q = q.eq('status', query.status);
+    if (query.read !== undefined) q = q.eq('read', query.read);
+    if (query.campaign_id !== undefined) q = q.eq('campaign_id', query.campaign_id);
+    if (query.campaignId !== undefined) q = q.eq('campaign_id', query.campaignId);
 
     const { count, error } = await q;
     if (error) throw new Error(`Supabase countDocuments ${table}: ${error.message}`);

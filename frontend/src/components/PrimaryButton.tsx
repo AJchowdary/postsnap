@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, BorderRadius, GradientColors } from '../constants/theme';
+import { Colors, BorderRadius, GradientColors, Shadows } from '../constants/theme';
 
 interface PrimaryButtonProps {
   title: string;
@@ -19,11 +19,19 @@ export default function PrimaryButton({ title, onPress, loading, disabled, testI
   const inner = (
     <View style={styles.inner}>
       {loading ? (
-        <ActivityIndicator color={Colors.white} size="small" />
+        <ActivityIndicator color={Colors.textOnPrimary} size="small" />
       ) : (
         <>
           {icon && <View style={styles.iconWrap}>{icon}</View>}
-          <Text style={[styles.text, variant === 'outline' && styles.textOutline]}>{title}</Text>
+          <Text
+            style={[
+              styles.text,
+              variant === 'outline' && styles.textOutline,
+              variant === 'ghost' && styles.textGhost,
+            ]}
+          >
+            {title}
+          </Text>
         </>
       )}
     </View>
@@ -37,6 +45,20 @@ export default function PrimaryButton({ title, onPress, loading, disabled, testI
         disabled={isDisabled}
         activeOpacity={0.75}
         style={[styles.outline, isDisabled && styles.disabled]}
+      >
+        {inner}
+      </TouchableOpacity>
+    );
+  }
+
+  if (variant === 'ghost') {
+    return (
+      <TouchableOpacity
+        testID={testID}
+        onPress={onPress}
+        disabled={isDisabled}
+        activeOpacity={0.75}
+        style={[styles.ghost, isDisabled && styles.disabled]}
       >
         {inner}
       </TouchableOpacity>
@@ -65,13 +87,9 @@ export default function PrimaryButton({ title, onPress, loading, disabled, testI
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.button,
     overflow: 'hidden',
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.40,
-    shadowRadius: 16,
-    elevation: 10,
+    ...Shadows.primary,
     minHeight: 52,
   },
   gradient: {
@@ -82,13 +100,23 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   outline: {
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.button,
     paddingVertical: 15,
     paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: Colors.border,
+    backgroundColor: Colors.paper,
+    minHeight: 52,
+    ...Shadows.sm,
+  },
+  ghost: {
+    borderRadius: BorderRadius.button,
+    paddingVertical: 15,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
     minHeight: 52,
   },
   disabled: { opacity: 0.45 },
@@ -96,12 +124,16 @@ const styles = StyleSheet.create({
   iconWrap: { marginRight: 2 },
   text: {
     fontSize: 16,
-    color: Colors.white,
+    color: Colors.textOnPrimary,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   textOutline: {
-    color: 'rgba(255,255,255,0.85)',
+    color: Colors.textPrimary,
     fontWeight: '600',
+  },
+  textGhost: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
 });

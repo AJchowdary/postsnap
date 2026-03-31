@@ -2,8 +2,10 @@
  * Quickpost API client — Node.js/Express backend. Endpoints use /api/v1.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { Platform as RNPlatform } from 'react-native';
-import { Post, Platform, SocialAccount } from '../types';
+import { Post, Platform, PostStatus, SocialAccount } from '../types';
+import type { ImageAspectPreset } from '../constants/imageAspect';
 
 const API_PREFIX = '/api/v1';
 
@@ -52,7 +54,10 @@ function resolveApiBaseUrl(): string {
       try {
         const u = new URL(primary.includes('://') ? primary : `http://${primary}`);
         const port = u.port || '4000';
-        return `http://10.0.2.2:${port}`;
+        // 10.0.2.2 reaches the dev machine only from the Android *emulator*, not a physical phone.
+        if (Constants.isDevice === false) {
+          return `http://10.0.2.2:${port}`;
+        }
       } catch {
         return primary;
       }
@@ -71,6 +76,26 @@ function resolveApiBaseUrl(): string {
 
 const BASE_URL = resolveApiBaseUrl();
 const AUTH_TOKEN_KEY = '@quickpost_token';
+
+/**
+ * Physical phones cannot use localhost / emulator-only hosts — requests hang until fetch times out.
+ * Simulators/emulators are allowed (they can reach the dev machine).
+ */
+function assertApiReachableOnDevice(): void {
+  if (!__DEV__ || RNPlatform.OS === 'web') return;
+  if (Constants.isDevice !== true) return;
+
+  if (isLoopbackApiUrl(BASE_URL)) {
+    throw new Error(
+      'API URL is localhost — your phone cannot reach your computer. In frontend/.env set EXPO_PUBLIC_API_BASE_URL_DEVICE=http://YOUR_LAN_IP:4000 (same Wi‑Fi as the phone), then restart Expo.'
+    );
+  }
+  if (RNPlatform.OS === 'android' && BASE_URL.includes('10.0.2.2')) {
+    throw new Error(
+      'API host 10.0.2.2 only works on Android emulator. On a real phone, set EXPO_PUBLIC_API_BASE_URL_DEVICE=http://YOUR_LAN_IP:4000 and restart Expo.'
+    );
+  }
+}
 
 // ---- Token helpers ----
 let _token: string | null = null;
@@ -109,6 +134,7 @@ async function apiCall<T>(
   path: string,
   options?: RequestInit & { skipAuth?: boolean }
 ): Promise<T> {
+  assertApiReachableOnDevice();
   const token = options?.skipAuth ? null : await loadToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -132,6 +158,10 @@ async function apiCall<T>(
     }
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
+      // Caller-provided signal (e.g. user cancelled scan) — do not treat as timeout.
+      if (options?.signal?.aborted) {
+        throw new Error('Request cancelled');
+      }
       throw new Error(`Request timeout after ${FETCH_TIMEOUT_MS / 1000}s (check API URL and network)`);
     }
     throw e;
@@ -204,6 +234,51 @@ export const getMyAccount = async (): Promise<any> => {
   return apiCall('/account/me');
 };
 
+export async function savePushToken(token: string): Promise<{ ok: boolean }> {
+  return apiCall('/account/push-token', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
+export async function setPushNotificationsEnabledApi(enabled: boolean): Promise<{ account: Record<string, unknown> }> {
+  return apiCall('/account/push-notifications', {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export type InAppNotification = {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  read: boolean;
+  postId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getNotifications(opts?: { limit?: number }): Promise<{ notifications: InAppNotification[] }> {
+  const q = opts?.limit != null ? `?limit=${encodeURIComponent(String(opts.limit))}` : '';
+  return apiCall(`/account/notifications${q}`);
+}
+
+export async function getUnreadNotificationCount(): Promise<{ count: number }> {
+  return apiCall('/account/notifications/unread-count');
+}
+
+export async function markNotificationRead(notificationId: string): Promise<{ notification: InAppNotification }> {
+  return apiCall(`/account/notifications/${encodeURIComponent(notificationId)}/read`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function markAllRead(): Promise<{ updated: number }> {
+  return apiCall('/account/notifications/read-all', { method: 'POST', body: JSON.stringify({}) });
+}
+
 export type WebsiteScanResult = {
   brandSummary: string;
   suggestedVibe: 'professional' | 'bold' | 'warm';
@@ -216,13 +291,51 @@ export type WebsiteScanResult = {
 };
 
 export const scanWebsite = async (
-  websiteUrl: string
+  websiteUrl: string,
+  opts?: { signal?: AbortSignal }
 ): Promise<{ account: Record<string, unknown>; scan: WebsiteScanResult }> => {
   return apiCall('/account/scan-website', {
     method: 'POST',
     body: JSON.stringify({ websiteUrl }),
+    ...(opts?.signal ? { signal: opts.signal } : {}),
   });
 };
+
+/** Matches server `scrapeProductPage` success shape (camelCase from adapter). */
+export type ProductScrapeApiSuccess = {
+  name: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  price: string | null;
+  url: string;
+};
+
+export type ProductScrapeApiFailure = { error: 'BLOCKED' | 'EMPTY' | 'TIMEOUT' };
+
+export type ProductScrapeApiResult = ProductScrapeApiSuccess | ProductScrapeApiFailure;
+
+const PRODUCT_SCRAPE_TIMEOUT_MS = 8000;
+
+/** Fetch product metadata from a public URL (~8s deadline, same idea as website scan overlay). */
+export async function scrapeProductFromUrl(
+  url: string,
+  opts?: { signal?: AbortSignal }
+): Promise<ProductScrapeApiResult> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), PRODUCT_SCRAPE_TIMEOUT_MS);
+  const onParentAbort = () => controller.abort();
+  opts?.signal?.addEventListener('abort', onParentAbort);
+  try {
+    return await apiCall<ProductScrapeApiResult>('/products/scrape', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(t);
+    opts?.signal?.removeEventListener('abort', onParentAbort);
+  }
+}
 
 export type SignalPayload = {
   signalType:
@@ -277,6 +390,7 @@ export const updateBusinessProfile = async (profile: {
   displayType: string;
   customDescription: string;
   city?: string;
+  logo?: string | null;
   brandStyle: string;
   useLogoOverlay: boolean;
   brandColor?: string;
@@ -351,6 +465,9 @@ export type GenerateCaptionQuality = {
 export type GenerateCaptionResponse = {
   caption: string;
   quality?: GenerateCaptionQuality;
+  /** Debug: which AI provider produced the caption. */
+  aiProvider?: string;
+  openaiConfigured?: boolean;
   retry?: {
     attempts: number;
     strategy: 'brief-primary' | 'brief-retry' | 'legacy-fallback';
@@ -387,12 +504,15 @@ export interface GenerateImageParams {
   dominantColors?: string[];
   city?: string;
   instagramHandle?: string;
-  studioStylePreference?: 'clean-white' | 'lifestyle' | 'dark-dramatic' | 'flat-lay' | 'outdoor-natural';
+  /** Preset id (clean-white, …) or free-text studio direction */
+  studioStylePreference?: string;
   toneOfVoice?: string;
   contentPersona?: string;
   uniqueDifferentiator?: string;
   visualStyle?: string;
   studioBgColor?: string;
+  /** Matches POST /generate/image — square, wide feed, or tall story */
+  aspectPreset?: ImageAspectPreset;
 }
 
 export const generateCaption = async (params: GenerateCaptionParams): Promise<string> => {
@@ -431,7 +551,54 @@ export const generatePostImage = async (
   }
 };
 
+export type EditCaptionChatTurn = { role: 'user' | 'assistant'; content: string };
+
+export type EditCaptionResponse = {
+  message: string;
+  newCaption: string;
+  newHashtags: string[];
+};
+
+export const editCaptionWithAI = async (body: {
+  userRequest: string;
+  currentCaption: string;
+  currentHashtags: string[];
+  businessName: string;
+  city: string;
+  ideaText: string;
+  chatHistory: EditCaptionChatTurn[];
+}): Promise<EditCaptionResponse> => {
+  return apiCall<EditCaptionResponse>('/generate/edit-caption', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+};
+
 // ---- Posts ----
+/** Server-enforced max drafts per account (mirrors API `DRAFT_LIMIT`). */
+export const DRAFT_LIMIT = 6;
+
+export type DraftsPayload = {
+  posts: Post[];
+  count: number;
+  limit: number;
+};
+
+/** GET /posts/drafts — drafts only, with count and limit for UI. */
+export const fetchDraftsFromBackend = async (): Promise<DraftsPayload> => {
+  try {
+    const data = await apiCall<{ posts: any[]; count: number; limit: number }>('/posts/drafts');
+    const posts = Array.isArray(data.posts) ? data.posts : [];
+    return {
+      posts: posts.map((d) => normalizePost(d, {})),
+      count: typeof data.count === 'number' ? data.count : posts.length,
+      limit: typeof data.limit === 'number' ? data.limit : DRAFT_LIMIT,
+    };
+  } catch {
+    return { posts: [], count: 0, limit: DRAFT_LIMIT };
+  }
+};
+
 export const savePostToBackend = async (post: Partial<Post>): Promise<Post> => {
   const data = await apiCall<any>('/posts', {
     method: 'POST',
@@ -482,6 +649,125 @@ export const fetchPostsFromBackend = async (status?: string): Promise<Post[]> =>
   } catch {
     return [];
   }
+};
+
+export const fetchPostById = async (postId: string): Promise<Post> => {
+  const data = await apiCall<any>(`/posts/${encodeURIComponent(postId)}`);
+  return normalizePost(data, {});
+};
+
+/** Count of drafts for the current account (uses GET /posts/drafts). */
+export async function getDraftCount(): Promise<number> {
+  const { count } = await fetchDraftsFromBackend();
+  return count;
+}
+
+// ---- Campaigns ----
+export type CampaignAspectRatio = 'square' | 'feed' | 'story' | 'landscape';
+
+export type CampaignSummary = {
+  id: string;
+  title: string;
+  prompt: string;
+  productUrl: string | null;
+  productName: string | null;
+  productDescription: string | null;
+  productImageUrl: string | null;
+  /** Up to 6 reference images (URLs or data URLs) for style / composition. */
+  referenceImageUrls?: string[];
+  aspectRatio: CampaignAspectRatio;
+  createdAt: string;
+  updatedAt: string;
+  creativeCount: number;
+  thumbnailUrl: string | null;
+};
+
+export type CampaignIdeaCard = {
+  id: string;
+  emoji: string;
+  /** Short label for UI (e.g. pill). */
+  contentAngle: string;
+  headline: string;
+  rationale: string;
+  prompt: string;
+};
+
+/** POST /campaigns/suggest-ideas — Brand Brain–aware campaign/post ideas. */
+export async function getCampaignSuggestions(prompt?: string): Promise<{ ideas: CampaignIdeaCard[] }> {
+  return apiCall('/campaigns/suggest-ideas', {
+    method: 'POST',
+    body: JSON.stringify({ hint: prompt?.trim() || null }),
+  });
+}
+
+export const fetchCampaigns = async (): Promise<CampaignSummary[]> => {
+  return apiCall<CampaignSummary[]>('/campaigns');
+};
+
+export const fetchCampaign = async (id: string): Promise<CampaignSummary> => {
+  return apiCall<CampaignSummary>(`/campaigns/${encodeURIComponent(id)}`);
+};
+
+export const createCampaign = async (body: {
+  title: string;
+  prompt: string;
+  product_url?: string | null;
+  product_name?: string | null;
+  product_description?: string | null;
+  product_image_url?: string | null;
+  reference_image_urls?: string[];
+  aspect_ratio?: CampaignAspectRatio;
+}): Promise<CampaignSummary> => {
+  return apiCall<CampaignSummary>('/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+};
+
+export const updateCampaign = async (
+  id: string,
+  body: Partial<{
+    title: string;
+    prompt: string;
+    product_url: string | null;
+    product_name: string | null;
+    product_description: string | null;
+    product_image_url: string | null;
+    reference_image_urls: string[] | null;
+    aspect_ratio: CampaignAspectRatio;
+  }>
+): Promise<CampaignSummary> => {
+  return apiCall<CampaignSummary>(`/campaigns/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+};
+
+export const deleteCampaign = async (id: string): Promise<void> => {
+  await apiCall(`/campaigns/${encodeURIComponent(id)}`, { method: 'DELETE' });
+};
+
+export const generateCampaignCreative = async (
+  campaignId: string,
+  opts?: {
+    premium_quality?: boolean;
+    product_name?: string | null;
+    product_description?: string | null;
+    product_image_url?: string | null;
+  }
+): Promise<{ post: Post; jobId: string; status: string }> => {
+  const data = await apiCall<{ post: any; jobId: string; status: string }>(
+    `/campaigns/${encodeURIComponent(campaignId)}/generate`,
+    {
+      method: 'POST',
+      body: JSON.stringify(opts ?? {}),
+    }
+  );
+  return {
+    post: normalizePost(data.post, {}),
+    jobId: data.jobId,
+    status: data.status,
+  };
 };
 
 // ---- Social / Meta OAuth ----
@@ -646,10 +932,13 @@ function normalizePost(data: any, original: Partial<Post>): Post {
     description: data.description || original.description || '',
     caption: data.caption || original.caption || '',
     processedImage: processed,
+    photoUrl: data.photoUrl ?? data.photo_url ?? original.photoUrl,
+    processedImageUrl: data.processedImageUrl ?? data.processed_image_url ?? original.processedImageUrl,
     platforms: data.platforms || original.platforms || [],
-    status: data.status || original.status || 'draft',
+    status: (data.status || original.status || 'draft') as PostStatus,
     createdAt: data.createdAt || data.created_at || new Date().toISOString(),
     publishedAt: data.publishedAt || data.published_at || original.publishedAt,
     scheduledAt: data.scheduledAt || data.scheduled_at || original.scheduledAt,
+    campaignId: data.campaignId || data.campaign_id || original.campaignId,
   };
 }

@@ -27,6 +27,9 @@ interface AppState extends AuthState {
   /** Invoked after paywall upgrade succeeds (purchase + verify); e.g. retry publish. */
   paywallSuccessCallback: (() => void) | null;
 
+  /** Prefill campaign composer product image URL. */
+  pendingCampaignProductImageUrl: string | null;
+
   // Auth
   setAuth: (userId: string, email: string, token: string) => Promise<void>;
   clearAuth: () => Promise<void>;
@@ -52,10 +55,13 @@ interface AppState extends AuthState {
   setPaywallSuccessCallback: (cb: (() => void) | null) => void;
   setCurrentEdit: (post: Partial<Post> | null) => void;
   checkEntitlement: () => boolean;
+
+  setPendingCampaignProductImageUrl: (url: string | null) => void;
 }
 
 const DEFAULT_PROFILE: BusinessProfile = {
   name: '',
+  pushNotificationsEnabled: true,
   type: 'restaurant',
   displayType: 'Restaurant',
   customDescription: '',
@@ -87,6 +93,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   showPaywall: false,
   currentEdit: null,
   paywallSuccessCallback: null,
+  pendingCampaignProductImageUrl: null,
 
   setAuth: async (userId, email, token) => {
     await saveToken(token);
@@ -104,6 +111,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       socialAccounts: { instagram: null, facebook: null },
       subscription: DEFAULT_SUBSCRIPTION,
       posts: [],
+      pendingCampaignProductImageUrl: null,
     });
   },
 
@@ -163,4 +171,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       return true;
     return false;
   },
+
+  setPendingCampaignProductImageUrl: (url) => set({ pendingCampaignProductImageUrl: url }),
 }));

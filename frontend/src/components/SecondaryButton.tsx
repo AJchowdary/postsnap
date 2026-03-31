@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View, type ViewStyle } from 'react-native';
 import { Colors, BorderRadius, Typography } from '../constants/theme';
 
 interface SecondaryButtonProps {
@@ -10,6 +10,7 @@ interface SecondaryButtonProps {
   testID?: string;
   icon?: React.ReactNode;
   variant?: 'default' | 'ghost' | 'danger';
+  style?: ViewStyle;
 }
 
 export default function SecondaryButton({
@@ -20,6 +21,7 @@ export default function SecondaryButton({
   testID,
   icon,
   variant = 'default',
+  style,
 }: SecondaryButtonProps) {
   const isDisabled = disabled || loading;
   return (
@@ -28,7 +30,7 @@ export default function SecondaryButton({
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.75}
-      style={[styles.button, styles[variant], isDisabled && styles.disabled]}
+      style={[styles.button, styles[variant], isDisabled && styles.disabled, style]}
     >
       {loading ? (
         <ActivityIndicator color={Colors.textSecondary} size="small" />
@@ -55,7 +57,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.paper,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    shadowColor: '#000',
+    shadowColor: 'rgba(108, 99, 255, 0.1)',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -67,7 +69,7 @@ const styles = StyleSheet.create({
   danger: {
     backgroundColor: Colors.errorLight,
     borderWidth: 1.5,
-    borderColor: '#fca5a5',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
   },
   disabled: {
     opacity: 0.5,

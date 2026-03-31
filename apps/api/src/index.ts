@@ -20,7 +20,15 @@ async function main() {
     const app = createApp();
     app.listen(config.port, '0.0.0.0', () => {
       logger.info(`Quickpost Node API running on port ${config.port} [${config.nodeEnv}]`);
-      logger.info(`DB: Supabase | AI provider: ${config.aiProvider}`);
+      const keyOk = Boolean(config.openaiApiKey?.trim());
+      logger.info(
+        `DB: Supabase | AI provider: ${config.aiProvider} | OPENAI_API_KEY: ${keyOk ? 'set' : 'missing'}`
+      );
+      if (config.aiProvider === 'mock' && !keyOk) {
+        logger.warn(
+          'Caption/image generation uses MockAIProvider. Set OPENAI_API_KEY in apps/api/.env and restart (AI_PROVIDER=openai optional if key is set).'
+        );
+      }
     });
 
     if (config.runWorkerInProcess) {

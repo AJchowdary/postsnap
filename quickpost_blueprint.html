@@ -1,0 +1,2224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quickpost — Product Blueprint</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0f0f;
+    --ink2: #3a3a3a;
+    --ink3: #6b6b6b;
+    --ink4: #9e9e9e;
+    --surface: #fafaf8;
+    --surface2: #f2f1ed;
+    --surface3: #e8e6e0;
+    --accent: #1a3a2a;
+    --accent2: #2d6a4f;
+    --accent3: #52b788;
+    --accent-light: #d8f3dc;
+    --gold: #b5830a;
+    --gold-light: #fef3c7;
+    --coral: #c0392b;
+    --coral-light: #fce4e1;
+    --blue: #1d3557;
+    --blue-light: #e8f0fe;
+    --purple: #5a189a;
+    --purple-light: #f3e8ff;
+    --border: #e2e0da;
+    --border2: #d0cec8;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font-serif: 'Instrument Serif', Georgia, serif;
+    --font-sans: 'DM Sans', system-ui, sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--surface);
+    color: var(--ink);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: var(--accent);
+    color: #fff;
+    padding: 80px 60px 70px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: rgba(82,183,136,0.12);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: 200px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(82,183,136,0.07);
+  }
+  .cover-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 20px;
+  }
+  .cover h1 {
+    font-family: var(--font-serif);
+    font-size: 56px;
+    font-weight: 400;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+  }
+  .cover h1 em {
+    font-style: italic;
+    color: var(--accent3);
+  }
+  .cover-sub {
+    font-size: 17px;
+    color: rgba(255,255,255,0.7);
+    max-width: 500px;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 40px;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-meta-item label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .cover-meta-item span {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+
+  /* ── NAV ── */
+  .toc-bar {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 60px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .toc-bar a {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink3);
+    text-decoration: none;
+    padding: 14px 18px;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+  .toc-bar a:hover { color: var(--accent2); border-bottom-color: var(--accent3); }
+
+  /* ── LAYOUT ── */
+  .doc { max-width: 900px; margin: 0 auto; padding: 0 60px 100px; }
+
+  /* ── SECTION ── */
+  .section {
+    padding: 64px 0 0;
+    border-top: 1px solid var(--border);
+    margin-top: 64px;
+  }
+  .section:first-child { border-top: none; margin-top: 0; }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 10px;
+  }
+  .section h2 {
+    font-family: var(--font-serif);
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 24px;
+  }
+  .section h3 {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 32px 0 12px;
+  }
+  .section h4 {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink2);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin-bottom: 14px; color: var(--ink2); line-height: 1.7; }
+
+  /* ── CARDS ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+  .card h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .card p { font-size: 13px; color: var(--ink3); margin: 0; }
+
+  /* ── PRINCIPLES ── */
+  .principles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .principle {
+    background: var(--accent-light);
+    border: 1px solid #b7e4c7;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+  .principle-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent2);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .principle h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 6px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .principle p { font-size: 13px; color: var(--accent2); margin: 0; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 24px 0;
+  }
+  .flow-header {
+    background: var(--surface2);
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .flow-header-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent3);
+  }
+  .flow-header span {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink3);
+    font-weight: 500;
+  }
+  .flow-body { padding: 24px; }
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .flow-step {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 16px;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 17px; top: 36px;
+    width: 2px;
+    bottom: 0;
+    background: var(--border);
+  }
+  .flow-step-num {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .flow-step-content {
+    padding: 6px 0 28px;
+  }
+  .flow-step-content strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .flow-step-content span {
+    font-size: 13px;
+    color: var(--ink3);
+  }
+  .flow-step-time {
+    display: inline-block;
+    background: var(--gold-light);
+    color: var(--gold);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .flow-step-bg {
+    display: inline-block;
+    background: var(--blue-light);
+    color: var(--blue);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  /* ── SCHEMA ── */
+  .schema-block {
+    background: #0f1117;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 20px 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .schema-header {
+    background: #1a1d27;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #2a2d3a;
+  }
+  .schema-header span {
+    color: #636e7b;
+    font-size: 12px;
+  }
+  .schema-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .schema-body { padding: 20px 24px; }
+  .s-layer { color: #63b3ed; font-weight: 500; }
+  .s-key { color: #90cdf4; }
+  .s-type { color: #68d391; }
+  .s-conf { color: #f6ad55; }
+  .s-comment { color: #4a5568; }
+  .s-optional { color: #b794f4; }
+  .s-line { display: block; }
+  .s-indent { padding-left: 20px; }
+  .s-indent2 { padding-left: 40px; }
+
+  /* ── PIPELINE ── */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 24px 0;
+  }
+  .stage {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    gap: 16px;
+    align-items: start;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+  .stage:hover { border-color: var(--accent3); }
+  .stage-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent2);
+    background: var(--accent-light);
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-align: center;
+  }
+  .stage-content strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .stage-content p {
+    font-size: 13px;
+    color: var(--ink3);
+    margin: 0;
+  }
+  .stage-gate {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--ink4);
+    background: var(--surface2);
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+  .stage-gate.pass { background: var(--accent-light); color: var(--accent2); }
+
+  /* ── TABLE ── */
+  .bp-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13px;
+  }
+  .bp-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--ink2);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .bp-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--ink2);
+    vertical-align: top;
+  }
+  .bp-table tr:nth-child(even) td { background: var(--surface); }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .tag-green { background: var(--accent-light); color: var(--accent2); }
+  .tag-yellow { background: var(--gold-light); color: var(--gold); }
+  .tag-red { background: var(--coral-light); color: var(--coral); }
+  .tag-blue { background: var(--blue-light); color: var(--blue); }
+  .tag-purple { background: var(--purple-light); color: var(--purple); }
+
+  /* ── UX MOCKUP ── */
+  .mockup-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin: 24px 0;
+    display: flex;
+    justify-content: center;
+  }
+  .phone {
+    background: #fff;
+    border: 1px solid var(--border2);
+    border-radius: 28px;
+    width: 300px;
+    min-height: 520px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  }
+  .phone-bar {
+    background: var(--accent);
+    padding: 12px 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .phone-bar span {
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .phone-bar strong {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .phone-body { padding: 20px 16px; }
+  .phone-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .phone-heading {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+  .topic-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.15s;
+  }
+  .topic-card:hover { border-color: var(--accent3); background: var(--accent-light); }
+  .topic-card.active {
+    border-color: var(--accent2);
+    background: var(--accent-light);
+  }
+  .topic-icon {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .topic-card strong { font-size: 13px; font-weight: 600; display: block; }
+  .topic-card span { font-size: 11px; color: var(--ink4); }
+  .gen-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 13px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── RESULT MOCKUP ── */
+  .result-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .result-image-area {
+    background: linear-gradient(135deg, #1a3a2a 0%, #2d6a4f 50%, #52b788 100%);
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .result-image-area span {
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    font-family: var(--font-mono);
+  }
+  .result-tags {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    display: flex;
+    gap: 6px;
+  }
+  .result-tag {
+    background: rgba(255,255,255,0.9);
+    color: var(--ink2);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-family: var(--font-mono);
+  }
+  .result-body { padding: 16px; }
+  .result-caption {
+    font-size: 13px;
+    color: var(--ink2);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .result-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .result-btn {
+    flex: 1;
+    padding: 9px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink2);
+    font-family: var(--font-sans);
+  }
+  .result-btn.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .rationale-box {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-top: 12px;
+    border-left: 3px solid var(--accent3);
+  }
+  .rationale-box strong { font-size: 11px; font-weight: 600; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; }
+  .rationale-box p { font-size: 12px; color: var(--ink3); margin: 0; }
+
+  /* ── PHOTO STUDIO ── */
+  .studio-flow {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr 40px 1fr;
+    gap: 0;
+    align-items: center;
+    margin: 24px 0;
+  }
+  .studio-step {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+  }
+  .studio-step-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+  .studio-step strong {
+    font-size: 13px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .studio-step p { font-size: 12px; color: var(--ink3); margin: 0; }
+  .studio-arrow {
+    text-align: center;
+    color: var(--border2);
+    font-size: 20px;
+    font-weight: 300;
+  }
+
+  /* ── SCORING ── */
+  .score-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 60px;
+    gap: 16px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .score-row:last-child { border-bottom: none; }
+  .score-label { font-size: 13px; font-weight: 500; color: var(--ink2); }
+  .score-bar-wrap {
+    background: var(--surface2);
+    border-radius: 20px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .score-bar {
+    height: 100%;
+    border-radius: 20px;
+    background: var(--accent3);
+    transition: width 1s ease;
+  }
+  .score-pts {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink3);
+    text-align: right;
+  }
+
+  /* ── FLYWHEEL ── */
+  .flywheel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .flywheel-item {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .flywheel-signal {
+    background: var(--purple-light);
+    color: var(--purple);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .flywheel-item div strong { font-size: 13px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .flywheel-item div span { font-size: 12px; color: var(--ink3); }
+
+  /* ── ROADMAP ── */
+  .roadmap {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .roadmap-phase {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .roadmap-phase-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .roadmap-phase-header.p1 { background: var(--accent); }
+  .roadmap-phase-header.p2 { background: var(--accent2); }
+  .roadmap-phase-header.p3 { background: #1d3557; }
+  .roadmap-phase-header label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    display: block;
+    margin-bottom: 3px;
+  }
+  .roadmap-phase-header strong { font-size: 15px; color: #fff; font-weight: 600; }
+  .roadmap-phase-header span { font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-top: 2px; }
+  .roadmap-items { padding: 16px; }
+  .roadmap-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--ink2);
+  }
+  .roadmap-item::before {
+    content: '';
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--border2);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── METRICS ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .metric-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    text-align: center;
+  }
+  .metric-card .metric-val {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent2);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .metric-card .metric-label {
+    font-size: 11px;
+    color: var(--ink4);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── RISKS ── */
+  .risk-row {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .risk-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .risk-desc { font-size: 12px; color: var(--ink3); margin-top: 3px; }
+  .risk-level {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    text-align: center;
+    padding: 4px 0;
+    border-radius: 6px;
+  }
+  .risk-level.high { background: var(--coral-light); color: var(--coral); }
+  .risk-level.med { background: var(--gold-light); color: var(--gold); }
+  .risk-level.low { background: var(--accent-light); color: var(--accent2); }
+  .risk-mitigation { font-size: 12px; color: var(--ink3); }
+
+  /* ── BLOCKLIST ── */
+  .blocklist {
+    background: var(--coral-light);
+    border: 1px solid #f5b8b4;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .blocklist h4 {
+    color: var(--coral);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .blocklist-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: #7b1a14;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(192,57,43,0.1);
+  }
+  .blocklist-item:last-child { border-bottom: none; }
+  .blocklist-item::before {
+    content: '✕';
+    color: var(--coral);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ── DIVIDER ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 4px solid var(--accent3);
+    background: var(--accent-light);
+    padding: 16px 20px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    margin: 20px 0;
+  }
+  .callout strong { font-size: 13px; font-weight: 600; color: var(--accent); display: block; margin-bottom: 4px; }
+  .callout p { font-size: 13px; color: var(--accent2); margin: 0; }
+
+  /* ── PHOTO STUDIO UX ── */
+  .photo-studio-mockup {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 24px 0;
+  }
+  .studio-header {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .studio-header strong { font-size: 14px; font-weight: 600; }
+  .studio-header span { font-size: 12px; color: var(--ink4); }
+  .studio-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .studio-panel {
+    padding: 20px;
+    border-right: 1px solid var(--border);
+  }
+  .studio-panel:last-child { border-right: none; }
+  .studio-panel-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--ink4);
+    margin-bottom: 10px;
+  }
+  .upload-zone {
+    background: var(--surface2);
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 24px;
+    text-align: center;
+    color: var(--ink4);
+    font-size: 13px;
+  }
+  .upload-zone span { display: block; font-size: 28px; margin-bottom: 8px; }
+  .style-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .style-option {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .style-option:hover { border-color: var(--accent3); }
+  .style-option.selected { border-color: var(--accent2); background: var(--accent-light); }
+  .style-option .style-swatch {
+    height: 36px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    background: var(--surface3);
+  }
+  .style-option span { font-size: 11px; font-weight: 500; color: var(--ink2); }
+  .output-preview {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink4);
+    font-size: 12px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .output-preview-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #1a3a2a, #52b788);
+    opacity: 0.85;
+  }
+  .output-preview span { position: relative; z-index: 1; color: rgba(255,255,255,0.8); font-size: 12px; }
+  .ai-badge {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: rgba(255,255,255,0.9);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+  .variant-strip {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .variant-thumb {
+    width: 44px; height: 44px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .variant-thumb.active { border-color: var(--accent2); }
+  .variant-thumb div {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1a3a2a, #52b788);
+    opacity: 0.7;
+  }
+  .variant-thumb:nth-child(2) div { background: linear-gradient(135deg, #1d3557, #457b9d); }
+  .variant-thumb:nth-child(3) div { background: linear-gradient(135deg, #6b2d6b, #c77dff); }
+  .variant-thumb:nth-child(4) div { background: linear-gradient(135deg, #b5450a, #f4a261); }
+  .variant-thumb:nth-child(5) div { background: linear-gradient(135deg, #1b1b1b, #555); }
+
+  @media (max-width: 720px) {
+    .cover { padding: 40px 24px; }
+    .cover h1 { font-size: 36px; }
+    .doc { padding: 0 24px 60px; }
+    .toc-bar { padding: 0 16px; }
+    .principles, .card-grid, .roadmap, .metrics-grid, .flywheel-grid { grid-template-columns: 1fr; }
+    .studio-panels { grid-template-columns: 1fr; }
+    .risk-row { grid-template-columns: 1fr; }
+    .studio-flow { grid-template-columns: 1fr; }
+    .studio-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-label">Product Blueprint · Complete Edition</div>
+  <h1>Quickpost<br><em>Pomelli-Level</em><br>Blueprint</h1>
+  <p class="cover-sub">End-to-end product strategy, dual onboarding architecture, AI photo studio, Brand Brain schema, and 30-day build plan.</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <label>Document</label>
+      <span>v2.0 — Updated</span>
+    </div>
+    <div class="cover-meta-item">
+      <label>Sections</label>
+      <span>13 chapters</span>
+    </div>
+    <div class="cover-meta-item">
+      <label>New in v2</label>
+      <span>AI Photo Studio feature</span>
+    </div>
+    <div class="cover-meta-item">
+      <label>Status</label>
+      <span>Awaiting confirmation</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<nav class="toc-bar">
+  <a href="#vision">Vision</a>
+  <a href="#pomelli">Pomelli Principles</a>
+  <a href="#onboarding">Onboarding</a>
+  <a href="#brand-brain">Brand Brain</a>
+  <a href="#pipeline">AI Pipeline</a>
+  <a href="#photo-studio">Photo Studio ✦ New</a>
+  <a href="#ux">Create Page UX</a>
+  <a href="#quality">Quality Control</a>
+  <a href="#flywheel">Data Flywheel</a>
+  <a href="#roadmap">Roadmap</a>
+  <a href="#metrics">Metrics</a>
+  <a href="#risks">Risks</a>
+  <a href="#architecture">Architecture</a>
+</nav>
+
+<div class="doc">
+
+<!-- SECTION 1: VISION -->
+<div class="section" id="vision">
+  <div class="section-label">Section 01</div>
+  <h2>One-Page Product Vision</h2>
+
+  <div class="callout">
+    <strong>The Promise</strong>
+    <p>Quickpost is the social media manager that already knows your business. Show up once, post forever — with studio-quality images and brand-specific copy, generated in seconds.</p>
+  </div>
+
+  <p><strong>Core Insight:</strong> The gap between generic AI content and premium AI content isn't model quality — it's context depth. Pomelli feels smart because it refuses to generate until it knows enough. Quickpost must do the same. And now with AI Photo Studio, it transforms any basic product photo into a marketing-ready image that matches the brand.</p>
+
+  <div class="principles">
+    <div class="principle">
+      <div class="principle-num">Law 01</div>
+      <h4>Never generate into a vacuum</h4>
+      <p>Always have enough brand signal before producing. Confidence gates enforce this automatically.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-num">Law 02</div>
+      <h4>Specificity over polish</h4>
+      <p>"Summer haircuts at Mane Street in Cedar Rapids" beats "Transform your look this season" every time.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-num">Law 03</div>
+      <h4>Done-for-you, not fill-in-the-blank</h4>
+      <p>The user approves and publishes. They don't assemble, configure, or prompt.</p>
+    </div>
+    <div class="principle">
+      <div class="principle-num">Law 04</div>
+      <h4>Studio quality, zero effort</h4>
+      <p>Upload a raw product photo. Receive a marketing-ready image. No design skills required.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: POMELLI PRINCIPLES -->
+<div class="section" id="pomelli">
+  <div class="section-label">Section 02</div>
+  <h2>What Makes Pomelli-Level Products Feel Premium</h2>
+
+  <table class="bp-table">
+    <thead>
+      <tr>
+        <th>Signal</th>
+        <th>What Pomelli Does</th>
+        <th>What Quickpost Must Do</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Opinionated defaults</strong></td>
+        <td>Chooses format, tone, style for you</td>
+        <td>Pre-select post type, caption length, visual style from Brand Brain</td>
+      </tr>
+      <tr>
+        <td><strong>Zero blank slates</strong></td>
+        <td>Never shows empty fields</td>
+        <td>Always pre-populate from Brand Brain data</td>
+      </tr>
+      <tr>
+        <td><strong>Strategic framing</strong></td>
+        <td>Explains why this post works</td>
+        <td>Micro-rationale: "Works because it's seasonal + local + on-brand"</td>
+      </tr>
+      <tr>
+        <td><strong>Visual confidence</strong></td>
+        <td>Images feel art-directed</td>
+        <td>Image prompts hyper-specific + photo studio transforms raw photos</td>
+      </tr>
+      <tr>
+        <td><strong>Speed with depth</strong></td>
+        <td>Feels instant, output is rich</td>
+        <td>Multi-stage pipeline hidden behind a polished loading experience</td>
+      </tr>
+      <tr>
+        <td><strong>Memory</strong></td>
+        <td>Remembers what you liked</td>
+        <td>Brand Brain evolves from every publish, edit, thumbs signal</td>
+      </tr>
+      <tr>
+        <td><strong>Taste layer</strong></td>
+        <td>Has an editorial POV</td>
+        <td>"No generic copy" rule enforced at generation stage, not as afterthought</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 3: ONBOARDING -->
+<div class="section" id="onboarding">
+  <div class="section-label">Section 03</div>
+  <h2>Dual Onboarding Architecture</h2>
+
+  <h3>Path A — Website Users</h3>
+
+  <div class="flow">
+    <div class="flow-header">
+      <div class="flow-header-dot"></div>
+      <span>Website user flow · Target: 60–90 seconds total</span>
+    </div>
+    <div class="flow-body">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num">1</div>
+          <div class="flow-step-content">
+            <strong>Paste URL</strong>
+            <span>Single input field. Large, confident. No other friction.</span>
+            <div class="flow-step-time">~10 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">2</div>
+          <div class="flow-step-content">
+            <strong>Auto-scan with live progress</strong>
+            <span>Animated progress: "Finding your brand → Reading your story → Building your profile"</span>
+            <div class="flow-step-bg">Background: extract name, category, city, services, tone, colors, social proof</div>
+            <div class="flow-step-time">~30 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">3</div>
+          <div class="flow-step-content">
+            <strong>Confirm screen — max 2 edits</strong>
+            <span>"Here's what we found about [Business Name]" — show Name ✓, Category ✓, City ✓, Top Service (editable)</span>
+            <div class="flow-step-time">~15 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">4</div>
+          <div class="flow-step-content">
+            <strong>Pick brand vibe</strong>
+            <span>4 visual style cards. One tap. No dropdowns.</span>
+            <div class="flow-step-time">~10 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num">5</div>
+          <div class="flow-step-content">
+            <strong>First post auto-generated</strong>
+            <span>Brand Brain locked. Pipeline runs immediately. User sees result.</span>
+            <div class="flow-step-time">~20 sec gen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Path B — No-Website Users</h3>
+
+  <div class="flow">
+    <div class="flow-header">
+      <div class="flow-header-dot" style="background: #f6ad55;"></div>
+      <span>No-website user flow · Target: under 90 seconds total</span>
+    </div>
+    <div class="flow-body">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #b5830a;">1</div>
+          <div class="flow-step-content">
+            <strong>"What kind of business?"</strong>
+            <span>Visual icon grid — ~20 business types. One tap. High-signal, low friction.</span>
+            <div class="flow-step-time">~10 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #b5830a;">2</div>
+          <div class="flow-step-content">
+            <strong>Business name + city</strong>
+            <span>Two fields only. These anchor all local specificity in generation.</span>
+            <div class="flow-step-time">~15 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #b5830a;">3</div>
+          <div class="flow-step-content">
+            <strong>"Pick 3 words that describe your vibe"</strong>
+            <span>Tag cloud: friendly, bold, premium, local, fun, expert, cozy, fast, community… </span>
+            <div class="flow-step-time">~15 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #b5830a;">4</div>
+          <div class="flow-step-content">
+            <strong>"What do you want to post about this week?"</strong>
+            <span>Suggestion cards based on category + season. One tap.</span>
+            <div class="flow-step-time">~10 sec</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #b5830a;">5</div>
+          <div class="flow-step-content">
+            <strong>First post auto-generated</strong>
+            <span>Same pipeline as website users. Enrichment prompt offered (skippable).</span>
+            <div class="flow-step-bg">Category defaults library fills missing Brand Brain fields at conf: 0.55</div>
+            <div class="flow-step-time">~20 sec gen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Convergence Principle</strong>
+    <p>Both paths output identical Brand Brain schema. Path A has higher confidence scores initially. Path B fills in via the data flywheel over time. Users never notice the difference in output quality.</p>
+  </div>
+</div>
+
+<!-- SECTION 4: BRAND BRAIN -->
+<div class="section" id="brand-brain">
+  <div class="section-label">Section 04</div>
+  <h2>Brand Brain / Brand DNA Schema</h2>
+
+  <p>Every field carries a confidence score (0–1). Generation gates prevent low-confidence fields from being used in captions without user confirmation.</p>
+
+  <div class="schema-block">
+    <div class="schema-header">
+      <div class="schema-dot" style="background:#f66;"></div>
+      <div class="schema-dot" style="background:#fa0;margin-left:4px;"></div>
+      <div class="schema-dot" style="background:#4f4;margin-left:4px;"></div>
+      <span style="margin-left:10px;">brand_brain.schema · v2.0</span>
+    </div>
+    <div class="schema-body">
+      <span class="s-line s-layer">IDENTITY LAYER (required)</span>
+      <span class="s-line s-indent"><span class="s-key">business_name</span>          <span class="s-type">string</span>     <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">business_category</span>        <span class="s-type">enum</span>       <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">business_subcategory</span>     <span class="s-type">string</span>     <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">city</span>                     <span class="s-type">string</span>     <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">neighborhood</span>             <span class="s-type">string?</span>    <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">tagline</span>                  <span class="s-type">string?</span>    <span class="s-conf">conf: 0–1</span></span>
+      <br>
+      <span class="s-line s-layer">PERSONALITY LAYER (required)</span>
+      <span class="s-line s-indent"><span class="s-key">brand_vibe</span>               <span class="s-type">enum[]</span>     <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// warm, bold, minimal, playful, expert, premium, community-first, fast, local-pride</span></span>
+      <span class="s-line s-indent"><span class="s-key">tone_of_voice</span>            <span class="s-type">enum</span>       <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// casual / professional / conversational / inspiring</span></span>
+      <span class="s-line s-indent"><span class="s-key">content_persona</span>          <span class="s-type">string</span>     <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// e.g. "the friendly neighborhood expert"</span></span>
+      <br>
+      <span class="s-line s-layer">OFFER LAYER (semi-required)</span>
+      <span class="s-line s-indent"><span class="s-key">core_services</span>            <span class="s-type">string[]</span>   <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">hero_product</span>             <span class="s-type">string?</span>    <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">price_positioning</span>        <span class="s-type">enum</span>       <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// budget / mid / premium / luxury</span></span>
+      <span class="s-line s-indent"><span class="s-key">unique_differentiator</span>    <span class="s-type">string?</span>    <span class="s-conf">conf: 0–1</span></span>
+      <br>
+      <span class="s-line s-layer">VISUAL LAYER (optional, improves image gen + photo studio)</span>
+      <span class="s-line s-indent"><span class="s-key">brand_colors</span>             <span class="s-type">hex[]</span>      <span class="s-conf">conf: 0–1</span></span>
+      <span class="s-line s-indent"><span class="s-key">visual_style</span>             <span class="s-type">enum</span>       <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// photo-real / illustrated / bold-graphic / lifestyle</span></span>
+      <span class="s-line s-indent"><span class="s-key">logo_url</span>                 <span class="s-type">string?</span></span>
+      <span class="s-line s-indent"><span class="s-key">photo_style_examples</span>     <span class="s-type">url[]?</span></span>
+      <span class="s-line s-indent s-optional"><span class="s-key">studio_style_preference</span>  <span class="s-type">enum</span>       <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// NEW: clean-white / lifestyle / dark-dramatic / flat-lay / outdoor-natural</span></span>
+      <span class="s-line s-indent s-optional"><span class="s-key">studio_bg_color</span>          <span class="s-type">hex?</span>       <span class="s-conf">conf: 0–1</span>  <span class="s-comment">// NEW: preferred background from brand palette</span></span>
+      <br>
+      <span class="s-line s-layer">CONTEXT LAYER (enriched over time)</span>
+      <span class="s-line s-indent"><span class="s-key">social_handles</span>           <span class="s-type">map</span></span>
+      <span class="s-line s-indent"><span class="s-key">website_url</span>              <span class="s-type">string?</span></span>
+      <span class="s-line s-indent"><span class="s-key">website_summary</span>          <span class="s-type">string?</span></span>
+      <span class="s-line s-indent"><span class="s-key">seasonal_context</span>         <span class="s-type">string?</span>    <span class="s-comment">// auto-generated weekly</span></span>
+      <span class="s-line s-indent"><span class="s-key">local_events</span>             <span class="s-type">string[]?</span></span>
+      <span class="s-line s-indent"><span class="s-key">last_published_topics</span>    <span class="s-type">string[]</span>   <span class="s-comment">// flywheel data</span></span>
+      <span class="s-line s-indent"><span class="s-key">avoided_topics</span>           <span class="s-type">string[]</span>   <span class="s-comment">// flywheel data</span></span>
+      <span class="s-line s-indent s-optional"><span class="s-key">photo_studio_history</span>     <span class="s-type">obj[]</span>      <span class="s-comment">// NEW: approved style transformations</span></span>
+      <span class="s-line s-indent s-optional"><span class="s-key">preferred_studio_style</span>   <span class="s-type">string?</span>    <span class="s-comment">// NEW: learned from flywheel</span></span>
+      <br>
+      <span class="s-line s-layer">META LAYER</span>
+      <span class="s-line s-indent"><span class="s-key">brand_dna_source</span>         <span class="s-type">enum</span>       <span class="s-comment">// website / manual / hybrid</span></span>
+      <span class="s-line s-indent"><span class="s-key">confidence_overall</span>       <span class="s-type">float</span></span>
+      <span class="s-line s-indent"><span class="s-key">enrichment_version</span>       <span class="s-type">int</span></span>
+    </div>
+  </div>
+
+  <h3>Confidence Scoring Rules</h3>
+  <table class="bp-table">
+    <thead><tr><th>Score Range</th><th>Meaning</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag tag-green">0.9 – 1.0</span></td><td>Directly extracted or confirmed by user</td><td>Use freely in generation</td></tr>
+      <tr><td><span class="tag tag-blue">0.6 – 0.89</span></td><td>Inferred with high confidence</td><td>Use in generation, flag for eventual confirm</td></tr>
+      <tr><td><span class="tag tag-yellow">0.3 – 0.59</span></td><td>Inferred with low confidence</td><td>Use category default, queue enrichment prompt</td></tr>
+      <tr><td><span class="tag tag-red">&lt; 0.3</span></td><td>Missing or unreliable</td><td>Do NOT use in captions; trigger enrichment</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 5: AI PIPELINE -->
+<div class="section" id="pipeline">
+  <div class="section-label">Section 05</div>
+  <h2>AI Generation Pipeline</h2>
+
+  <p>Five stages. All hidden behind the loading experience. Each stage has its own quality gate before proceeding.</p>
+
+  <div class="pipeline">
+    <div class="stage">
+      <div class="stage-num">S1</div>
+      <div class="stage-content">
+        <strong>Brief Assembly</strong>
+        <p>Merge Brand Brain + user intent + seasonal hook + local signal into a structured creative brief (JSON). Minimum confidence threshold check runs here.</p>
+      </div>
+      <div class="stage-gate">Gate: conf ≥ 0.6</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S2</div>
+      <div class="stage-content">
+        <strong>Concept Generation</strong>
+        <p>Generate 3 distinct post angles: [angle_name, hook, rationale, format_recommendation]. Anti-generic similarity filter runs here.</p>
+      </div>
+      <div class="stage-gate">Gate: similarity filter</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S3</div>
+      <div class="stage-content">
+        <strong>Caption Generation</strong>
+        <p>Write caption with local specificity injected. Short + long variants. Hashtag set. Voice fingerprint checked against brand_vibe profile.</p>
+      </div>
+      <div class="stage-gate">Gate: voice match ≥ 70%</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S4</div>
+      <div class="stage-content">
+        <strong>Image Concept / Prompt Generation</strong>
+        <p>Generate detailed, art-directed image prompt. Style direction + color guidance from Visual Layer. Anti stock-photo-ism check.</p>
+      </div>
+      <div class="stage-gate">Gate: specificity check</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S5</div>
+      <div class="stage-content">
+        <strong>Quality Score + Retry Controller</strong>
+        <p>Score output 0–100 across 5 dimensions. If ≥ 80: deliver. If 60–79: silent retry on lowest dimension. If &lt; 60: full retry with tighter constraints.</p>
+      </div>
+      <div class="stage-gate pass">Deliver if ≥ 80/100</div>
+    </div>
+  </div>
+
+  <h3>Anti-Generic Mechanisms</h3>
+  <table class="bp-table">
+    <thead><tr><th>Rule</th><th>Implementation</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Local anchor required</strong></td><td>Caption must contain city, neighborhood, or local reference</td></tr>
+      <tr><td><strong>Business-specific noun required</strong></td><td>Must name a real service, product, or place detail from Brand Brain</td></tr>
+      <tr><td><strong>Seasonal relevance</strong></td><td>Inject current month/season into every brief automatically</td></tr>
+      <tr><td><strong>Voice fingerprint match</strong></td><td>Score caption against brand_vibe profile — reject if &lt; 70% match</td></tr>
+      <tr><td><strong>No fake testimonials</strong></td><td>Generation rules prohibit invented quotes or reviews</td></tr>
+      <tr><td><strong>No unverified claims</strong></td><td>"Best in [city]", "#1", superlatives flagged unless user-confirmed</td></tr>
+      <tr><td><strong>Topic rotation</strong></td><td>Concept generator checks last_5_post_topics to prevent repetition</td></tr>
+    </tbody>
+  </table>
+
+  <div class="blocklist">
+    <h4>Generic Opener Blocklist — Auto-Retry Triggers</h4>
+    <div class="blocklist-item">"Are you looking for..."</div>
+    <div class="blocklist-item">"We're excited to announce..."</div>
+    <div class="blocklist-item">"Transform your [X]..."</div>
+    <div class="blocklist-item">"Elevate your [X]..."</div>
+    <div class="blocklist-item">"In today's fast-paced world..."</div>
+    <div class="blocklist-item">"At [Business], we believe..."</div>
+    <div class="blocklist-item">"Don't miss out on..."</div>
+  </div>
+</div>
+
+<!-- SECTION 6: PHOTO STUDIO ✦ NEW -->
+<div class="section" id="photo-studio">
+  <div class="section-label">Section 06 · NEW FEATURE</div>
+  <h2>AI Photo Studio — Raw Photo → Studio-Quality Marketing Image</h2>
+
+  <div class="callout">
+    <strong>The Feature Promise</strong>
+    <p>A small business owner photographs their product on a kitchen table. Within 30 seconds, Quickpost returns a set of marketing-ready images with professional backgrounds, lighting, and brand-consistent styling — no photographer, no studio, no design software.</p>
+  </div>
+
+  <h3>How It Works — User Flow</h3>
+
+  <div class="studio-flow">
+    <div class="studio-step">
+      <div class="studio-step-icon">📸</div>
+      <strong>Upload raw photo</strong>
+      <p>Any photo. Phone camera fine. Product, food, service, space.</p>
+    </div>
+    <div class="studio-arrow">→</div>
+    <div class="studio-step">
+      <div class="studio-step-icon">🎨</div>
+      <strong>Pick a studio style</strong>
+      <p>Clean white · Lifestyle · Dark dramatic · Flat lay · Outdoor natural</p>
+    </div>
+    <div class="studio-arrow">→</div>
+    <div class="studio-step">
+      <div class="studio-step-icon">✨</div>
+      <strong>Receive 4 variants</strong>
+      <p>Brand colors, cropped for IG/FB, caption ready to pair.</p>
+    </div>
+  </div>
+
+  <h3>What Happens in the Background</h3>
+
+  <div class="flow">
+    <div class="flow-header">
+      <div class="flow-header-dot" style="background: #b794f4;"></div>
+      <span>Photo Studio AI Pipeline · hidden from user</span>
+    </div>
+    <div class="flow-body">
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #5a189a;">1</div>
+          <div class="flow-step-content">
+            <strong>Image Analysis</strong>
+            <span>Identify subject type (product, food, service space, team member), dominant colors, current background quality, key object to preserve.</span>
+            <div class="flow-step-bg">Vision API → subject classification JSON</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #5a189a;">2</div>
+          <div class="flow-step-content">
+            <strong>Subject Isolation</strong>
+            <span>Background removal using segmentation model. Preserve subject edges, shadows, reflections where they add realism.</span>
+            <div class="flow-step-bg">Segmentation model → masked subject PNG</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #5a189a;">3</div>
+          <div class="flow-step-content">
+            <strong>Brand Style Context Assembly</strong>
+            <span>Pull from Brand Brain: brand_colors, visual_style, studio_style_preference. Build style-direction prompt specific to this business.</span>
+            <div class="flow-step-bg">Brand Brain → styled image-to-image prompt</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #5a189a;">4</div>
+          <div class="flow-step-content">
+            <strong>Scene Generation (Image-to-Image)</strong>
+            <span>Generate new background/environment matched to selected style. Place isolated subject. Adjust lighting consistency. Apply brand color harmony.</span>
+            <div class="flow-step-bg">Image-to-image model → 4 variants generated</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #5a189a;">5</div>
+          <div class="flow-step-content">
+            <strong>Post-Processing + Format Export</strong>
+            <span>Auto-crop for IG (1:1, 4:5) and FB (16:9, 1:1). Quality check: resolution, edge artifacts, brand color accuracy. Return 4 selectable variants.</span>
+            <div class="flow-step-bg">Image quality gate → multi-format export</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-step-num" style="background: #5a189a;">6</div>
+          <div class="flow-step-content">
+            <strong>Caption Auto-Generation (paired)</strong>
+            <span>Generate a caption specific to the transformed image. Caption references the product/subject just shown — not a generic post. Pair and deliver together.</span>
+            <div class="flow-step-bg">Caption pipeline with image-aware prompt</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Photo Studio UX Mockup</h3>
+
+  <div class="photo-studio-mockup">
+    <div class="studio-header">
+      <strong>AI Photo Studio</strong>
+      <span>Upload a product photo → get marketing-ready images</span>
+    </div>
+    <div class="studio-panels">
+      <div class="studio-panel">
+        <div class="studio-panel-label">01 — Upload your photo</div>
+        <div class="upload-zone">
+          <span>🖼</span>
+          Tap to upload or drag photo here<br>
+          <span style="font-size:11px;color:#bbb;margin-top:4px;display:block;">Any quality · any background</span>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="studio-panel-label">02 — Pick a studio style</div>
+          <div class="style-picker">
+            <div class="style-option selected">
+              <div class="style-swatch" style="background: #f5f5f0;"></div>
+              <span>Clean White</span>
+            </div>
+            <div class="style-option">
+              <div class="style-swatch" style="background: linear-gradient(135deg, #d4a56a, #8b5e3c);"></div>
+              <span>Lifestyle</span>
+            </div>
+            <div class="style-option">
+              <div class="style-swatch" style="background: #1a1a1a;"></div>
+              <span>Dark Dramatic</span>
+            </div>
+            <div class="style-option">
+              <div class="style-swatch" style="background: linear-gradient(135deg, #e8e0d5, #c8b89a);"></div>
+              <span>Flat Lay</span>
+            </div>
+          </div>
+        </div>
+        <button class="gen-btn" style="margin-top:16px;">✨ Generate Studio Images</button>
+      </div>
+      <div class="studio-panel">
+        <div class="studio-panel-label">03 — Choose your variant</div>
+        <div class="output-preview">
+          <div class="output-preview-bg"></div>
+          <span>AI-generated studio image</span>
+          <div class="ai-badge">AI STUDIO</div>
+        </div>
+        <div class="variant-strip">
+          <div class="variant-thumb active"><div></div></div>
+          <div class="variant-thumb"><div></div></div>
+          <div class="variant-thumb"><div></div></div>
+          <div class="variant-thumb"><div></div></div>
+          <div class="variant-thumb"><div></div></div>
+        </div>
+        <div style="margin-top:14px;">
+          <div class="studio-panel-label">04 — Paired caption</div>
+          <div style="background: var(--surface2); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--ink2); line-height: 1.5;">
+            Introducing our new seasonal blend — crafted fresh in Cedar Rapids every morning. Stop by Oak Park location and taste the difference handmade makes. ☕ 
+            <span style="color: var(--ink4);">#CedarRapidsCoffee #SmallBatch</span>
+          </div>
+        </div>
+        <div class="result-actions" style="margin-top:12px;">
+          <button class="result-btn">Regenerate</button>
+          <button class="result-btn">Edit Caption</button>
+          <button class="result-btn primary">Publish →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Studio Style Options</h3>
+  <table class="bp-table">
+    <thead><tr><th>Style</th><th>Description</th><th>Best For</th><th>Background</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Clean White</strong></td>
+        <td>Minimal, product-forward, no distractions</td>
+        <td>Products, food, retail items</td>
+        <td>White/off-white seamless</td>
+      </tr>
+      <tr>
+        <td><strong>Lifestyle</strong></td>
+        <td>Real-world context, warm human feel</td>
+        <td>Services, experiences, community</td>
+        <td>Contextual (café, home, outdoor)</td>
+      </tr>
+      <tr>
+        <td><strong>Dark Dramatic</strong></td>
+        <td>High contrast, luxury feel, moody</td>
+        <td>Premium products, nightlife, spirits</td>
+        <td>Deep black/charcoal with accent light</td>
+      </tr>
+      <tr>
+        <td><strong>Flat Lay</strong></td>
+        <td>Top-down arrangement, editorial</td>
+        <td>Food, beauty, stationery, apparel</td>
+        <td>Textured neutral (linen, marble, wood)</td>
+      </tr>
+      <tr>
+        <td><strong>Outdoor Natural</strong></td>
+        <td>Natural light, organic, approachable</td>
+        <td>Plants, food, wellness, fitness</td>
+        <td>Garden, grass, natural stone</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Photo Studio Quality Controls</h3>
+  <table class="bp-table">
+    <thead><tr><th>Check</th><th>Rule</th><th>Action if Fail</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Edge artifact detection</strong></td>
+        <td>No visible halo or jagged edges around subject</td>
+        <td>Re-run segmentation with higher precision; retry generation</td>
+      </tr>
+      <tr>
+        <td><strong>Brand color harmony</strong></td>
+        <td>Output image incorporates ≥1 brand color from Brand Brain</td>
+        <td>Adjust color grading in post-processing pass</td>
+      </tr>
+      <tr>
+        <td><strong>Lighting consistency</strong></td>
+        <td>Shadow direction and light source consistent across subject + background</td>
+        <td>Flag to user: "Lighting may look off — regenerate?"</td>
+      </tr>
+      <tr>
+        <td><strong>Subject identity preservation</strong></td>
+        <td>Core subject unchanged — no invented details, distortions, color changes</td>
+        <td>Hard block: reject generation, retry with subject-lock instructions</td>
+      </tr>
+      <tr>
+        <td><strong>Resolution gate</strong></td>
+        <td>Output ≥ 1080px on shortest side</td>
+        <td>Upscale pass before delivery</td>
+      </tr>
+      <tr>
+        <td><strong>No hallucinated objects</strong></td>
+        <td>Background contains no invented logos, text, or identifiable real locations</td>
+        <td>Retry with explicit negative prompt: "no text, no logos, no landmarks"</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Three Photo Input Types Supported</h3>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">📦</div>
+      <h4>Product Photo</h4>
+      <p>Single object on any background. Most common. Works best with clean subject isolation.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🍽</div>
+      <h4>Food / Drink</h4>
+      <p>Plated dishes, beverages, baked goods. Style toward lifestyle or flat lay for best results.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏠</div>
+      <h4>Space / Venue</h4>
+      <p>Interior shots. Enhancement mode: improve lighting, color grading, atmosphere. No subject isolation needed.</p>
+    </div>
+  </div>
+
+  <h3>Flywheel: What Photo Studio Learns</h3>
+  <table class="bp-table">
+    <thead><tr><th>User Action</th><th>Signal Captured</th><th>What Updates</th></tr></thead>
+    <tbody>
+      <tr><td>Publishes variant #2 (Lifestyle)</td><td>Style preference: Lifestyle</td><td>studio_style_preference, default style on next upload</td></tr>
+      <tr><td>Regenerates after Clean White</td><td>Rejection: Clean White</td><td>De-prioritize Clean White for this brand</td></tr>
+      <tr><td>Downloads without publishing</td><td>Weak positive signal</td><td>Log style, track eventual publish</td></tr>
+      <tr><td>Chooses variant with brand color accent</td><td>Color preference confirmed</td><td>studio_bg_color locked to brand palette</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 7: CREATE PAGE UX -->
+<div class="section" id="ux">
+  <div class="section-label">Section 07</div>
+  <h2>Create Page UX — Pomelli-Style</h2>
+
+  <h3>Create Page — User View</h3>
+
+  <div class="mockup-wrap">
+    <div class="phone">
+      <div class="phone-bar">
+        <span>Quickpost</span>
+        <strong>Create</strong>
+        <span>IG · FB</span>
+      </div>
+      <div class="phone-body">
+        <div class="phone-label">What's this post about?</div>
+        <div class="phone-heading">Choose a topic</div>
+        <div class="topic-card active">
+          <div class="topic-icon">🌿</div>
+          <div>
+            <strong>Spring promotion</strong>
+            <span>Seasonal content · trending now</span>
+          </div>
+        </div>
+        <div class="topic-card">
+          <div class="topic-icon">⭐</div>
+          <div>
+            <strong>Customer spotlight</strong>
+            <span>Social proof · high engagement</span>
+          </div>
+        </div>
+        <div class="topic-card">
+          <div class="topic-icon">📸</div>
+          <div>
+            <strong>Behind the scenes</strong>
+            <span>Authenticity · brand trust</span>
+          </div>
+        </div>
+        <div class="topic-card">
+          <div class="topic-icon">🔥</div>
+          <div>
+            <strong>New offering</strong>
+            <span>Announcement · drive traffic</span>
+          </div>
+        </div>
+        <button class="gen-btn">Generate Post →</button>
+      </div>
+    </div>
+  </div>
+
+  <h3>Results Page — Progressive Disclosure</h3>
+
+  <div class="result-card">
+    <div class="result-image-area">
+      <span>AI-generated image</span>
+      <div class="result-tags">
+        <span class="result-tag">📍 Local</span>
+        <span class="result-tag">🗓 Seasonal</span>
+        <span class="result-tag">✅ On-brand</span>
+      </div>
+    </div>
+    <div class="result-body">
+      <p class="result-caption">Spring is here and so are our freshest arrivals. Come see what just landed at our Cedar Rapids shop — your home deserves a little seasonal refresh too. 🌿 Open Mon–Sat, 9–6.</p>
+      <div class="result-actions">
+        <button class="result-btn">Regenerate</button>
+        <button class="result-btn">Edit</button>
+        <button class="result-btn primary">Publish →</button>
+      </div>
+      <div class="rationale-box">
+        <strong>Why this works</strong>
+        <p>Local reference (Cedar Rapids) + seasonal hook (Spring) + clear CTA (hours + visit). Voice match: Warm · Community-first · 94/100 quality score.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Three Workflows</h3>
+  <table class="bp-table">
+    <thead><tr><th>Workflow</th><th>User Entry</th><th>AI Process</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Text-Only</strong></td>
+        <td>Pick topic → tap generate</td>
+        <td>Full 5-stage pipeline. Image concept suggested but skippable.</td>
+        <td>Caption + hashtags + optional image prompt</td>
+      </tr>
+      <tr>
+        <td><strong>Photo Enhancement (Studio)</strong></td>
+        <td>Upload photo → pick style</td>
+        <td>6-stage photo studio pipeline. Caption generated from image content.</td>
+        <td>4 studio-quality image variants + paired caption</td>
+      </tr>
+      <tr>
+        <td><strong>Template-Assisted</strong></td>
+        <td>Pick format (Before/After, Did You Know, This Week's Special)</td>
+        <td>AI fills format with brand-specific content. Faster, lower cognitive load.</td>
+        <td>Structured post in proven format + image suggestion</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 8: QUALITY CONTROL -->
+<div class="section" id="quality">
+  <div class="section-label">Section 08</div>
+  <h2>Quality Control System</h2>
+
+  <h3>Scoring Rubric (0–100)</h3>
+
+  <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin: 20px 0;">
+    <div class="score-row">
+      <div class="score-label">Local Specificity</div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width: 25%;"></div></div>
+      <div class="score-pts">25 pts</div>
+    </div>
+    <div class="score-row">
+      <div class="score-label">Business Specificity</div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width: 25%;"></div></div>
+      <div class="score-pts">25 pts</div>
+    </div>
+    <div class="score-row">
+      <div class="score-label">Voice Match</div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width: 20%; background: var(--blue);"></div></div>
+      <div class="score-pts">20 pts</div>
+    </div>
+    <div class="score-row">
+      <div class="score-label">Engagement Hook</div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width: 15%; background: var(--gold);"></div></div>
+      <div class="score-pts">15 pts</div>
+    </div>
+    <div class="score-row">
+      <div class="score-label">Non-Generic Language</div>
+      <div class="score-bar-wrap"><div class="score-bar" style="width: 15%; background: var(--purple);"></div></div>
+      <div class="score-pts">15 pts</div>
+    </div>
+  </div>
+
+  <div class="card-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+    <div class="card" style="border-color: #b7e4c7;">
+      <div class="card-icon">✅</div>
+      <h4>≥ 80 — Deliver</h4>
+      <p>Output delivered immediately to user with quality tags.</p>
+    </div>
+    <div class="card" style="border-color: #f6e05e;">
+      <div class="card-icon">🔄</div>
+      <h4>60–79 — Silent Retry</h4>
+      <p>One silent retry targeting lowest-scoring dimension only.</p>
+    </div>
+    <div class="card" style="border-color: #f5b8b4;">
+      <div class="card-icon">↺</div>
+      <h4>&lt; 60 — Full Retry</h4>
+      <p>Full regeneration with tighter prompt constraints. Max 2 attempts.</p>
+    </div>
+  </div>
+
+  <h3>Hallucination Guardrails</h3>
+  <div class="card-grid">
+    <div class="card">
+      <h4>No invented staff names</h4>
+      <p>Only use real names if present in Brand Brain or user-provided website data.</p>
+    </div>
+    <div class="card">
+      <h4>No invented awards</h4>
+      <p>"Award-winning" only if confirmed in website scan or user input. Otherwise blocked.</p>
+    </div>
+    <div class="card">
+      <h4>No fake landmarks</h4>
+      <p>Image prompts never reference specific real landmarks unless user-confirmed.</p>
+    </div>
+    <div class="card">
+      <h4>No unverified prices</h4>
+      <p>Price references only if price_positioning field is confirmed in Brand Brain.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 9: DATA FLYWHEEL -->
+<div class="section" id="flywheel">
+  <div class="section-label">Section 09</div>
+  <h2>Data Flywheel</h2>
+
+  <div class="flywheel-grid">
+    <div class="flywheel-item">
+      <span class="flywheel-signal">PUBLISH</span>
+      <div>
+        <strong>High approval signal</strong>
+        <span>Boosts that angle type and studio style in concept generation</span>
+      </div>
+    </div>
+    <div class="flywheel-item">
+      <span class="flywheel-signal">REGEN</span>
+      <div>
+        <strong>Rejection signal</strong>
+        <span>Logs failed concept, adjusts generation weights, removes style from defaults</span>
+      </div>
+    </div>
+    <div class="flywheel-item">
+      <span class="flywheel-signal">EDIT</span>
+      <div>
+        <strong>Preference signal</strong>
+        <span>Extracts delta between generated and edited → updates tone calibration</span>
+      </div>
+    </div>
+    <div class="flywheel-item">
+      <span class="flywheel-signal">THUMBS</span>
+      <div>
+        <strong>Explicit signal</strong>
+        <span>Direct concept and studio style scoring, highest signal weight</span>
+      </div>
+    </div>
+    <div class="flywheel-item">
+      <span class="flywheel-signal">SAVES</span>
+      <div>
+        <strong>Delayed approval</strong>
+        <span>Track eventual publish rate — saves that never publish are soft rejections</span>
+      </div>
+    </div>
+    <div class="flywheel-item">
+      <span class="flywheel-signal">PATTERN</span>
+      <div>
+        <strong>Topic pattern</strong>
+        <span>Same topic picked repeatedly → surface as default suggestion, prioritize studio style</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Personalization Memory Fields (Brand Brain additions)</h3>
+  <div class="schema-block" style="margin-top:16px;">
+    <div class="schema-body">
+      <span class="s-line"><span class="s-key">top_performing_angles</span>       <span class="s-type">string[]</span>   <span class="s-comment">// from publish history</span></span>
+      <span class="s-line"><span class="s-key">avoided_topics</span>               <span class="s-type">string[]</span>   <span class="s-comment">// from skip/regenerate patterns</span></span>
+      <span class="s-line"><span class="s-key">preferred_caption_length</span>     <span class="s-type">enum</span>       <span class="s-comment">// short / medium / long — from edit history</span></span>
+      <span class="s-line"><span class="s-key">preferred_posting_days</span>       <span class="s-type">string[]</span>   <span class="s-comment">// from publish timestamps</span></span>
+      <span class="s-line"><span class="s-key">seasonal_content_history</span>     <span class="s-type">string[]</span>   <span class="s-comment">// prevents repeating same seasonal angles</span></span>
+      <span class="s-line"><span class="s-key">last_5_post_topics</span>           <span class="s-type">string[]</span>   <span class="s-comment">// prevents topic repetition</span></span>
+      <span class="s-line s-optional"><span class="s-key">preferred_studio_style</span>       <span class="s-type">string?</span>    <span class="s-comment">// NEW: learned from photo studio flywheel</span></span>
+      <span class="s-line s-optional"><span class="s-key">photo_studio_history</span>         <span class="s-type">obj[]</span>      <span class="s-comment">// NEW: variant approved, style, subject type</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 10: ROADMAP -->
+<div class="section" id="roadmap">
+  <div class="section-label">Section 10</div>
+  <h2>30-Day Build Plan</h2>
+
+  <div class="roadmap">
+    <div class="roadmap-phase">
+      <div class="roadmap-phase-header p1">
+        <label>Week 1 · Days 1–7</label>
+        <strong>Foundation</strong>
+        <span>Brand Brain + Onboarding</span>
+      </div>
+      <div class="roadmap-items">
+        <div class="roadmap-item">Finalize Brand Brain schema v2 with studio fields</div>
+        <div class="roadmap-item">Build website scanner service</div>
+        <div class="roadmap-item">Build manual onboarding flow (no-website path)</div>
+        <div class="roadmap-item">Build convergence normalizer (both paths → same schema)</div>
+        <div class="roadmap-item">Basic confidence scoring per field</div>
+        <div class="roadmap-item">Category defaults library for no-website users</div>
+      </div>
+    </div>
+    <div class="roadmap-phase">
+      <div class="roadmap-phase-header p2">
+        <label>Week 2–3 · Days 8–21</label>
+        <strong>Generation Engine</strong>
+        <span>Pipeline + Photo Studio</span>
+      </div>
+      <div class="roadmap-items">
+        <div class="roadmap-item">Build 5-stage caption/image pipeline</div>
+        <div class="roadmap-item">Generic output detector + blocklist</div>
+        <div class="roadmap-item">Quality scorer + retry controller</div>
+        <div class="roadmap-item">Photo Studio: upload + segmentation integration</div>
+        <div class="roadmap-item">Photo Studio: image-to-image style pipeline</div>
+        <div class="roadmap-item">Photo Studio: 5 style presets + quality gates</div>
+        <div class="roadmap-item">Photo Studio: caption paired generation</div>
+        <div class="roadmap-item">Create page UX + results page</div>
+      </div>
+    </div>
+    <div class="roadmap-phase">
+      <div class="roadmap-phase-header p3">
+        <label>Week 4 · Days 22–30</label>
+        <strong>Flywheel + Polish</strong>
+        <span>Signals + Metrics + QA</span>
+      </div>
+      <div class="roadmap-items">
+        <div class="roadmap-item">Signal capture (publish, regen, edit, thumbs, studio)</div>
+        <div class="roadmap-item">Brand Brain enrichment on signal receipt</div>
+        <div class="roadmap-item">Seasonal context auto-injection (weekly)</div>
+        <div class="roadmap-item">Photo studio flywheel: style preference learning</div>
+        <div class="roadmap-item">QA both onboarding paths end-to-end</div>
+        <div class="roadmap-item">QA generic detector (50 sample outputs)</div>
+        <div class="roadmap-item">QA photo studio (edge artifacts, brand color checks)</div>
+        <div class="roadmap-item">Activation metrics instrumentation + soft launch</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 11: METRICS -->
+<div class="section" id="metrics">
+  <div class="section-label">Section 11</div>
+  <h2>Metrics to Track</h2>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <span class="metric-val">&gt;80%</span>
+      <div class="metric-label">Onboarding completion</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&lt;3 min</span>
+      <div class="metric-label">Time to first post</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&gt;40%</span>
+      <div class="metric-label">First post publish rate</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&lt;30%</span>
+      <div class="metric-label">Regeneration rate</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&gt;80</span>
+      <div class="metric-label">Avg quality score</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&gt;35%</span>
+      <div class="metric-label">7-day retention</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&gt;4</span>
+      <div class="metric-label">Posts/user/month</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-val">&gt;25%</span>
+      <div class="metric-label">Studio feature adoption</div>
+    </div>
+  </div>
+
+  <h3>Photo Studio–Specific Metrics</h3>
+  <table class="bp-table">
+    <thead><tr><th>Metric</th><th>Target</th><th>Signal</th></tr></thead>
+    <tbody>
+      <tr><td>Studio feature activation rate</td><td>&gt; 25% of users in first week</td><td>Feature discoverability</td></tr>
+      <tr><td>Studio publish rate (vs text-only)</td><td>≥ text-only publish rate</td><td>Output quality parity</td></tr>
+      <tr><td>Variant selection (not always #1)</td><td>&gt; 40% pick variant #2–4</td><td>Real choice, not forced</td></tr>
+      <tr><td>Studio regeneration rate</td><td>&lt; 35%</td><td>Style matching accuracy</td></tr>
+      <tr><td>Edge artifact complaints</td><td>&lt; 2% of outputs flagged</td><td>Segmentation quality</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 12: RISKS -->
+<div class="section" id="risks">
+  <div class="section-label">Section 12</div>
+  <h2>Risks and Mitigations</h2>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Website scanner fails on complex sites</div>
+      <div class="risk-desc">JavaScript-heavy SPAs, password-protected pages</div>
+    </div>
+    <div class="risk-level high">HIGH</div>
+    <div class="risk-mitigation">Fallback to manual enrichment with friendly "We couldn't read your site fully — let's fill in 3 quick things" UX</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Photo studio: poor subject isolation</div>
+      <div class="risk-desc">Busy backgrounds, transparent objects, fine hair/edges</div>
+    </div>
+    <div class="risk-level high">HIGH</div>
+    <div class="risk-mitigation">Multi-pass segmentation; user edge-correction tool; "Tips for better results" shown on upload (plain background, good lighting)</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Photo studio: subject distortion</div>
+      <div class="risk-desc">AI changes product color, shape, or adds invented details</div>
+    </div>
+    <div class="risk-level high">HIGH</div>
+    <div class="risk-mitigation">Subject-lock prompt engineering; hard gate: reject if subject identity score &lt; 0.8; user reports trigger immediate retry</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Generated captions still feel generic</div>
+      <div class="risk-desc">Pipeline bypasses or confidence gates too loose</div>
+    </div>
+    <div class="risk-level med">MED</div>
+    <div class="risk-mitigation">Quality gate + blocklist enforcement + category default library tuned per vertical</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Users don't trust AI-written captions</div>
+      <div class="risk-desc">Common among less tech-comfortable users</div>
+    </div>
+    <div class="risk-level med">MED</div>
+    <div class="risk-mitigation">"Why this works" rationale + easy edit mode + quality tags build trust progressively</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Photo studio: slow generation time</div>
+      <div class="risk-desc">Image-to-image pipelines can be 15–30 seconds</div>
+    </div>
+    <div class="risk-level med">MED</div>
+    <div class="risk-mitigation">Streaming preview (show partial result), animated progress, pre-cache style templates for common categories</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Hallucinated business facts in captions</div>
+      <div class="risk-desc">AI invents years in business, awards, staff names</div>
+    </div>
+    <div class="risk-level med">MED</div>
+    <div class="risk-mitigation">Hard guardrails: only use Brand Brain–confirmed data in captions; confidence gates block low-conf fields</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Brand Brain low confidence for no-website users</div>
+      <div class="risk-desc">Not enough data to generate specific content</div>
+    </div>
+    <div class="risk-level med">MED</div>
+    <div class="risk-mitigation">Category defaults library — pre-populate plausible values per business type at conf: 0.55; enrich via flywheel</div>
+  </div>
+
+  <div class="risk-row">
+    <div>
+      <div class="risk-title">Photo studio: copyright risk on backgrounds</div>
+      <div class="risk-desc">Generated backgrounds may resemble protected imagery</div>
+    </div>
+    <div class="risk-level low">LOW</div>
+    <div class="risk-mitigation">Use only abstract/generative background generation; explicit negative prompts for identifiable real locations or art styles</div>
+  </div>
+</div>
+
+<!-- SECTION 13: ARCHITECTURE -->
+<div class="section" id="architecture">
+  <div class="section-label">Section 13</div>
+  <h2>System Architecture</h2>
+
+  <div class="schema-block">
+    <div class="schema-header">
+      <div class="schema-dot" style="background:#f66;"></div>
+      <div class="schema-dot" style="background:#fa0;margin-left:4px;"></div>
+      <div class="schema-dot" style="background:#4f4;margin-left:4px;"></div>
+      <span style="margin-left:10px;">quickpost.architecture · v2.0</span>
+    </div>
+    <div class="schema-body">
+      <span class="s-line s-layer">ONBOARDING SERVICE</span>
+      <span class="s-line s-indent s-comment">  url_scanner · html_parser · color_extractor</span>
+      <span class="s-line s-indent s-comment">  manual_flow_handler · convergence_normalizer</span>
+      <br>
+      <span class="s-line s-layer">BRAND BRAIN SERVICE</span>
+      <span class="s-line s-indent s-comment">  schema_store · confidence_manager · enrichment_api</span>
+      <span class="s-line s-indent s-comment">  flywheel_updater · version_history · defaults_library</span>
+      <br>
+      <span class="s-line s-layer">CAPTION GENERATION ENGINE</span>
+      <span class="s-line s-indent s-comment">  brief_assembler · concept_generator · caption_writer</span>
+      <span class="s-line s-indent s-comment">  image_prompt_gen · quality_scorer · retry_controller</span>
+      <span class="s-line s-indent s-comment">  generic_detector · hallucination_guard</span>
+      <br>
+      <span class="s-line s-layer">PHOTO STUDIO ENGINE  ← NEW</span>
+      <span class="s-line s-indent s-comment">  upload_handler · image_analyzer · segmentation_service</span>
+      <span class="s-line s-indent s-comment">  style_prompt_builder · image_to_image_pipeline</span>
+      <span class="s-line s-indent s-comment">  post_processor · format_exporter · artifact_detector</span>
+      <span class="s-line s-indent s-comment">  studio_caption_gen · variant_ranker</span>
+      <br>
+      <span class="s-line s-layer">PROMPT LAYER</span>
+      <span class="s-line s-indent s-comment">  brief_system_prompt · concept_prompt · caption_prompt</span>
+      <span class="s-line s-indent s-comment">  image_gen_prompt · quality_eval_prompt · enrichment_prompt</span>
+      <span class="s-line s-indent s-optional s-comment">  studio_analysis_prompt · studio_style_prompt · studio_caption_prompt  ← NEW</span>
+      <br>
+      <span class="s-line s-layer">DATA LAYER</span>
+      <span class="s-line s-indent s-comment">  brand_brain_db · post_history · signal_events</span>
+      <span class="s-line s-indent s-comment">  user_prefs · studio_history · style_feedback  ← studio NEW</span>
+    </div>
+  </div>
+
+  <h3>Key System Prompts</h3>
+
+  <div class="card-grid" style="grid-template-columns: 1fr;">
+    <div class="card">
+      <h4>Brief Assembly Prompt (System)</h4>
+      <p style="font-family: var(--font-mono); font-size: 12px; color: var(--ink3); line-height: 1.6;">"You are a strategic social media director for local businesses. You receive a Brand Brain JSON and user post intent. Output a creative brief hyper-specific to this exact business in this exact city. Never generate anything that could apply to a competitor. Always anchor to the business's name, location, and actual services."</p>
+    </div>
+    <div class="card">
+      <h4>Photo Studio Analysis Prompt</h4>
+      <p style="font-family: var(--font-mono); font-size: 12px; color: var(--ink3); line-height: 1.6;">"Analyze this image. Return JSON: {subject_type, primary_subject_description, background_quality, dominant_colors, preservation_notes, recommended_styles[]}. Never invent details not visible in the image. The preservation_notes field must describe exactly what must not change in the output."</p>
+    </div>
+    <div class="card">
+      <h4>Anti-Generic Caption Rule (enforced in prompt)</h4>
+      <p style="font-family: var(--font-mono); font-size: 12px; color: var(--ink3); line-height: 1.6;">"Before finalizing any caption: verify it contains the business name OR a specific service name, a local geographic reference, and no phrases from the banned openers list. If any check fails, rewrite completely."</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <div class="callout">
+    <strong>Ready to build?</strong>
+    <p>This is the complete v2 blueprint with AI Photo Studio fully integrated. Confirm and we'll begin implementation — suggested start: Brand Brain schema + dual onboarding flows as the foundation everything else plugs into, then Photo Studio in Week 2.</p>
+  </div>
+</div>
+
+</div><!-- /doc -->
+
+<script>
+document.querySelectorAll('.topic-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.topic-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+  });
+});
+document.querySelectorAll('.style-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.style-option').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+  });
+});
+document.querySelectorAll('.variant-thumb').forEach(thumb => {
+  thumb.addEventListener('click', () => {
+    document.querySelectorAll('.variant-thumb').forEach(t => t.classList.remove('active'));
+    thumb.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

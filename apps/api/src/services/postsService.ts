@@ -19,6 +19,22 @@ import type { PostExportAssets } from './postExportAssetsService';
 
 const subscription = new MockSubscriptionProvider();
 
+/** Max draft posts per account (Quickpost product limit). */
+export const DRAFT_LIMIT = 6;
+
+async function countDraftPostsForAccount(accountId: string): Promise<number> {
+  const db = await getDb();
+  return db.countDocuments('posts', { account_id: accountId, status: 'draft' });
+}
+
+function assertUnderDraftLimit(currentDraftCount: number): void {
+  if (currentDraftCount >= DRAFT_LIMIT) {
+    throw new ValidationError(
+      `You have ${DRAFT_LIMIT} saved drafts. Delete one before saving a new draft.`
+    );
+  }
+}
+
 function toSafeDbMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : '';
   // Drop adapter prefixes; keep the underlying Supabase message.
@@ -89,6 +105,7 @@ async function uploadClientImagesToStorage(
 interface PostRecord {
   id: string;
   accountId: string;
+  campaignId?: string | null;
   status: string;
   templateId: string;
   contextText: string;
@@ -104,6 +121,7 @@ interface PostRecord {
   createdAt: string;
   updatedAt: string;
   publishedAt?: string | null;
+  scheduledAt?: string | null;
 }
 
 function postToLegacy(post: PostRecord): Record<string, any> {
@@ -126,6 +144,8 @@ function postToLegacy(post: PostRecord): Record<string, any> {
   if (post.captionJson) out.captionJson = post.captionJson;
   if (post.qualityScore != null) out.qualityScore = post.qualityScore;
   if (post.qualityDimensions) out.qualityDimensions = post.qualityDimensions;
+  if (post.campaignId) out.campaignId = post.campaignId;
+  if (post.scheduledAt) out.scheduledAt = post.scheduledAt;
   return out;
 }
 
@@ -173,6 +193,9 @@ export async function createPost(ownerUserId: string, input: {
   caption?: string;
   photo?: string | null;
   processedImage?: string | null;
+  campaign_id?: string | null;
+  /** ISO timestamp when status is scheduled */
+  scheduled_at?: string | null;
 }) {
   const db = await getDb();
   const accountId = await requireAccountForUser(ownerUserId);
@@ -181,9 +204,18 @@ export async function createPost(ownerUserId: string, input: {
   const contextText = (input.context_text ?? input.description ?? '').slice(0, 500);
   const captionJson = buildCaptionJsonFromPlainCaption(input.caption ?? '');
 
+  const status = input.status ?? 'draft';
+  const scheduledAt =
+    status === 'scheduled' && input.scheduled_at?.trim() ? input.scheduled_at.trim() : null;
+
+  if (status === 'draft') {
+    const n = await countDraftPostsForAccount(accountId);
+    assertUnderDraftLimit(n);
+  }
+
   const payload = {
     account_id: accountId,
-    status: input.status ?? 'draft',
+    status,
     template_id: templateId,
     context_text: contextText,
     original_image_path: null,
@@ -192,6 +224,8 @@ export async function createPost(ownerUserId: string, input: {
     publish_targets: input.platforms ?? [],
     regen_count: 0,
     last_generated_hash: null,
+    campaign_id: input.campaign_id ?? null,
+    scheduled_at: scheduledAt,
     created_at: now,
     updated_at: now,
   };
@@ -246,13 +280,27 @@ export async function savePost(ownerUserId: string, input: CreatePostInput) {
         photo: input.photo ?? undefined,
         processedImage: input.processedImage ?? undefined,
       });
+      const nextStatus = input.status ?? existing.status;
+      const scheduledAt =
+        nextStatus === 'scheduled' && input.scheduledAt?.trim()
+          ? input.scheduledAt.trim()
+          : nextStatus === 'scheduled'
+            ? existing.scheduledAt ?? null
+            : null;
+
+      if (nextStatus === 'draft' && existing.status !== 'draft') {
+        const n = await countDraftPostsForAccount(accountId);
+        assertUnderDraftLimit(n);
+      }
+
       try {
         await db.updateOne('posts', existing.id, {
           context_text: input.description?.slice(0, 500) ?? existing.contextText,
           template_id: input.template ?? existing.templateId,
           publish_targets: input.platforms,
-          status: input.status,
+          status: nextStatus,
           caption_json: captionJson,
+          scheduled_at: scheduledAt,
           ...imagePatch,
           updated_at: now,
         });
@@ -265,9 +313,18 @@ export async function savePost(ownerUserId: string, input: CreatePostInput) {
     }
   }
 
+  const insertStatus = input.status ?? 'draft';
+  const insertScheduledAt =
+    insertStatus === 'scheduled' && input.scheduledAt?.trim() ? input.scheduledAt.trim() : null;
+
+  if (insertStatus === 'draft') {
+    const n = await countDraftPostsForAccount(accountId);
+    assertUnderDraftLimit(n);
+  }
+
   const insertPayload = {
     account_id: accountId,
-    status: input.status ?? 'draft',
+    status: insertStatus,
     template_id: input.template ?? 'auto',
     context_text: (input.description ?? '').slice(0, 500),
     original_image_path: null,
@@ -275,6 +332,7 @@ export async function savePost(ownerUserId: string, input: CreatePostInput) {
     caption_json: captionJson,
     publish_targets: input.platforms ?? [],
     regen_count: 0,
+    scheduled_at: insertScheduledAt,
     created_at: now,
     updated_at: now,
   };

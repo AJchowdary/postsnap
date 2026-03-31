@@ -2,6 +2,10 @@
  * Blueprint quality rubric — keyword heuristics only (no extra LLM calls).
  */
 import { captionDetectionDiagnostics, type GenericDetectionContext } from './genericDetector';
+import {
+  QUALITY_SCORE_DELIVER_MIN,
+  QUALITY_SCORE_PARTIAL_MIN,
+} from '../../prompts/quickpostAI';
 
 export type DimensionScores = {
   localSpecificity: number;
@@ -234,8 +238,8 @@ export function scoreCaption(caption: string, context: ScoringContext): QualityS
   const total = sumDimensions(dimensions);
   const weakestDimension = pickWeakest(dimensions);
   let verdict: QualityVerdict;
-  if (total >= 80) verdict = 'deliver';
-  else if (total >= 60) verdict = 'retry-partial';
+  if (total >= QUALITY_SCORE_DELIVER_MIN) verdict = 'deliver';
+  else if (total >= QUALITY_SCORE_PARTIAL_MIN) verdict = 'retry-partial';
   else verdict = 'retry-full';
 
   return { total, dimensions, verdict, weakestDimension };

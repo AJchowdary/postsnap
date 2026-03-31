@@ -11,9 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
-const BG = '#0d0d0d';
-const CARD = '#141414';
+import { Colors, BorderRadius, Shadows, Spacing } from '../src/constants/theme';
+import PrimaryButton from '../src/components/PrimaryButton';
 
 type Category = { name: string; images: string[] };
 
@@ -92,21 +91,22 @@ export default function TemplatesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.fill}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Templates</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color="#888" />
+        <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
         <TextInput
           value={q}
           onChangeText={setQ}
           placeholder="Search templates..."
-          placeholderTextColor="#666"
+          placeholderTextColor={Colors.textMuted}
           style={styles.searchInput}
           autoCapitalize="none"
           autoCorrect={false}
@@ -122,7 +122,7 @@ export default function TemplatesScreen() {
                 onPress={() => goBackWithStyle(cat.name)}
               >
                 <Text style={styles.catTitle}>{cat.name}</Text>
-                <Ionicons name="chevron-forward" size={20} color="#ba9eff" />
+                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
               </TouchableOpacity>
               <View style={styles.imgRow}>
                 {cat.images.map((uri, i) => (
@@ -139,12 +139,58 @@ export default function TemplatesScreen() {
             </View>
           ))}
       </ScrollView>
+
+      <View style={styles.comingSoonOverlay} pointerEvents="box-none">
+        <Text style={styles.overlayEmoji}>⏳</Text>
+        <Text style={styles.overlayHeading}>Templates — Coming Soon</Text>
+        <Text style={styles.overlaySub}>
+          We&apos;re crafting something great.{'\n'}
+          Use the Create tab to generate posts.
+        </Text>
+        <View style={styles.overlayCta}>
+          <PrimaryButton
+            title="Go to Create"
+            onPress={() => router.replace('/(tabs)/create' as any)}
+          />
+        </View>
+      </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
+  safe: { flex: 1, backgroundColor: Colors.background },
+  fill: { flex: 1, position: 'relative' },
+  comingSoonOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.background,
+    zIndex: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  overlayEmoji: { fontSize: 48, marginBottom: Spacing.md },
+  overlayHeading: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  overlaySub: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22.5,
+    marginBottom: Spacing.xl,
+    paddingHorizontal: Spacing.sm,
+  },
+  overlayCta: { width: '100%', maxWidth: 320, alignSelf: 'stretch' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -153,19 +199,22 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD,
+    backgroundColor: Colors.inputBackground,
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 999,
+    borderRadius: BorderRadius.full,
     paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.sm,
   },
-  searchInput: { flex: 1, color: '#fff', fontSize: 15 },
+  searchInput: { flex: 1, color: Colors.textPrimary, fontSize: 15 },
   scroll: { paddingBottom: 40, paddingHorizontal: 16 },
   section: { marginBottom: 28 },
   catRow: {
@@ -174,8 +223,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
-  catTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
+  catTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   imgRow: { flexDirection: 'row', gap: 8 },
-  thumbWrap: { flex: 1, borderRadius: 12, overflow: 'hidden', height: 100 },
+  thumbWrap: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    height: 100,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   thumb: { width: '100%', height: '100%' },
 });

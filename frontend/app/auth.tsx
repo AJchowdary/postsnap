@@ -17,9 +17,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import { BorderRadius, Colors, GradientColors } from '../src/constants/theme';
 import { useAppStore } from '../src/store/appStore';
-import { authRegister, authLogin, bootstrapAccount } from '../src/services/api';
+import {
+  authRegister,
+  authLogin,
+  bootstrapAccount,
+  saveToken,
+  updateBusinessProfile,
+} from '../src/services/api';
 import { defaultDisplayForBusinessType } from '../src/constants/businessTypeCatalog';
-import type { BusinessType } from '../src/types';
+import type { BrandStyle, BusinessType } from '../src/types';
+import { supabase } from '../src/lib/supabase';
+import { signInWithGoogle, signInWithApple } from '../src/services/supabaseAuth';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -38,6 +46,169 @@ export default function AuthScreen() {
   const [showPass, setShowPass] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
+
+  const applyAccountToStore = (account: {
+    name?: string;
+    type?: string;
+    displayType?: string;
+    customDescription?: string;
+    city?: string;
+    brandStyle?: string;
+    useLogoOverlay?: boolean;
+    brandColor?: string;
+    brandVibe?: string;
+    dominantColors?: string[];
+    websiteUrl?: string;
+    websiteSummary?: string;
+    toneExample?: string;
+    instagramHandle?: string;
+    facebookPage?: string;
+    brandDnaSource?: string;
+    businessSubcategory?: string;
+    neighborhood?: string;
+    tagline?: string;
+    toneOfVoice?: string;
+    contentPersona?: string;
+    coreServices?: string[];
+    heroProduct?: string;
+    pricePositioning?: string;
+    uniqueDifferentiator?: string;
+    visualStyle?: string;
+    photoStyleExamples?: string[];
+    studioStylePreference?: string;
+    studioBgColor?: string;
+    seasonalContext?: string;
+    localEvents?: string[];
+    lastPostTopics?: string[];
+    topPerformingAngles?: string[];
+    preferredCaptionLength?: string;
+    preferredPostingDays?: string[];
+    photoStudioHistory?: Array<Record<string, unknown>>;
+    confidenceOverall?: number;
+    enrichmentVersion?: number;
+  }) => {
+    const t = (account.type || 'restaurant') as BusinessType;
+    setBusinessProfile({
+      name: account.name,
+      type: t,
+      displayType: account.displayType || defaultDisplayForBusinessType(t),
+      customDescription: account.customDescription ?? '',
+      city: account.city,
+      brandStyle: (account.brandStyle || 'clean') as BrandStyle,
+      useLogoOverlay: account.useLogoOverlay || false,
+      brandColor: account.brandColor,
+      brandVibe: account.brandVibe as import('../src/types').BusinessProfile['brandVibe'],
+      dominantColors: account.dominantColors ?? [],
+      websiteUrl: account.websiteUrl,
+      websiteSummary: account.websiteSummary,
+      toneExample: account.toneExample,
+      instagramHandle: account.instagramHandle,
+      facebookPage: account.facebookPage,
+      brandDnaSource: account.brandDnaSource as import('../src/types').BusinessProfile['brandDnaSource'],
+      businessSubcategory: account.businessSubcategory,
+      neighborhood: account.neighborhood,
+      tagline: account.tagline,
+      toneOfVoice: account.toneOfVoice as import('../src/types').BusinessProfile['toneOfVoice'],
+      contentPersona: account.contentPersona,
+      coreServices: account.coreServices ?? [],
+      heroProduct: account.heroProduct,
+      pricePositioning: account.pricePositioning as import('../src/types').BusinessProfile['pricePositioning'],
+      uniqueDifferentiator: account.uniqueDifferentiator,
+      visualStyle: account.visualStyle as import('../src/types').BusinessProfile['visualStyle'],
+      photoStyleExamples: account.photoStyleExamples ?? [],
+      studioStylePreference: account.studioStylePreference as import('../src/types').BusinessProfile['studioStylePreference'],
+      studioBgColor: account.studioBgColor,
+      seasonalContext: account.seasonalContext,
+      localEvents: account.localEvents ?? [],
+      lastPostTopics: account.lastPostTopics ?? [],
+      topPerformingAngles: account.topPerformingAngles ?? [],
+      preferredCaptionLength: account.preferredCaptionLength as import('../src/types').BusinessProfile['preferredCaptionLength'],
+      preferredPostingDays: account.preferredPostingDays ?? [],
+      photoStudioHistory: account.photoStudioHistory ?? [],
+      confidenceOverall: account.confidenceOverall,
+      enrichmentVersion: account.enrichmentVersion,
+    });
+  };
+
+  const navigateAfterAccount = (account: Parameters<typeof applyAccountToStore>[0]) => {
+    if (account?.name?.trim()) {
+      applyAccountToStore(account);
+      setIsOnboarded(true);
+      router.replace('/(tabs)/create');
+    } else {
+      router.replace('/onboarding');
+    }
+  };
+
+  /** After Supabase OAuth / Apple: sync JWT to API client and bootstrap account. */
+  const completeOAuthSession = async (appleDisplayName?: string | null) => {
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    if (sessionErr || !sessionData.session?.access_token) {
+      throw new Error('Could not load your session. Try again.');
+    }
+    const session = sessionData.session;
+    await saveToken(session.access_token);
+    await setAuth(session.user.id, session.user.email ?? '', session.access_token);
+
+    let account = await bootstrapAccount();
+    const nameFromApple = appleDisplayName?.trim();
+    if (nameFromApple && !account?.name?.trim()) {
+      const t = (account.type || 'restaurant') as BusinessType;
+      await updateBusinessProfile({
+        name: nameFromApple,
+        type: t,
+        displayType: account.displayType || defaultDisplayForBusinessType(t),
+        customDescription: account.customDescription ?? '',
+        brandStyle: account.brandStyle || 'clean',
+        useLogoOverlay: Boolean(account.useLogoOverlay),
+      });
+      account = await bootstrapAccount();
+    }
+    navigateAfterAccount(account);
+  };
+
+  const onGooglePress = async () => {
+    if (isRegister && !agreeTerms) {
+      showToast('Please agree to the Terms and Privacy Policy', 'error');
+      return;
+    }
+    setOauthLoading(true);
+    try {
+      await signInWithGoogle();
+      await completeOAuthSession();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Sign-in failed';
+      if (msg === 'Sign-in cancelled.' || msg.includes('cancelled')) {
+        showToast('Sign-in cancelled', 'info');
+      } else {
+        showToast(msg.replace(/^Error:\s*/i, '').slice(0, 200), 'error');
+      }
+    } finally {
+      setOauthLoading(false);
+    }
+  };
+
+  const onApplePress = async () => {
+    if (isRegister && !agreeTerms) {
+      showToast('Please agree to the Terms and Privacy Policy', 'error');
+      return;
+    }
+    setOauthLoading(true);
+    try {
+      const { displayName } = await signInWithApple();
+      await completeOAuthSession(displayName);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Sign-in failed';
+      if (msg === 'Sign-in cancelled.' || msg.includes('cancelled')) {
+        showToast('Sign-in cancelled', 'info');
+      } else {
+        showToast(msg.replace(/^Error:\s*/i, '').slice(0, 200), 'error');
+      }
+    } finally {
+      setOauthLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -50,58 +221,13 @@ export default function AuthScreen() {
     }
     setLoading(true);
     try {
+      await supabase.auth.signOut().catch(() => {});
       const fn = isRegister ? authRegister : authLogin;
       const result = await fn(email.trim().toLowerCase(), password);
       await setAuth(result.user.id, result.user.email, result.token);
 
       const account = await bootstrapAccount();
-      if (account?.name) {
-        const t = (account.type || 'restaurant') as BusinessType;
-        setBusinessProfile({
-          name: account.name,
-          type: t,
-          displayType: account.displayType || defaultDisplayForBusinessType(t),
-          customDescription: account.customDescription ?? '',
-          city: account.city,
-          brandStyle: account.brandStyle || 'clean',
-          useLogoOverlay: account.useLogoOverlay || false,
-          brandColor: account.brandColor,
-          brandVibe: account.brandVibe,
-          dominantColors: account.dominantColors ?? [],
-          websiteUrl: account.websiteUrl,
-          websiteSummary: account.websiteSummary,
-          toneExample: account.toneExample,
-          instagramHandle: account.instagramHandle,
-          facebookPage: account.facebookPage,
-          brandDnaSource: account.brandDnaSource ?? 'manual',
-          businessSubcategory: account.businessSubcategory,
-          neighborhood: account.neighborhood,
-          tagline: account.tagline,
-          toneOfVoice: account.toneOfVoice,
-          contentPersona: account.contentPersona,
-          coreServices: account.coreServices ?? [],
-          heroProduct: account.heroProduct,
-          pricePositioning: account.pricePositioning,
-          uniqueDifferentiator: account.uniqueDifferentiator,
-          visualStyle: account.visualStyle,
-          photoStyleExamples: account.photoStyleExamples ?? [],
-          studioStylePreference: account.studioStylePreference,
-          studioBgColor: account.studioBgColor,
-          seasonalContext: account.seasonalContext,
-          localEvents: account.localEvents ?? [],
-          lastPostTopics: account.lastPostTopics ?? [],
-          topPerformingAngles: account.topPerformingAngles ?? [],
-          preferredCaptionLength: account.preferredCaptionLength,
-          preferredPostingDays: account.preferredPostingDays ?? [],
-          photoStudioHistory: account.photoStudioHistory ?? [],
-          confidenceOverall: account.confidenceOverall,
-          enrichmentVersion: account.enrichmentVersion,
-        });
-        setIsOnboarded(true);
-        router.replace('/(tabs)/create');
-      } else {
-        router.replace('/onboarding');
-      }
+      navigateAfterAccount(account);
     } catch (err: any) {
       if (err.message?.includes('already registered')) {
         showToast('Email already registered. Try logging in.', 'error');
@@ -131,7 +257,7 @@ export default function AuthScreen() {
 
   return (
     <LinearGradient
-      colors={GradientColors.dark}
+      colors={GradientColors.welcome}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.root}
@@ -169,6 +295,37 @@ export default function AuthScreen() {
               <Text style={styles.cardTitle}>
                 {isRegister ? 'Create your account' : 'Welcome back'}
               </Text>
+
+              {/* To enable OAuth: configure providers in Supabase dashboard and add credentials to environment variables */}
+              <View style={styles.oauthBlock}>
+                  <TouchableOpacity
+                    style={[styles.oauthBtn, oauthLoading && styles.oauthBtnDisabled]}
+                    onPress={() => void onGooglePress()}
+                    disabled={oauthLoading || loading}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="logo-google" size={20} color={Colors.textPrimary} />
+                    <Text style={styles.oauthBtnText}>Continue with Google</Text>
+                  </TouchableOpacity>
+
+                  {Platform.OS === 'ios' && (
+                    <TouchableOpacity
+                      style={[styles.oauthBtn, styles.oauthApple, oauthLoading && styles.oauthBtnDisabled]}
+                      onPress={() => void onApplePress()}
+                      disabled={oauthLoading || loading}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="logo-apple" size={22} color={Colors.background} />
+                      <Text style={styles.oauthBtnTextApple}>Continue with Apple</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={styles.dividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>or continue with email</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                </View>
 
               {/* Form fields */}
               <View style={styles.form}>
@@ -228,7 +385,7 @@ export default function AuthScreen() {
                   >
                     <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
                       {agreeTerms && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
+                        <Ionicons name="checkmark" size={14} color={Colors.textOnPrimary} />
                       )}
                     </View>
                     <Text style={styles.termsText}>
@@ -249,9 +406,9 @@ export default function AuthScreen() {
               <TouchableOpacity
                 testID="auth-submit"
                 onPress={handleSubmit}
-                disabled={loading}
+                disabled={loading || oauthLoading}
                 activeOpacity={0.85}
-                style={[styles.submitWrap, loading && { opacity: 0.6 }]}
+                style={[styles.submitWrap, (loading || oauthLoading) && { opacity: 0.6 }]}
               >
                 <LinearGradient
                   colors={GradientColors.primary}
@@ -347,7 +504,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: -0.6,
-    color: Colors.background,
+    color: Colors.textOnPrimary,
     fontFamily: 'Manrope',
   },
 
@@ -355,26 +512,30 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: 'rgba(108, 99, 255, 0.12)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
     elevation: 2,
   },
 
   card: {
-    backgroundColor: 'rgba(25,37,64,0.6)',
-    borderRadius: 24,
+    backgroundColor: Colors.paper,
+    borderRadius: BorderRadius.card,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: 'rgba(108, 99, 255, 0.1)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 8,
     overflow: 'hidden',
   },
 
@@ -385,9 +546,62 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 18,
   },
+
+  oauthBlock: {
+    marginBottom: 18,
+    gap: 12,
+  },
+  oauthBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.input,
+    paddingVertical: 14,
+    minHeight: 52,
+  },
+  oauthApple: {
+    backgroundColor: Colors.textPrimary,
+    borderColor: Colors.textPrimary,
+  },
+  oauthBtnDisabled: {
+    opacity: 0.5,
+  },
+  oauthBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    fontFamily: 'Inter',
+  },
+  oauthBtnTextApple: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textOnPrimary,
+    fontFamily: 'Inter',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 2,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
   cardSubtitle: {
     fontSize: 15,
-    color: '#6b7280',
+    color: Colors.textSecondary,
     marginBottom: 24,
   },
 
@@ -400,7 +614,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: Colors.textSecondary,
   },
 
   passwordHeader: {
@@ -410,17 +624,19 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 13,
-    color: '#2563eb',
+    color: Colors.info,
     fontWeight: '500',
   },
 
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#000000',
-    borderRadius: 16,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: BorderRadius.input,
     paddingHorizontal: 14,
     height: 52,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   inputIcon: { marginRight: 10 },
   input: {
@@ -432,7 +648,7 @@ const styles = StyleSheet.create({
 
   hint: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     marginTop: 2,
   },
 
@@ -446,7 +662,9 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 8,
-    backgroundColor: 'rgba(64,72,93,0.55)',
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -484,7 +702,7 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 17,
     fontWeight: '800',
-    color: Colors.background,
+    color: Colors.textOnPrimary,
     fontFamily: 'Manrope',
   },
 

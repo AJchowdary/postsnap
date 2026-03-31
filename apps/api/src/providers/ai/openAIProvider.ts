@@ -29,8 +29,14 @@ import {
   type QualityScore,
 } from './qualityScorer';
 import { createImageEdit, buildImageInput } from './openaiImageEdit';
+import { aspectCompositionHint, openaiImageSizeFromAspectPreset } from './imageAspectPreset';
 import { config } from '../../config';
 import sharp from 'sharp';
+import {
+  briefSystemPromptWhenProfile,
+  captionSystemSupplementWhenProfile,
+  prependQuickpostDnaToUserPrompt,
+} from '../../prompts/quickpostAI';
 
 // Default: gpt-image-1-mini; premium: gpt-image-1 (overridable via config)
 const IMAGE_MODEL_DEFAULT = config.openaiImageModelDefault;
@@ -157,7 +163,7 @@ function normalizeBrief(row: Record<string, unknown>, fallbackDesc: string): Cre
   };
 }
 
-function buildBriefRequestPrompt(params: CaptionParams): string {
+function buildBriefRequestPromptCore(params: CaptionParams): string {
   return `You are a Creative Strategist for local businesses.
 Transform rough user input into a high-signal creative brief.
 
@@ -212,7 +218,11 @@ Return:
 }`;
 }
 
-function buildCaptionFromBriefPrompt(params: CaptionParams, brief: CreativeBrief): string {
+function buildBriefRequestPrompt(params: CaptionParams): string {
+  return prependQuickpostDnaToUserPrompt(buildBriefRequestPromptCore(params), params.brandProfile);
+}
+
+function buildCaptionFromBriefPromptCore(params: CaptionParams, brief: CreativeBrief): string {
   return `You are writing social captions from a prepared brief.
 Do NOT write generic social media copy.
 
@@ -250,6 +260,10 @@ OUTPUT JSON ONLY:
     {"type": "cta", "text": "..."}
   ]
 }`;
+}
+
+function buildCaptionFromBriefPrompt(params: CaptionParams, brief: CreativeBrief): string {
+  return prependQuickpostDnaToUserPrompt(buildCaptionFromBriefPromptCore(params, brief), params.brandProfile);
 }
 
 export class OpenAIProvider implements IAIProvider {
@@ -297,14 +311,16 @@ export class OpenAIProvider implements IAIProvider {
         heroProduct: params.heroProduct ? sanitizeForPrompt(params.heroProduct, 200) : undefined,
         detectionContext: params.detectionContext,
         neighborhood: params.neighborhood ? sanitizeForPrompt(params.neighborhood, 120) : undefined,
+        brandProfile: params.brandProfile,
       };
       const briefPrompt = buildBriefRequestPrompt(safeParams);
+      const hasDna = !!safeParams.brandProfile;
       const briefResp = await client.chat.completions.create({
         model: config.openaiCaptionModel,
         max_tokens: 1200,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: 'Output valid JSON only.' },
+          { role: 'system', content: briefSystemPromptWhenProfile(hasDna) },
           { role: 'user', content: briefPrompt },
         ],
       });
@@ -341,7 +357,10 @@ export class OpenAIProvider implements IAIProvider {
           max_tokens: 2500,
           response_format: { type: 'json_object' },
           messages: [
-            { role: 'system', content: CAPTION_SYSTEM_PROMPT },
+            {
+              role: 'system',
+              content: CAPTION_SYSTEM_PROMPT + captionSystemSupplementWhenProfile(hasDna),
+            },
             {
               role: 'user',
               content: `${userContent}\n${extraInstruction ?? ''}`.trim(),
@@ -470,32 +489,38 @@ export class OpenAIProvider implements IAIProvider {
         });
       }
 
-      const legacyPrompt = buildCaptionUserPrompt({
-        businessName: safeParams.businessName,
-        displayType: safeParams.displayType ?? safeParams.businessType,
-        aiCategory: safeParams.aiCategory ?? safeParams.businessType,
-        customDescription: safeParams.customDescription ?? '',
-        brandColor: safeParams.brandColor,
-        brandVibe: safeParams.brandVibe,
-        dominantColors: safeParams.dominantColors,
-        websiteSummary: safeParams.websiteSummary,
-        city: safeParams.city,
-        instagramHandle: safeParams.instagramHandle,
-        templateStyle: safeParams.template,
-        userDescription: safeParams.description,
-        platform: safeParams.platform ?? 'Instagram & Facebook',
-        toneOfVoice: safeParams.toneOfVoice,
-        contentPersona: safeParams.contentPersona,
-        uniqueDifferentiator: safeParams.uniqueDifferentiator,
-        visualStyle: safeParams.visualStyle,
-        studioStylePreference: safeParams.studioStylePreference,
-      });
+      const legacyPrompt = prependQuickpostDnaToUserPrompt(
+        buildCaptionUserPrompt({
+          businessName: safeParams.businessName,
+          displayType: safeParams.displayType ?? safeParams.businessType,
+          aiCategory: safeParams.aiCategory ?? safeParams.businessType,
+          customDescription: safeParams.customDescription ?? '',
+          brandColor: safeParams.brandColor,
+          brandVibe: safeParams.brandVibe,
+          dominantColors: safeParams.dominantColors,
+          websiteSummary: safeParams.websiteSummary,
+          city: safeParams.city,
+          instagramHandle: safeParams.instagramHandle,
+          templateStyle: safeParams.template,
+          userDescription: safeParams.description,
+          platform: safeParams.platform ?? 'Instagram & Facebook',
+          toneOfVoice: safeParams.toneOfVoice,
+          contentPersona: safeParams.contentPersona,
+          uniqueDifferentiator: safeParams.uniqueDifferentiator,
+          visualStyle: safeParams.visualStyle,
+          studioStylePreference: safeParams.studioStylePreference,
+        }),
+        safeParams.brandProfile
+      );
       const legacyResp = await client.chat.completions.create({
         model: config.openaiCaptionModel,
         max_tokens: 2500,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: CAPTION_SYSTEM_PROMPT },
+          {
+            role: 'system',
+            content: CAPTION_SYSTEM_PROMPT + captionSystemSupplementWhenProfile(hasDna),
+          },
           { role: 'user', content: legacyPrompt },
         ],
       });
@@ -521,6 +546,8 @@ export class OpenAIProvider implements IAIProvider {
 
   async processImage(params: ImageParams): Promise<ProcessImageResult | null> {
     if (!config.openaiApiKey) return null;
+    const outSize = openaiImageSizeFromAspectPreset(params.aspectPreset);
+    const aspectHint = aspectCompositionHint(params.aspectPreset);
     const imageInput = buildImageInput({
       photoBase64: params.photoBase64,
       imagePath: params.imagePath,
@@ -554,20 +581,22 @@ export class OpenAIProvider implements IAIProvider {
           visualStyle: params.visualStyle,
           studioBgColor: params.studioBgColor,
           brandColors: params.brandColors?.length ? params.brandColors : params.dominantColors,
+          brandProfile: params.brandProfile,
         };
+        const briefHasDna = !!briefParams.brandProfile;
         const briefResp = await client.chat.completions.create({
           model: config.openaiCaptionModel,
           max_tokens: 1000,
           response_format: { type: 'json_object' },
           messages: [
-            { role: 'system', content: 'Output valid JSON only.' },
+            { role: 'system', content: briefSystemPromptWhenProfile(briefHasDna) },
             { role: 'user', content: buildBriefRequestPrompt(briefParams) },
           ],
         });
         const briefRaw = briefResp.choices[0]?.message?.content?.trim() || '';
         const briefParsed = parseJsonObject(briefRaw) ?? {};
         const brief = normalizeBrief(briefParsed, textPrompt);
-        const prompt = `Create a social-media-ready square image concept from this brief.
+        const prompt = `Create a social-media-ready image concept from this brief.
 Avoid generic stock-like composition.
 
 BRIEF JSON:
@@ -580,12 +609,12 @@ HARD RULES:
 - If text overlay is included, keep it short (2-5 words), specific, and non-generic.
 - Composition should feel campaign-ready, not random decorative.
 - No watermark, no gibberish text.
+- ${aspectHint}`;
 
-Return a single polished 1:1 image.`;
         const response = await client.images.generate({
           model: params.premiumQuality ? 'gpt-image-1' : 'gpt-image-1-mini',
           prompt,
-          size: '1024x1024',
+          size: outSize,
           quality: 'auto',
           n: 1,
         });
@@ -615,7 +644,7 @@ Return a single polished 1:1 image.`;
         mask: undefined,
         prompt: isolationPrompt,
         model,
-        size: '1024x1024',
+        size: outSize,
         quality: 'auto',
       });
       const isoInput = isolated ? imageEditInputFromDataUrl(isolated) : null;
@@ -637,7 +666,7 @@ Return a single polished 1:1 image.`;
           mask: undefined,
           prompt: `${styledPrompt}\n${extraRule ?? ''}`.trim(),
           model,
-          size: '1024x1024',
+          size: outSize,
           quality: 'auto',
         });
       const variantRules = [
@@ -704,7 +733,7 @@ Return a single polished 1:1 image.`;
         mask: undefined,
         prompt: withPrompt,
         model,
-        size: '1024x1024',
+        size: outSize,
         quality: 'auto',
       }),
       createImageEdit({
@@ -712,7 +741,7 @@ Return a single polished 1:1 image.`;
         mask: undefined,
         prompt: cleanPrompt,
         model,
-        size: '1024x1024',
+        size: outSize,
         quality: 'auto',
       }),
     ]);

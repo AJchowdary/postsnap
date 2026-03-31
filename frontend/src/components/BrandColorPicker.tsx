@@ -6,7 +6,7 @@ import { Colors, BorderRadius } from '../constants/theme';
 const SWATCHES = [
   ['#E63946', '#F4A261', '#E9C46A', '#2A9D8F'],
   ['#264653', '#6A0572', '#1D3557', '#457B9D'],
-  ['#2D6A4F', '#8B4513', '#1B1B1B', '#ba9eff'],
+  ['#2D6A4F', '#8B4513', '#1B1B1B', '#6C63FF'],
 ];
 
 function normalizeHex(raw: string): string | null {
@@ -23,7 +23,7 @@ type Props = {
 
 export default function BrandColorPicker({ value, onChange }: Props) {
   const [custom, setCustom] = useState('');
-  const preview = useMemo(() => normalizeHex(value) || value || '#2A9D8F', [value]);
+  const preview = useMemo(() => normalizeHex(value) || value || '#00D4AA', [value]);
 
   const applyCustom = () => {
     const n = normalizeHex(custom);
@@ -58,7 +58,7 @@ export default function BrandColorPicker({ value, onChange }: Props) {
         onChangeText={setCustom}
         onBlur={applyCustom}
         onSubmitEditing={applyCustom}
-        placeholder="#2A9D8F"
+        placeholder="#00D4AA"
         placeholderTextColor={Colors.textTertiary}
         autoCapitalize="none"
         autoCorrect={false}
