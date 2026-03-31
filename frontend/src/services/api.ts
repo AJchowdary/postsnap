@@ -525,6 +525,8 @@ export type GenerateImageResult = {
   withOverlay: string | null;
   clean: string | null;
   variants?: string[];
+  aiProvider?: string;
+  openaiConfigured?: boolean;
 };
 
 export const generatePostImage = async (
@@ -536,6 +538,8 @@ export const generatePostImage = async (
       processed_image_with_overlay: string | null;
       processed_image_clean: string | null;
       processed_image_variants?: string[];
+      aiProvider?: string;
+      openaiConfigured?: boolean;
     }>('/generate/image', {
       method: 'POST',
       body: JSON.stringify(params),
@@ -545,6 +549,8 @@ export const generatePostImage = async (
       withOverlay: data.processed_image_with_overlay,
       clean: data.processed_image_clean,
       variants: data.processed_image_variants ?? [],
+      aiProvider: (data as { aiProvider?: string }).aiProvider,
+      openaiConfigured: (data as { openaiConfigured?: boolean }).openaiConfigured,
     };
   } catch {
     return null;

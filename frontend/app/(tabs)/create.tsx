@@ -144,6 +144,17 @@ function isPersistedPostId(id: string | undefined): boolean {
   return !!id && !id.startsWith(TEMP_POST_PREFIX);
 }
 
+function imageUnavailableMessage(meta?: { aiProvider?: string; openaiConfigured?: boolean }): string {
+  if (!meta) return 'No AI image available right now.';
+  if (meta.aiProvider === 'mock') {
+    return 'Image generation is unavailable because the backend is using mock AI.';
+  }
+  if (meta.openaiConfigured === false) {
+    return 'Image generation is unavailable because OpenAI is not configured on the backend.';
+  }
+  return 'No AI image was returned for this prompt. Try a more specific idea or add a source photo.';
+}
+
 function SkeletonChip() {
   const pulse = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
@@ -514,6 +525,7 @@ export default function CreateScreen() {
       const text = raw.trim();
       const post = generatedPostRef.current;
       if (!text || isAiLoading || !post) return;
+      const isEnhanceImageRequest = fromQuickChip && /enhance.*image/i.test(text);
 
       if (!fromQuickChip) setSelectedAiChip(null);
       if (fromQuickChip) setSelectedAiChip(text);
@@ -527,9 +539,51 @@ export default function CreateScreen() {
       setChatHistory((h) => [...h, { id: uid, role: 'user', content: text }]);
       setChatInput('');
       setIsAiLoading(true);
+      if (isEnhanceImageRequest) setImageEnhancing(true);
       scrollAiChatToEnd();
 
       try {
+        if (isEnhanceImageRequest) {
+          const img = await generatePostImage({
+            ...(post.photo ? { photo: post.photo } : {}),
+            template: post.template || 'auto',
+            description: post.description || ideaText || 'Enhance image',
+            aspectPreset: 'story',
+            ...genBiz,
+          });
+          const processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
+          const aid = `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+          if (!processed) {
+            setChatHistory((h) => [
+              ...h,
+              {
+                id: aid,
+                role: 'assistant',
+                content: imageUnavailableMessage(img ?? undefined),
+                isError: true,
+              },
+            ]);
+            return;
+          }
+
+          setGeneratedPost((curr) =>
+            curr && curr.id === post.id ? { ...curr, processedImage: processed } : curr
+          );
+          if (isPersistedPostId(post.id)) {
+            updatePost(post.id, { processedImage: processed });
+          }
+          setChatHistory((h) => [
+            ...h,
+            {
+              id: aid,
+              role: 'assistant',
+              content: 'Image enhanced. Applied to the preview.',
+            },
+          ]);
+          return;
+        }
+
         const data = await editCaptionWithAI({
           userRequest: text,
           currentCaption: post.caption,
@@ -551,9 +605,11 @@ export default function CreateScreen() {
         ]);
       } catch (err) {
         const detail =
-          err instanceof Error && err.message && err.message !== 'UNAUTHORIZED'
-            ? err.message
-            : 'Something went wrong. Try again.';
+          err instanceof Error && err.message === 'UNAUTHORIZED'
+            ? 'Session expired. Please log in again.'
+            : err instanceof Error && err.message
+              ? err.message
+              : 'Something went wrong. Try again.';
         const aid = `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         setChatHistory((h) => [
           ...h,
@@ -561,11 +617,12 @@ export default function CreateScreen() {
         ]);
       } finally {
         setIsAiLoading(false);
+        if (isEnhanceImageRequest) setImageEnhancing(false);
         setSelectedAiChip(null);
         scrollAiChatToEnd();
       }
     },
-    [isAiLoading, businessProfile.name, businessProfile.city, ideaText, scrollAiChatToEnd]
+    [isAiLoading, businessProfile.name, businessProfile.city, genBiz, ideaText, scrollAiChatToEnd, updatePost]
   );
 
   const applyAiSuggestion = useCallback(
@@ -648,7 +705,7 @@ export default function CreateScreen() {
           });
           const processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
           if (!processed) {
-            showToast('No AI image available right now.', 'info');
+            showToast(imageUnavailableMessage(img ?? undefined), 'info');
             return;
           }
           setGeneratedPost((curr) => (curr && curr.id === post.id ? { ...curr, processedImage: processed } : curr));
@@ -664,11 +721,16 @@ export default function CreateScreen() {
       setPreviewRegenerating(false);
       setPreviewVisible(false);
       const msg =
-        e instanceof Error && e.message && e.message !== 'UNAUTHORIZED'
-          ? e.message
-          : 'Could not create your post. Try again.';
+        e instanceof Error && e.message === 'UNAUTHORIZED'
+          ? 'Session expired. Please log in again.'
+          : e instanceof Error && e.message
+            ? e.message
+            : 'Could not create your post. Try again.';
       setGenerateError(msg);
       showToast(msg, 'error');
+      if (e instanceof Error && e.message === 'UNAUTHORIZED') {
+        router.replace('/auth' as any);
+      }
     } finally {
       setIsGenerating(false);
     }

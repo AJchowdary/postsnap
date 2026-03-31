@@ -1,6 +1,6 @@
 import type { CaptionResult } from './IAIProvider';
 
-/** Combined three-option caption can be long */
+/** Single caption can be long */
 const MAX_CAPTION_LEN = 8000;
 const MIN_IG_HASHTAGS = 8;
 const MAX_IG_HASHTAGS = 15;
@@ -43,6 +43,7 @@ function extractHashtagsFromText(text: string): string[] {
 
 /**
  * New OpenAI format: { captions: [ { type: "hook"|"story"|"cta", text: "..." } ] }
+ * We normalize this to ONE caption string for current app UX.
  */
 function parseThreeOptionsFormat(parsed: Record<string, unknown>): CaptionResult | null {
   const captions = parsed.captions;
@@ -62,11 +63,8 @@ function parseThreeOptionsFormat(parsed: Record<string, unknown>): CaptionResult
   const cta = byType.cta ?? '';
   if (!hook && !story && !cta) return null;
 
-  const sections: string[] = [];
-  if (hook) sections.push(`CAPTION 1 — Hook & Punch\n${hook}`);
-  if (story) sections.push(`CAPTION 2 — Story & Connect\n${story}`);
-  if (cta) sections.push(`CAPTION 3 — CTA Focus\n${cta}`);
-  const full = sections.join('\n\n').slice(0, MAX_CAPTION_LEN);
+  // Prefer the narrative option when available; fallback to hook/cta.
+  const full = (story || hook || cta).slice(0, MAX_CAPTION_LEN);
 
   const allForTags = `${hook} ${story} ${cta}`;
   let tags = extractHashtagsFromText(allForTags);
