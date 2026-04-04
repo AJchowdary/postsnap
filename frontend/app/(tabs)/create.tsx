@@ -241,6 +241,11 @@ export default function CreateScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const ideaInputRef = useRef<TextInput>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const genBiz = useMemo(
     () => ({
@@ -722,6 +727,7 @@ export default function CreateScreen() {
             aspectPreset: 'story',
             ...genBiz,
           });
+          if (!mountedRef.current) return;
           const processed = img?.withOverlay ?? img?.clean ?? img?.variants?.[0] ?? undefined;
           if (!processed) {
             showToast(imageUnavailableMessage(img ?? undefined), 'info');
@@ -729,10 +735,11 @@ export default function CreateScreen() {
           }
           setGeneratedPost((curr) => (curr && curr.id === post.id ? { ...curr, processedImage: processed } : curr));
         } catch (err) {
+          if (!mountedRef.current) return;
           const msg = err instanceof Error && err.message ? err.message : 'Image generation failed';
           showToast(msg, 'error');
         } finally {
-          setImageEnhancing(false);
+          if (mountedRef.current) setImageEnhancing(false);
         }
       })();
     } catch (e) {

@@ -53,7 +53,7 @@ export async function purchaseSubscription(
     try {
       await finishTransaction({ purchase: purchase as any, isConsumable: false });
     } catch (e) {
-      console.warn('finishTransaction error (non-critical):', e);
+      if (__DEV__) console.warn('finishTransaction error (non-critical):', e);
     }
     return { success: true };
   } catch (e: any) {

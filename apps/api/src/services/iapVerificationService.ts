@@ -27,10 +27,12 @@ export interface VerifyInput {
 
 function isAllowedProduct(platform: 'ios' | 'android', productId: string): boolean {
   if (platform === 'ios') {
-    if (config.appleProductIds.length === 0) return true;
+    // Default-deny: if no allowlist is configured, reject all product IDs to prevent revenue bypass.
+    if (config.appleProductIds.length === 0) return false;
     return config.appleProductIds.includes(productId);
   }
-  if (config.googleProductIds.length === 0) return true;
+  // Default-deny for Android as well.
+  if (config.googleProductIds.length === 0) return false;
   return config.googleProductIds.includes(productId);
 }
 

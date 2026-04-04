@@ -101,6 +101,13 @@ function assertApiReachableOnDevice(): void {
   }
 }
 
+// ---- Session expiry callback ----
+// Registered by _layout.tsx to redirect to /auth on 401.
+let _onSessionExpired: (() => void) | null = null;
+export function setOnSessionExpiredCallback(cb: () => void) {
+  _onSessionExpired = cb;
+}
+
 // ---- Token helpers ----
 let _token: string | null = null;
 
@@ -190,6 +197,7 @@ async function apiCall<T>(
 
   if (response.status === 401) {
     await clearToken();
+    _onSessionExpired?.();
     throw new Error('UNAUTHORIZED');
   }
   if (response.status === 402) {
@@ -253,6 +261,10 @@ export const bootstrapAccount = async (): Promise<any> => {
 
 export const getMyAccount = async (): Promise<any> => {
   return apiCall('/account/me');
+};
+
+export const deleteAccountApi = async (): Promise<{ deleted: boolean }> => {
+  return apiCall('/account/me', { method: 'DELETE' });
 };
 
 export async function savePushToken(token: string): Promise<{ ok: boolean }> {

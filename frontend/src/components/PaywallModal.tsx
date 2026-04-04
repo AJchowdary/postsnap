@@ -93,6 +93,11 @@ export default function PaywallModal({ visible, onClose, onUpgrade, onRestore }:
             </View>
             <Text style={styles.fairUse}>Fair use applies · Cancel anytime</Text>
 
+            {/* Auto-renewal disclosure — required by Apple App Review */}
+            <Text style={styles.renewalDisclosure}>
+              Subscription automatically renews monthly at $12.00 unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your account settings.
+            </Text>
+
             {/* CTA */}
             <TouchableOpacity
               testID="paywall-upgrade-btn"
@@ -248,7 +253,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
+  },
+  renewalDisclosure: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 16,
+    paddingHorizontal: 8,
   },
   upgradeBtn: {
     backgroundColor: Colors.primary,

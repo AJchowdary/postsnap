@@ -7,6 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "quickpost",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#4f46e5",
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.quickpost.app",

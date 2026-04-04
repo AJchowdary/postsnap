@@ -15,6 +15,7 @@ import { TrackAnalyticsEventSchema, type TrackAnalyticsEventInput } from '../sch
 import {
   bootstrapAccount,
   captureSignal,
+  deleteAccount,
   getAccount,
   listNotifications,
   markAllNotificationsRead,
@@ -158,6 +159,19 @@ router.post(
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const item = await markNotificationRead(req.userId!, req.params.notificationId);
     return sendSuccess(res, { notification: item });
+  })
+);
+
+/**
+ * DELETE /account/me — permanently delete the authenticated user's account and all data.
+ * Required by Apple (since June 2022) and Google Play (since Jan 2024).
+ */
+router.delete(
+  '/me',
+  authenticate,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    await deleteAccount(req.userId!);
+    return sendSuccess(res, { deleted: true });
   })
 );
 

@@ -107,6 +107,9 @@ export default function PostPreviewScreen() {
   const [addTagValue, setAddTagValue] = useState('');
   const [successOverlay, setSuccessOverlay] = useState(false);
 
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (navTimerRef.current) clearTimeout(navTimerRef.current); }, []);
+
   const hashtags = useMemo(() => extractHashtags(caption), [caption]);
 
   const selectedPlatforms = useMemo((): SocialPlatform[] => {
@@ -200,7 +203,7 @@ export default function PostPreviewScreen() {
         updatePost(post.id, { status: 'published', publishedAt: new Date().toISOString() });
         setSuccessOverlay(true);
         showToast('Posted successfully!', 'success');
-        setTimeout(() => {
+        navTimerRef.current = setTimeout(() => {
           router.replace('/(tabs)/home' as any);
         }, 1500);
       } else {

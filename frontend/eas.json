@@ -11,7 +11,12 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://quickpost.app/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://quickpost.app/terms",
+        "EXPO_PUBLIC_DATA_DELETION_URL": "https://quickpost.app/data-deletion",
+        "EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID": "com.quickpost.app.premium.monthly",
+        "EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID": "com.quickpost.app.premium.monthly"
       }
     },
     "preview": {
@@ -23,7 +28,12 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://quickpost-tl4u.onrender.com",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://quickpost.app/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://quickpost.app/terms",
+        "EXPO_PUBLIC_DATA_DELETION_URL": "https://quickpost.app/data-deletion",
+        "EXPO_PUBLIC_IOS_SUBSCRIPTION_PRODUCT_ID": "com.quickpost.app.premium.monthly",
+        "EXPO_PUBLIC_ANDROID_SUBSCRIPTION_PRODUCT_ID": "com.quickpost.app.premium.monthly"
       }
     },
     "production": {
