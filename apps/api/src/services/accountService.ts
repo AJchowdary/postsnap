@@ -683,3 +683,49 @@ export async function markAllNotificationsRead(ownerUserId: string): Promise<{ u
   if (error) throw new Error(`markAllNotificationsRead: ${error.message}`);
   return { updated: data?.length ?? 0 };
 }
+
+/**
+ * Permanently delete all user data: account, business profile, posts, subscriptions,
+ * social connections, notifications, analytics, and the auth user record.
+ * This is irreversible. Required by Apple (since June 2022) and Google Play (since Jan 2024).
+ */
+export async function deleteAccount(ownerUserId: string): Promise<void> {
+  const supabase = getSupabase();
+  const db = await getDb();
+
+  const account = await db.findOne<AccountRecord>('accounts', { owner_user_id: ownerUserId });
+  if (!account) {
+    // No account record — still delete the auth user
+    const { error: authErr } = await supabase.auth.admin.deleteUser(ownerUserId);
+    if (authErr) throw new Error(`deleteAccount auth: ${authErr.message}`);
+    return;
+  }
+  const accountId = account.id;
+
+  // Delete all account-scoped data in dependency order
+  for (const table of [
+    'notifications',
+    'analytics_events',
+    'detection_logs',
+    'post_export_assets',
+    'posts',
+    'campaign_reference_images',
+    'campaigns',
+    'social_connections',
+    'subscriptions',
+    'business_profiles',
+  ]) {
+    const { error } = await supabase.from(table).delete().eq('account_id', accountId);
+    if (error) logger.warn(`deleteAccount: could not delete from ${table}`, { error: error.message });
+  }
+
+  // Delete account row
+  const { error: accErr } = await supabase.from('accounts').delete().eq('id', accountId);
+  if (accErr) throw new Error(`deleteAccount accounts: ${accErr.message}`);
+
+  // Delete the Supabase auth user last (removes login ability)
+  const { error: authErr } = await supabase.auth.admin.deleteUser(ownerUserId);
+  if (authErr) throw new Error(`deleteAccount auth: ${authErr.message}`);
+
+  logger.info('Account deleted', { ownerUserId, accountId });
+}

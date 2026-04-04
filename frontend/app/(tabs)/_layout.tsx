@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BorderRadius, Colors, GradientColors } from '../../src/constants/theme';
 import { useAppStore } from '../../src/store/appStore';
-import Toast from '../../src/components/Toast';
 import PaywallModal from '../../src/components/PaywallModal';
 import {
   purchaseSubscription,
@@ -36,8 +35,6 @@ function CreateTabIcon({ focused }: { focused: boolean }) {
 
 export default function TabLayout() {
   const segments = useSegments();
-  const toast = useAppStore((s) => s.toast);
-  const hideToast = useAppStore((s) => s.hideToast);
   const showPaywall = useAppStore((s) => s.showPaywall);
   const setShowPaywall = useAppStore((s) => s.setShowPaywall);
   const setSubscription = useAppStore((s) => s.setSubscription);
@@ -158,7 +155,6 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      {toast && <Toast toast={toast} onHide={hideToast} />}
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}

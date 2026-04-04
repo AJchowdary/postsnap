@@ -31,6 +31,8 @@ function securityHeaders(_req: Request, res: Response, next: () => void) {
 export function createApp() {
   const app = express();
 
+  // Required for correct IP detection behind Render's reverse proxy (fixes rate limiting).
+  app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(requestContext);
   app.use(securityHeaders);
@@ -78,9 +80,6 @@ export function createApp() {
       status: 'ok',
       redis,
       database,
-      aiProvider: config.aiProvider,
-      openaiConfigured: Boolean(config.openaiApiKey?.trim()),
-      captionModel: config.openaiCaptionModel,
       timestamp: new Date().toISOString(),
     });
   });

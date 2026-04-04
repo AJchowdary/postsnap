@@ -3,7 +3,6 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import {
   getSubscriptionStatus,
-  upgradeSubscription,
   restoreSubscription,
   verifySubscription,
 } from '../services/subscriptionService';
@@ -20,11 +19,6 @@ router.use(subscriptionRateLimiter);
 router.get('/status', asyncHandler(async (req: AuthRequest, res: Response) => {
   const status = await getSubscriptionStatus(req.userId!);
   return sendSuccess(res, status);
-}));
-
-router.post('/upgrade', asyncHandler(async (req: AuthRequest, res: Response) => {
-  const result = await upgradeSubscription(req.userId!);
-  return sendSuccess(res, result);
 }));
 
 router.post(

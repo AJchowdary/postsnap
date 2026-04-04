@@ -26,6 +26,7 @@ import {
   savePushToken,
   fetchDraftsFromBackend,
   DRAFT_LIMIT,
+  deleteAccountApi,
 } from '../../src/services/api';
 import { registerForPushNotifications } from '../../src/services/notifications';
 import BrandColorPicker from '../../src/components/BrandColorPicker';
@@ -373,6 +374,42 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    const performDelete = async () => {
+      try {
+        await deleteAccountApi();
+        await clearAuth();
+        router.replace('/auth?mode=login');
+      } catch (e: any) {
+        showToast(e?.message ?? 'Failed to delete account. Please try again.', 'error');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (
+        typeof window !== 'undefined' &&
+        window.confirm(
+          'Delete your account? This permanently removes all your data and cannot be undone.'
+        )
+      ) {
+        void performDelete();
+      }
+      return;
+    }
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => void performDelete(),
+        },
+      ]
+    );
   };
 
   return (
@@ -784,7 +821,13 @@ export default function SettingsScreen() {
               icon="card-outline"
               iconBg={Colors.success}
               label="Manage Subscription"
-              onPress={() => showToast('Subscription management coming soon', 'info')}
+              onPress={() => {
+                const url =
+                  Platform.OS === 'ios'
+                    ? 'https://apps.apple.com/account/subscriptions'
+                    : 'https://play.google.com/store/account/subscriptions';
+                Linking.openURL(url);
+              }}
             />
           )}
         </View>
@@ -812,6 +855,11 @@ export default function SettingsScreen() {
         <TouchableOpacity testID="settings-logout-row" onPress={handleLogout} style={styles.signOutBtn} activeOpacity={0.85}>
           <Ionicons name="log-out-outline" size={18} color={Colors.error} />
           <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity testID="settings-delete-account-row" onPress={handleDeleteAccount} style={styles.deleteAccountBtn} activeOpacity={0.85}>
+          <Ionicons name="trash-outline" size={18} color={Colors.error} />
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
         </TouchableOpacity>
 
         <View style={{ height: 28 }} />
@@ -922,6 +970,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.errorBorderMuted,
   },
   signOutText: { color: Colors.error, fontWeight: '800', fontSize: 15 },
+  deleteAccountBtn: {
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.errorBorderMuted,
+  },
+  deleteAccountText: { color: Colors.error, fontWeight: '600', fontSize: 14 },
 
   brandDnaHeader: {
     fontSize: 14,
